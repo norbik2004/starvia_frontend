@@ -1,6 +1,7 @@
 @use '../../../../styles/auth-page' as auth;
 @use '../dashboard-content-shell' as shell;
 
+$gemini-green: #2e7d32;
 $delete-red: #c62828;
 $delete-red-hover: #b71c1c;
 $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
@@ -321,6 +322,221 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   gap: var(--space-sm);
 }
 
+.post-detail__card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.post-detail__gemini-anchor {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.post-detail__gemini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.125rem;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid color-mix(in srgb, $gemini-green 45%, var(--border-subtle));
+  border-radius: var(--radius-pill);
+  color: #fff;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  cursor: pointer;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, $gemini-green 88%, #fff),
+    $gemini-green
+  );
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 28%, transparent) inset,
+    0 4px 14px color-mix(in srgb, $gemini-green 26%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease,
+    opacity 0.2s ease;
+
+  .post-detail__gemini-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    .material-icons {
+      font-size: 1.05rem;
+    }
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+    box-shadow:
+      0 1px 0 color-mix(in srgb, #fff 32%, transparent) inset,
+      0 8px 20px color-mix(in srgb, $gemini-green 32%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, $gemini-green 65%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--active {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, $gemini-green 18%, transparent),
+      0 8px 20px color-mix(in srgb, $gemini-green 32%, transparent);
+  }
+
+  &--busy {
+    .post-detail__gemini-btn-icon .material-icons {
+      animation: post-detail-gemini-icon-spin 1.4s ease-in-out infinite;
+    }
+  }
+}
+
+.post-detail__gemini-btn-label {
+  white-space: nowrap;
+}
+
+.gemini-popup {
+  @include auth.auth-form;
+
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--space-sm);
+  width: min(24rem, calc(100vw - 2.5rem));
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, $gemini-green 24%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, $gemini-green 5%, var(--mat-sys-surface)),
+    var(--mat-sys-surface)
+  );
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 40%, transparent) inset,
+    0 16px 40px color-mix(in srgb, var(--mat-sys-on-surface) 18%, transparent);
+}
+
+.gemini-popup__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.gemini-popup__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, $gemini-green 88%, #fff),
+    $gemini-green
+  );
+  box-shadow: 0 6px 16px color-mix(in srgb, $gemini-green 28%, transparent);
+
+  .material-icons {
+    font-size: 1.125rem;
+  }
+}
+
+.gemini-popup__title {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--mat-sys-on-surface);
+}
+
+.gemini-popup__subtitle {
+  margin: 0.1rem 0 0;
+  font-size: var(--text-eyebrow);
+  line-height: var(--leading-body);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.gemini-popup__prompt {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.gemini-popup__error {
+  margin: 0;
+}
+
+.gemini-popup__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.375rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid color-mix(in srgb, $gemini-green 35%, transparent);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, $gemini-green 88%, #fff),
+    $gemini-green
+  );
+  box-shadow: 0 8px 18px color-mix(in srgb, $gemini-green 24%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+
+  .material-icons {
+    font-size: 1rem;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px color-mix(in srgb, $gemini-green 30%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, $gemini-green 65%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+@keyframes post-detail-gemini-icon-spin {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: rotate(12deg) scale(1.08);
+  }
+}
+
 .post-detail__card-label {
   margin: 0;
   font-size: var(--text-eyebrow);
@@ -400,6 +616,40 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   .post-detail__body-highlight.field__input {
     border-color: transparent;
     background: transparent;
+  }
+
+  &--ai-writing {
+    border-color: color-mix(in srgb, $gemini-green 28%, var(--border-subtle));
+    background: color-mix(in srgb, $gemini-green 3%, var(--mat-sys-surface));
+
+    .field__input.field__input--body-overlay {
+      caret-color: $gemini-green;
+    }
+
+    .post-detail__body-highlight {
+      color: var(--mat-sys-on-surface);
+    }
+  }
+}
+
+.post-detail__typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: $gemini-green;
+  animation: post-detail-typing-cursor-blink 0.85s step-end infinite;
+}
+
+@keyframes post-detail-typing-cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
   }
 }
 
@@ -536,7 +786,17 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   font-size: var(--text-body);
   line-height: 1.65;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  white-space: pre-line;
+
+  .hashtag,
+  > span,
+  span:not(.hashtag) {
+    color: inherit;
+  }
+
+  .hashtag {
+    color: var(--mat-sys-primary);
+  }
 
   &--prompt {
     font-size: var(--text-body-sm);
@@ -551,6 +811,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
 }
 
 .post-detail__body-editor {
+  position: relative;
   display: grid;
 
   .post-detail__body-highlight,
@@ -560,11 +821,139 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 }
 
+.post-detail__ai-generating {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.75rem;
+  min-height: 8rem;
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      color-mix(in srgb, $gemini-green 12%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, $gemini-green 4%, var(--mat-sys-surface));
+  border: 1px dashed color-mix(in srgb, $gemini-green 30%, var(--border-subtle));
+}
+
+.post-detail__ai-generating-orbit {
+  position: relative;
+  width: 3rem;
+  height: 3rem;
+}
+
+.post-detail__ai-generating-core {
+  position: absolute;
+  inset: 0.45rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, $gemini-green 88%, #fff),
+    $gemini-green
+  );
+  box-shadow: 0 8px 20px color-mix(in srgb, $gemini-green 28%, transparent);
+
+  .material-icons {
+    font-size: 1.125rem;
+    animation: post-detail-gemini-icon-spin 1.4s ease-in-out infinite;
+  }
+}
+
+.post-detail__ai-generating-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: color-mix(in srgb, $gemini-green 75%, #fff);
+  border-right-color: color-mix(in srgb, $gemini-green 35%, transparent);
+  animation: post-detail-ai-ring-spin 1.1s linear infinite;
+}
+
+.post-detail__ai-generating-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.28rem;
+  height: 1.25rem;
+
+  span {
+    width: 0.28rem;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, $gemini-green 88%, #fff),
+      $gemini-green
+    );
+    animation: post-detail-ai-bar 1s ease-in-out infinite;
+
+    &:nth-child(1) {
+      height: 0.45rem;
+      animation-delay: 0s;
+    }
+
+    &:nth-child(2) {
+      height: 0.75rem;
+      animation-delay: 0.12s;
+    }
+
+    &:nth-child(3) {
+      height: 1.1rem;
+      animation-delay: 0.24s;
+    }
+
+    &:nth-child(4) {
+      height: 0.7rem;
+      animation-delay: 0.36s;
+    }
+
+    &:nth-child(5) {
+      height: 0.5rem;
+      animation-delay: 0.48s;
+    }
+  }
+}
+
+.post-detail__ai-generating-label {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+  color: color-mix(in srgb, $gemini-green 72%, var(--mat-sys-on-surface));
+}
+
+@keyframes post-detail-ai-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes post-detail-ai-bar {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
 .post-detail__body-highlight {
   pointer-events: none;
   overflow: hidden;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+  white-space: pre-line;
   color: var(--mat-sys-on-surface);
 }
 
@@ -593,6 +982,14 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
 
 @media (prefers-reduced-motion: reduce) {
   .post-detail__delete-confirm {
+    animation: none;
+  }
+
+  .post-detail__typing-cursor,
+  .post-detail__ai-generating-ring,
+  .post-detail__ai-generating-core .material-icons,
+  .post-detail__ai-generating-bars span,
+  .post-detail__gemini-btn--busy .post-detail__gemini-btn-icon .material-icons {
     animation: none;
   }
 }

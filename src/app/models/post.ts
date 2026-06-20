@@ -8,7 +8,7 @@ export type CreatePostPayload = {
 };
 
 export const POST_TITLE_MAX_LENGTH = 75;
-export const POST_BODY_MAX_LENGTH = 500;
+export const POST_BODY_MAX_LENGTH = 1000;
 
 export function normalizePostTitle(title: string | null | undefined): string {
   const unified = (title ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');

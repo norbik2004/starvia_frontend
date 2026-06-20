@@ -14,6 +14,8 @@ import {
   POST_TITLE_MAX_LENGTH,
   type PostItem,
 } from '../../../models/post';
+import { GEMINI_DEFAULT_MODEL } from '../../../models/gemini';
+import { GeminiService } from '../../../services/gemini';
 import { PostService } from '../../../services/post';
 import {
   DEFAULT_POSTS_LIST_QUERY,
@@ -22,6 +24,7 @@ import {
 } from '../dashboard-posts/posts-list-query';
 
 import { POST_BODY_EMOJIS } from '../shared/post-body-emojis';
+import { createTypewriter } from '../shared/typewriter-text';
 
 type EditableField = 'title' | 'body';
 
@@ -183,9 +186,7 @@ type PostForm = FormGroup<{
                 <p class="post-detail__card-hint">Original idea used to generate this post</p>
               </div>
               <div class="post-detail__card-body">
-                <p class="post-detail__body-text post-detail__body-text--prompt">
-                  <ng-container *ngTemplateOutlet="hashtagText; context: { text: item.promptText }" />
-                </p>
+                <p class="post-detail__body-text post-detail__body-text--prompt"><ng-container *ngTemplateOutlet="hashtagText; context: { text: item.promptText }" /></p>
               </div>
             </section>
           }
@@ -196,24 +197,110 @@ type PostForm = FormGroup<{
                 <p id="post-detail-body" class="post-detail__card-label">Content</p>
                 <p class="post-detail__card-hint">What will be published</p>
               </div>
-              @if (editingField() !== 'body') {
-                <ng-container
-                  *ngTemplateOutlet="editIcon; context: { $implicit: 'body', label: 'Edit content' }"
-                />
-              }
+              <div class="post-detail__card-actions">
+                <div class="post-detail__gemini-anchor" #geminiAnchor>
+                  <button
+                    type="button"
+                    class="post-detail__gemini-btn"
+                    [class.post-detail__gemini-btn--active]="geminiPopupOpen()"
+                    [class.post-detail__gemini-btn--busy]="isGenerating() || isTyping()"
+                    matTooltip="Generate with AI"
+                    matTooltipPosition="below"
+                    aria-label="Generate content with AI"
+                    [attr.aria-expanded]="geminiPopupOpen()"
+                    aria-controls="post-gemini-popup"
+                    [disabled]="!canUseGemini()"
+                    (click)="toggleGeminiPopup($event)"
+                  >
+                    <span class="post-detail__gemini-btn-icon" aria-hidden="true">
+                      <span class="material-icons">auto_awesome</span>
+                    </span>
+                    <span class="post-detail__gemini-btn-label">Generate</span>
+                  </button>
+
+                  @if (geminiPopupOpen()) {
+                    <div
+                      id="post-gemini-popup"
+                      class="gemini-popup"
+                      role="dialog"
+                      aria-label="Generate content with AI"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <div class="gemini-popup__head">
+                        <span class="gemini-popup__badge" aria-hidden="true">
+                          <span class="material-icons">auto_awesome</span>
+                        </span>
+                        <div>
+                          <p class="gemini-popup__title">AI content</p>
+                          <p class="gemini-popup__subtitle">Describe what Gemini should write</p>
+                        </div>
+                      </div>
+                      <label class="field__label" for="post-gemini-prompt">Prompt</label>
+                      <textarea
+                        #geminiPromptInput
+                        id="post-gemini-prompt"
+                        class="field__input gemini-popup__prompt"
+                        rows="4"
+                        placeholder="e.g. Short post about bees and ecology, friendly tone, 2–3 paragraphs with hashtags…"
+                        [value]="geminiPrompt()"
+                        (input)="onGeminiPromptInput($event)"
+                      ></textarea>
+                      @if (geminiError()) {
+                        <p class="field__error gemini-popup__error" role="alert">{{ geminiError() }}</p>
+                      }
+                      <button
+                        type="button"
+                        class="gemini-popup__submit"
+                        [disabled]="!geminiPrompt().trim()"
+                        (click)="generateWithGemini()"
+                      >
+                        <span class="material-icons" aria-hidden="true">auto_awesome</span>
+                        Generate content
+                      </button>
+                    </div>
+                  }
+                </div>
+                @if (editingField() !== 'body' && !geminiDraftActive()) {
+                  <ng-container
+                    *ngTemplateOutlet="editIcon; context: { $implicit: 'body', label: 'Edit content' }"
+                  />
+                }
+              </div>
             </div>
 
-            @if (editingField() === 'body') {
-              <div class="post-detail__edit-panel" [formGroup]="form">
+            @if (editingField() === 'body' || geminiDraftActive()) {
+              <div
+                class="post-detail__edit-panel"
+                [class.post-detail__edit-panel--ai-writing]="isGenerating() || isTyping()"
+                [formGroup]="form"
+              >
                 <div class="post-detail__body-editor">
+                  @if (isGenerating()) {
+                    <div class="post-detail__ai-generating" aria-live="polite">
+                      <div class="post-detail__ai-generating-orbit" aria-hidden="true">
+                        <span class="post-detail__ai-generating-core">
+                          <span class="material-icons">auto_awesome</span>
+                        </span>
+                        <span class="post-detail__ai-generating-ring"></span>
+                      </div>
+                      <div class="post-detail__ai-generating-bars" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span><span></span>
+                      </div>
+                      <p class="post-detail__ai-generating-label">Gemini is drafting your post…</p>
+                      <span class="sr-only">Generating content</span>
+                    </div>
+                  }
                   <div
                     #bodyHighlight
                     class="post-detail__body-highlight field__input field__input--body"
                     aria-hidden="true"
                   >
                     <ng-container
-                      *ngTemplateOutlet="hashtagText; context: { text: form.controls.body.value, wrapPlain: true }"
+                      *ngTemplateOutlet="hashtagText; context: { text: bodyHighlightText() }"
                     />
+                    @if (isTyping()) {
+                      <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                    }
                   </div>
                   <textarea
                     #bodyInput
@@ -224,14 +311,19 @@ type PostForm = FormGroup<{
                     maxlength="{{ bodyMaxLength }}"
                     autocomplete="off"
                     aria-describedby="post-body-hint post-body-error"
+                    [readonly]="isGenerating() || isTyping()"
                     (input)="onBodyInput()"
                     (scroll)="syncBodyHighlightScroll()"
                   ></textarea>
                 </div>
                 <div class="post-detail__edit-foot">
                   <div class="post-detail__edit-meta">
-                    <p id="post-body-hint" class="post-detail__hint">
-                      {{ form.controls.body.value.length }}/{{ bodyMaxLength }} · Esc to cancel
+                    <p id="post-body-hint" class="post-detail__hint" aria-live="polite">
+                      @if (isTyping()) {
+                        AI is writing into content…
+                      } @else {
+                        {{ form.controls.body.value.length }}/{{ bodyMaxLength }} · Esc to cancel
+                      }
                     </p>
                     <div class="post-detail__emoji-anchor" #emojiAnchor>
                       <button
@@ -243,6 +335,7 @@ type PostForm = FormGroup<{
                         aria-label="Insert emoji"
                         [attr.aria-expanded]="emojiPickerOpen()"
                         aria-controls="post-body-emoji-picker"
+                        [disabled]="isGenerating() || isTyping()"
                         (click)="toggleEmojiPicker($event)"
                       >
                         <span class="material-icons" aria-hidden="true">sentiment_satisfied_alt</span>
@@ -273,6 +366,9 @@ type PostForm = FormGroup<{
                       Content cannot exceed {{ bodyMaxLength }} characters.
                     </p>
                   }
+                  @if (geminiDraftActive() && geminiError()) {
+                    <p class="field__error" role="alert">{{ geminiError() }}</p>
+                  }
                   <ng-container
                     *ngTemplateOutlet="editActions; context: { $implicit: 'body', control: form.controls.body }"
                   />
@@ -281,9 +377,7 @@ type PostForm = FormGroup<{
             } @else {
               <div class="post-detail__card-body">
                 @if (item.body) {
-                  <p class="post-detail__body-text">
-                    <ng-container *ngTemplateOutlet="hashtagText; context: { text: item.body }" />
-                  </p>
+                  <p class="post-detail__body-text"><ng-container *ngTemplateOutlet="hashtagText; context: { text: item.body }" /></p>
                 } @else {
                   <p class="post-detail__body-text post-detail__body-text--empty">
                     No content yet. Click the edit icon to add your post body.
@@ -296,14 +390,12 @@ type PostForm = FormGroup<{
       }
     </section>
 
-    <ng-template #hashtagText let-text="text" let-wrapPlain="wrapPlain">
+    <ng-template #hashtagText let-text="text">
       @for (segment of hashtagSegments(text); track $index) {
         @if (segment.highlighted) {
           <span class="hashtag">{{ segment.text }}</span>
-        } @else if (wrapPlain) {
-          <span>{{ segment.text }}</span>
         } @else {
-          {{ segment.text }}
+          <span>{{ segment.text }}</span>
         }
       }
     </ng-template>
@@ -332,12 +424,17 @@ type PostForm = FormGroup<{
         <button
           type="button"
           class="btn btn--primary btn--compact"
-          [disabled]="isSaving() || control.invalid"
+          [disabled]="isSaving() || control.invalid || isGenerating() || isTyping()"
           (click)="saveField(field)"
         >
           {{ isSaving() ? 'Saving…' : 'Save' }}
         </button>
-        <button type="button" class="btn btn--secondary btn--compact" [disabled]="isSaving()" (click)="cancelEdit()">
+        <button
+          type="button"
+          class="btn btn--secondary btn--compact"
+          [disabled]="isSaving() || isGenerating() || isTyping()"
+          (click)="cancelEdit()"
+        >
           Cancel
         </button>
       </div>
@@ -348,14 +445,20 @@ export class DashboardPostDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly postService = inject(PostService);
+  private readonly geminiService = inject(GeminiService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly titleInput = viewChild<ElementRef<HTMLTextAreaElement>>('titleInput');
   private readonly bodyInput = viewChild<ElementRef<HTMLTextAreaElement>>('bodyInput');
   private readonly bodyHighlight = viewChild<ElementRef<HTMLDivElement>>('bodyHighlight');
   private readonly emojiAnchor = viewChild<ElementRef<HTMLElement>>('emojiAnchor');
+  private readonly geminiAnchor = viewChild<ElementRef<HTMLElement>>('geminiAnchor');
   private readonly deleteConfirmPanel = viewChild<ElementRef<HTMLElement>>('deleteConfirm');
+  private readonly geminiPromptInput = viewChild<ElementRef<HTMLTextAreaElement>>('geminiPromptInput');
   private saveMessageTimeout: ReturnType<typeof setTimeout> | undefined;
+  private stopTypewriter: (() => void) | undefined;
   private bodyInputObserver: ResizeObserver | undefined;
+  private bodyBeforeGemini = '';
+  private wasEditingBodyBeforeGemini = false;
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
   protected readonly bodyMaxLength = POST_BODY_MAX_LENGTH;
@@ -381,6 +484,13 @@ export class DashboardPostDetail {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly saveMessage = signal<string | null>(null);
   protected readonly emojiPickerOpen = signal(false);
+  protected readonly geminiPopupOpen = signal(false);
+  protected readonly geminiDraftActive = signal(false);
+  protected readonly geminiPrompt = signal('');
+  protected readonly isGenerating = signal(false);
+  protected readonly isTyping = signal(false);
+  protected readonly geminiError = signal<string | null>(null);
+  protected readonly bodyHighlightText = signal('');
   protected readonly postsReturnQueryParams = signal(
     postsListQueryToParams(readPostsListQueryFromHistory() ?? DEFAULT_POSTS_LIST_QUERY)
   );
@@ -388,6 +498,7 @@ export class DashboardPostDetail {
   constructor() {
     this.destroyRef.onDestroy(() => {
       this.clearSaveMessage();
+      this.stopGeminiTypewriter();
       this.disconnectBodyInputObserver();
     });
 
@@ -420,6 +531,11 @@ export class DashboardPostDetail {
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
+    if (this.geminiPopupOpen()) {
+      this.geminiPopupOpen.set(false);
+      return;
+    }
+
     if (this.emojiPickerOpen()) {
       this.emojiPickerOpen.set(false);
       return;
@@ -430,18 +546,26 @@ export class DashboardPostDetail {
       return;
     }
 
-    if (this.editingField() !== null && !this.isSaving()) {
+    if (this.editingField() !== null && !this.isSaving() && !this.isGenerating() && !this.isTyping()) {
       this.cancelEdit();
     }
   }
 
   @HostListener('document:click', ['$event'])
   protected onDocumentClick(event: MouseEvent): void {
+    const target = event.target as Node;
+
+    if (this.geminiPopupOpen()) {
+      const geminiAnchor = this.geminiAnchor()?.nativeElement;
+      if (!geminiAnchor?.contains(target)) {
+        this.geminiPopupOpen.set(false);
+      }
+    }
+
     if (!this.emojiPickerOpen()) {
       return;
     }
 
-    const target = event.target as Node;
     const anchor = this.emojiAnchor()?.nativeElement;
     const bodyInput = this.bodyInput()?.nativeElement;
 
@@ -453,7 +577,88 @@ export class DashboardPostDetail {
   }
 
   protected isActionLocked(): boolean {
-    return this.editingField() !== null || this.isSaving() || this.isDeleting() || this.deleteConfirmOpen();
+    return (
+      this.editingField() !== null ||
+      this.geminiDraftActive() ||
+      this.isSaving() ||
+      this.isDeleting() ||
+      this.deleteConfirmOpen()
+    );
+  }
+
+  protected canUseGemini(): boolean {
+    return (
+      this.post() !== null &&
+      !this.geminiDraftActive() &&
+      !this.isGenerating() &&
+      !this.isTyping() &&
+      !this.isSaving() &&
+      !this.isDeleting() &&
+      !this.deleteConfirmOpen()
+    );
+  }
+
+  protected toggleGeminiPopup(event: Event): void {
+    event.stopPropagation();
+
+    if (!this.canUseGemini()) {
+      return;
+    }
+
+    if (this.geminiPopupOpen()) {
+      this.geminiPopupOpen.set(false);
+      return;
+    }
+
+    const item = this.post();
+    if (!item) {
+      return;
+    }
+
+    this.emojiPickerOpen.set(false);
+    this.clearSaveMessage();
+    this.geminiError.set(null);
+    this.geminiPrompt.set('');
+    this.geminiPopupOpen.set(true);
+
+    queueMicrotask(() => this.geminiPromptInput()?.nativeElement.focus());
+  }
+
+  protected onGeminiPromptInput(event: Event): void {
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.geminiPrompt.set(value);
+    this.geminiError.set(null);
+  }
+
+  protected generateWithGemini(): void {
+    const item = this.post();
+    const prompt = this.geminiPrompt().trim();
+
+    if (!item || !prompt || !this.canUseGemini()) {
+      return;
+    }
+
+    this.geminiPopupOpen.set(false);
+    this.geminiError.set(null);
+    this.beginGeminiDraft();
+    this.isGenerating.set(true);
+
+    this.geminiService
+      .generatePost({
+        prompt,
+        postId: item.id,
+        model: GEMINI_DEFAULT_MODEL,
+      })
+      .pipe(finalize(() => this.isGenerating.set(false)))
+      .subscribe({
+        next: (text) => {
+          this.typeGeminiIntoBody(this.clampBody(text));
+        },
+        error: (error) => {
+          this.geminiError.set(toApplicationError(error, 'Could not generate content.').description);
+          this.abortGeminiDraft(true);
+        },
+      });
   }
 
   protected requestDelete(): void {
@@ -544,6 +749,7 @@ export class DashboardPostDetail {
     const nextCursor = Math.min(start + emoji.length, next.length);
     control.setValue(next, { emitEvent: false });
     control.markAsDirty();
+    this.syncBodyHighlight(next);
 
     queueMicrotask(() => {
       textarea.focus();
@@ -559,6 +765,7 @@ export class DashboardPostDetail {
 
   protected onBodyInput(): void {
     this.applyClampedInput(this.form.controls.body, this.clampBody.bind(this), this.bodyInput()?.nativeElement);
+    this.syncBodyHighlight();
     this.resizeBodyInput();
   }
 
@@ -573,6 +780,11 @@ export class DashboardPostDetail {
   }
 
   protected cancelEdit(): void {
+    if (this.geminiDraftActive()) {
+      this.abortGeminiDraft(false);
+      return;
+    }
+
     this.emojiPickerOpen.set(false);
     this.disconnectBodyInputObserver();
     this.editingField.set(null);
@@ -583,7 +795,7 @@ export class DashboardPostDetail {
     const item = this.post();
     const control = this.form.controls[field];
 
-    if (!item || control.invalid) {
+    if (!item || control.invalid || this.isGenerating() || this.isTyping()) {
       control.markAsTouched();
       return;
     }
@@ -603,6 +815,7 @@ export class DashboardPostDetail {
       .subscribe({
         next: (updated) => {
           this.disconnectBodyInputObserver();
+          this.geminiDraftActive.set(false);
           this.setPost(updated);
           this.editingField.set(null);
           this.showSaveMessage(field === 'title' ? 'Title saved.' : 'Content saved.');
@@ -626,6 +839,7 @@ export class DashboardPostDetail {
       title: this.clampTitle(item.title),
       body: this.clampBody(item.body),
     });
+    this.syncBodyHighlight(this.clampBody(item.body));
     this.form.controls[field].markAsPristine();
     this.form.controls[field].markAsUntouched();
     this.focusField(field);
@@ -637,12 +851,21 @@ export class DashboardPostDetail {
 
   private resetView(): void {
     this.disconnectBodyInputObserver();
+    this.stopGeminiTypewriter();
     this.post.set(null);
     this.editingField.set(null);
     this.deleteConfirmOpen.set(false);
+    this.geminiPopupOpen.set(false);
+    this.geminiDraftActive.set(false);
+    this.isGenerating.set(false);
+    this.isTyping.set(false);
+    this.geminiError.set(null);
+    this.bodyBeforeGemini = '';
+    this.wasEditingBodyBeforeGemini = false;
     this.isDeleting.set(false);
     this.clearSaveMessage();
     this.form.reset({ title: '', body: '' });
+    this.bodyHighlightText.set('');
   }
 
   private setPost(item: PostItem): void {
@@ -654,6 +877,7 @@ export class DashboardPostDetail {
       body: body || null,
     });
     this.form.reset({ title, body });
+    this.syncBodyHighlight(body);
   }
 
   private focusField(field: EditableField): void {
@@ -760,5 +984,125 @@ export class DashboardPostDetail {
     }
 
     this.saveMessage.set(null);
+  }
+
+  private beginGeminiDraft(): void {
+    const item = this.post();
+    if (!item) {
+      return;
+    }
+
+    this.wasEditingBodyBeforeGemini = this.editingField() === 'body';
+    this.bodyBeforeGemini = this.wasEditingBodyBeforeGemini
+      ? this.clampBody(this.form.controls.body.value)
+      : this.clampBody(item.body);
+    this.geminiDraftActive.set(true);
+    this.clearSaveMessage();
+    this.errorMessage.set(null);
+    this.editingField.set('body');
+    this.form.patchValue({
+      title: this.clampTitle(item.title),
+      body: '',
+    });
+    this.syncBodyHighlight('');
+    this.form.controls.body.markAsDirty();
+    this.observeBodyInput();
+    requestAnimationFrame(() => this.resizeBodyInput());
+  }
+
+  private abortGeminiDraft(reopenPopup: boolean): void {
+    this.stopGeminiTypewriter();
+    this.isGenerating.set(false);
+    this.isTyping.set(false);
+    this.geminiDraftActive.set(false);
+
+    const item = this.post();
+    if (!item) {
+      return;
+    }
+
+    this.form.patchValue({
+      title: this.clampTitle(item.title),
+      body: this.bodyBeforeGemini,
+    });
+    this.syncBodyHighlight(this.bodyBeforeGemini);
+
+    if (this.wasEditingBodyBeforeGemini) {
+      this.form.controls.body.markAsDirty();
+      requestAnimationFrame(() => this.resizeBodyInput());
+      return;
+    }
+
+    this.disconnectBodyInputObserver();
+    this.editingField.set(null);
+
+    if (reopenPopup) {
+      this.geminiPrompt.set('');
+      this.geminiPopupOpen.set(true);
+      queueMicrotask(() => this.geminiPromptInput()?.nativeElement.focus());
+    }
+  }
+
+  private stopGeminiTypewriter(): void {
+    this.stopTypewriter?.();
+    this.stopTypewriter = undefined;
+  }
+
+  private typeGeminiIntoBody(text: string): void {
+    this.stopGeminiTypewriter();
+    const control = this.form.controls.body;
+
+    const prefersReducedMotion =
+      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      control.setValue(text, { emitEvent: false });
+      control.markAsDirty();
+      this.syncBodyHighlight(text);
+      requestAnimationFrame(() => this.resizeBodyInput());
+      return;
+    }
+
+    this.isTyping.set(true);
+    control.setValue('', { emitEvent: false });
+    this.syncBodyHighlight('');
+
+    this.stopTypewriter = createTypewriter(
+      text,
+      (partial) => {
+        control.setValue(partial, { emitEvent: false });
+        control.markAsDirty();
+        this.syncBodyHighlight(partial);
+        this.scrollBodyInputToEnd();
+        requestAnimationFrame(() => this.resizeBodyInput());
+      },
+      () => {
+        this.isTyping.set(false);
+        this.stopTypewriter = undefined;
+        this.scrollBodyInputToEnd();
+        requestAnimationFrame(() => this.resizeBodyInput());
+      },
+      { intervalMs: 42 }
+    );
+  }
+
+  private syncBodyHighlight(value?: string): void {
+    this.bodyHighlightText.set(value ?? this.form.controls.body.value);
+  }
+
+  private scrollBodyInputToEnd(): void {
+    const textarea = this.bodyInput()?.nativeElement;
+    const highlight = this.bodyHighlight()?.nativeElement;
+    if (!textarea) {
+      return;
+    }
+
+    textarea.scrollTop = textarea.scrollHeight;
+    const length = textarea.value.length;
+    textarea.setSelectionRange(length, length);
+
+    if (highlight) {
+      highlight.scrollTop = highlight.scrollHeight;
+    }
   }
 }
