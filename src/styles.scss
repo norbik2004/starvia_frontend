@@ -82,6 +82,10 @@ body.dashboard-nav-open {
   body.posts-filters-open .dashboard-layout__main {
     z-index: var(--drawer-z-panel-raised);
   }
+
+  body.post-gemini-popup-open {
+    overflow: hidden;
+  }
 }
 
 .page-section {

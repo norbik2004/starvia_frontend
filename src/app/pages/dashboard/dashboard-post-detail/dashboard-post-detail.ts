@@ -1,10 +1,11 @@
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
-import { Component, DestroyRef, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, computed, inject, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { EMPTY, finalize, map, switchMap } from 'rxjs';
+import { EMPTY, finalize, map, switchMap, catchError, of } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { toApplicationError } from '../../../models/application-error';
 import {
   normalizePostTitle,
@@ -14,8 +15,10 @@ import {
   POST_TITLE_MAX_LENGTH,
   type PostItem,
 } from '../../../models/post';
-import { GEMINI_DEFAULT_MODEL } from '../../../models/gemini';
 import { GeminiService } from '../../../services/gemini';
+import { AuthService } from '../../../services/auth';
+import { getUserInitials, type UserAccount } from '../../../models/user-account';
+import { parseChatMessageBlocks, mapConversationToChatMessages, GEMINI_PROMPT_MAX_LENGTH, GEMINI_CHAT_PROMPT_MAX_LENGTH, type GeminiChatMessage } from '../../../models/gemini';
 import { PostService } from '../../../services/post';
 import {
   DEFAULT_POSTS_LIST_QUERY,
@@ -29,6 +32,8 @@ import { createTypewriter } from '../shared/typewriter-text';
 type EditableField = 'title' | 'body';
 
 const SAVE_MESSAGE_DURATION_MS = 5000;
+const GEMINI_CHAT_CLOSE_MS = 200;
+const GEMINI_POPUP_CLOSE_MS = GEMINI_CHAT_CLOSE_MS;
 
 type PostForm = FormGroup<{
   title: FormControl<string>;
@@ -42,7 +47,7 @@ type PostForm = FormGroup<{
   template: `
     <section class="dashboard-content-page post-detail" aria-labelledby="post-detail-title">
       <header class="post-detail__header">
-        <div class="post-detail__top">
+        <div class="post-detail__header-row">
           <a
             [routerLink]="['/dashboard/posts']"
             [queryParams]="postsReturnQueryParams()"
@@ -52,20 +57,23 @@ type PostForm = FormGroup<{
           </a>
 
           @if (post(); as item) {
-            <div class="post-detail__top-end">
-              <div class="post-detail__meta-group">
-                <span class="post-detail__status-badge">{{ item.status }}</span>
-                <p class="post-detail__meta">
-                  <time [attr.datetime]="item.createdAt">{{ item.createdAt | date: 'medium' }}</time>
-                </p>
-              </div>
-
+            <div class="post-detail__header-tools">
+              <span class="post-detail__status-badge post-detail__status-badge--toolbar">{{ item.status }}</span>
+              <p class="post-detail__meta post-detail__top-date">
+                <time [attr.datetime]="item.createdAt" class="post-detail__meta-date post-detail__meta-date--full">
+                  {{ item.createdAt | date: 'medium' }}
+                </time>
+                <time [attr.datetime]="item.createdAt" class="post-detail__meta-date post-detail__meta-date--short">
+                  {{ item.createdAt | date: 'mediumDate' }}
+                </time>
+              </p>
               <button
                 type="button"
                 class="post-detail__delete-btn"
                 [class.post-detail__delete-btn--active]="deleteConfirmOpen()"
                 matTooltip="Delete post"
                 matTooltipPosition="below"
+                [matTooltipDisabled]="tooltipsDisabled()"
                 aria-label="Delete post"
                 [attr.aria-expanded]="deleteConfirmOpen()"
                 aria-controls="post-delete-confirm"
@@ -81,6 +89,8 @@ type PostForm = FormGroup<{
         <p class="post-detail__save-status" aria-live="polite">{{ saveMessage() }}</p>
 
         @if (post(); as item) {
+          <span class="post-detail__status-badge post-detail__status-badge--title">{{ item.status }}</span>
+
           @if (editingField() === 'title') {
             <div class="post-detail__edit-panel" [formGroup]="form">
               <textarea
@@ -193,7 +203,7 @@ type PostForm = FormGroup<{
 
           <section class="post-detail__card post-detail__card--content" aria-labelledby="post-detail-body">
             <div class="post-detail__card-head post-detail__card-head--row">
-              <div>
+              <div class="post-detail__card-head-copy">
                 <p id="post-detail-body" class="post-detail__card-label">Content</p>
                 <p class="post-detail__card-hint">What will be published</p>
               </div>
@@ -202,12 +212,13 @@ type PostForm = FormGroup<{
                   <button
                     type="button"
                     class="post-detail__gemini-btn"
-                    [class.post-detail__gemini-btn--active]="geminiPopupOpen()"
+                    [class.post-detail__gemini-btn--active]="geminiPopupOpen() || geminiPopupClosing()"
                     [class.post-detail__gemini-btn--busy]="isGenerating() || isTyping()"
                     matTooltip="Generate with AI"
                     matTooltipPosition="below"
+                    [matTooltipDisabled]="tooltipsDisabled()"
                     aria-label="Generate content with AI"
-                    [attr.aria-expanded]="geminiPopupOpen()"
+                    [attr.aria-expanded]="geminiPopupOpen() || geminiPopupClosing()"
                     aria-controls="post-gemini-popup"
                     [disabled]="!canUseGemini()"
                     (click)="toggleGeminiPopup($event)"
@@ -218,45 +229,98 @@ type PostForm = FormGroup<{
                     <span class="post-detail__gemini-btn-label">Generate</span>
                   </button>
 
-                  @if (geminiPopupOpen()) {
+                  @if (geminiPopupOpen() || geminiPopupClosing()) {
+                    <button
+                      type="button"
+                      class="gemini-popup-backdrop"
+                      [class.gemini-popup-backdrop--closing]="geminiPopupClosing()"
+                      aria-label="Close AI panel"
+                      (click)="closeGeminiPopup()"
+                    ></button>
                     <div
                       id="post-gemini-popup"
                       class="gemini-popup"
+                      [class.gemini-popup--closing]="geminiPopupClosing()"
                       role="dialog"
-                      aria-label="Generate content with AI"
+                      aria-label="Generate content with Starvia AI"
                       (click)="$event.stopPropagation()"
                     >
-                      <div class="gemini-popup__head">
-                        <span class="gemini-popup__badge" aria-hidden="true">
-                          <span class="material-icons">auto_awesome</span>
-                        </span>
-                        <div>
-                          <p class="gemini-popup__title">AI content</p>
-                          <p class="gemini-popup__subtitle">Describe what Gemini should write</p>
+                      <header class="gemini-popup__head">
+                        <div class="gemini-popup__head-copy">
+                          <span class="gemini-popup__badge" aria-hidden="true">
+                            <span class="material-icons">auto_awesome</span>
+                          </span>
+                          <p class="gemini-popup__title">Starvia AI</p>
                         </div>
-                      </div>
-                      <label class="field__label" for="post-gemini-prompt">Prompt</label>
-                      <textarea
-                        #geminiPromptInput
-                        id="post-gemini-prompt"
-                        class="field__input gemini-popup__prompt"
-                        rows="4"
-                        placeholder="e.g. Short post about bees and ecology, friendly tone, 2–3 paragraphs with hashtags…"
-                        [value]="geminiPrompt()"
-                        (input)="onGeminiPromptInput($event)"
-                      ></textarea>
+                        <button
+                          type="button"
+                          class="gemini-popup__close"
+                          aria-label="Close generate panel"
+                          (click)="closeGeminiPopup()"
+                        >
+                          <span class="material-icons" aria-hidden="true">close</span>
+                        </button>
+                      </header>
+
                       @if (geminiError()) {
                         <p class="field__error gemini-popup__error" role="alert">{{ geminiError() }}</p>
                       }
-                      <button
-                        type="button"
-                        class="gemini-popup__submit"
-                        [disabled]="!geminiPrompt().trim()"
-                        (click)="generateWithGemini()"
-                      >
-                        <span class="material-icons" aria-hidden="true">auto_awesome</span>
-                        Generate content
-                      </button>
+                      @if (hasExistingBodyContent()) {
+                        <div class="gemini-popup__replace-notice" role="note">
+                          <span class="material-icons" aria-hidden="true">info</span>
+                          <p>
+                            Your current post content will be
+                            <strong>replaced</strong>
+                            by the generated draft.
+                          </p>
+                        </div>
+                      }
+
+                      <div class="gemini-popup__composer">
+                        <div class="gemini-prompt-input-row">
+                          <textarea
+                            #geminiPromptInput
+                            id="post-gemini-prompt"
+                            class="field__input gemini-prompt-input"
+                            rows="1"
+                            [attr.maxlength]="geminiPromptMaxLength"
+                            placeholder="Describe what Starvia AI should write…"
+                            [value]="geminiPrompt()"
+                            [disabled]="!canUseGemini()"
+                            (input)="onGeminiPromptInput($event)"
+                            (keydown)="onGeminiPromptKeydown($event)"
+                          ></textarea>
+                          @if (!hasExistingBodyContent()) {
+                            <button
+                              type="button"
+                              class="gemini-prompt-send"
+                              aria-label="Generate with AI"
+                              [disabled]="!canSendGeminiGenerate()"
+                              (click)="generateWithGemini()"
+                            >
+                              <span class="material-icons" aria-hidden="true">auto_awesome</span>
+                            </button>
+                          }
+                        </div>
+                        <p
+                          class="gemini-prompt-meta"
+                          [class.gemini-prompt-meta--limit]="geminiPrompt().length >= geminiPromptMaxLength"
+                          aria-live="polite"
+                        >
+                          {{ geminiPrompt().length }}/{{ geminiPromptMaxLength }}
+                        </p>
+                        @if (hasExistingBodyContent()) {
+                          <button
+                            type="button"
+                            class="gemini-popup__replace-btn"
+                            [disabled]="!canSendGeminiGenerate()"
+                            (click)="generateWithGemini()"
+                          >
+                            <span class="material-icons" aria-hidden="true">auto_awesome</span>
+                            Replace &amp; generate
+                          </button>
+                        }
+                      </div>
                     </div>
                   }
                 </div>
@@ -272,6 +336,7 @@ type PostForm = FormGroup<{
               <div
                 class="post-detail__edit-panel"
                 [class.post-detail__edit-panel--ai-writing]="isGenerating() || isTyping()"
+                [class.post-detail__edit-panel--typing]="isTyping()"
                 [formGroup]="form"
               >
                 <div class="post-detail__body-editor">
@@ -286,7 +351,7 @@ type PostForm = FormGroup<{
                       <div class="post-detail__ai-generating-bars" aria-hidden="true">
                         <span></span><span></span><span></span><span></span><span></span>
                       </div>
-                      <p class="post-detail__ai-generating-label">Gemini is drafting your post…</p>
+                      <p class="post-detail__ai-generating-label">Ai is drafting your post…</p>
                       <span class="sr-only">Generating content</span>
                     </div>
                   }
@@ -318,9 +383,19 @@ type PostForm = FormGroup<{
                 </div>
                 <div class="post-detail__edit-foot">
                   <div class="post-detail__edit-meta">
-                    <p id="post-body-hint" class="post-detail__hint" aria-live="polite">
+                    <p
+                      id="post-body-hint"
+                      class="post-detail__hint"
+                      [class.post-detail__hint--ai-writing]="isTyping()"
+                      aria-live="polite"
+                    >
                       @if (isTyping()) {
-                        AI is writing into content…
+                        <span class="post-detail__ai-writing-hint">
+                          <span class="post-detail__ai-writing-hint__text">AI is writing into content</span>
+                          <span class="post-detail__ai-writing-hint__dots" aria-hidden="true">
+                            <span></span><span></span><span></span>
+                          </span>
+                        </span>
                       } @else {
                         {{ form.controls.body.value.length }}/{{ bodyMaxLength }} · Esc to cancel
                       }
@@ -332,6 +407,7 @@ type PostForm = FormGroup<{
                         class="post-detail__emoji-trigger"
                         [class.post-detail__emoji-trigger--open]="emojiPickerOpen()"
                         matTooltip="Insert emoji"
+                        [matTooltipDisabled]="tooltipsDisabled()"
                         aria-label="Insert emoji"
                         [attr.aria-expanded]="emojiPickerOpen()"
                         aria-controls="post-body-emoji-picker"
@@ -346,17 +422,39 @@ type PostForm = FormGroup<{
                           class="emoji-picker"
                           role="group"
                           aria-label="Emoji picker"
+                          (click)="$event.stopPropagation()"
                         >
-                          @for (emoji of contentEmojis; track emoji) {
-                            <button
-                              type="button"
-                              class="emoji-picker__option"
-                              [attr.aria-label]="'Insert ' + emoji"
-                              (click)="insertBodyEmoji(emoji)"
-                            >
-                              {{ emoji }}
-                            </button>
-                          }
+                          <button
+                            type="button"
+                            class="emoji-picker__nav"
+                            aria-label="Previous emojis"
+                            [disabled]="!hasPreviousEmojiPage()"
+                            (click)="goToPreviousEmojiPage($event)"
+                          >
+                            <span class="material-icons" aria-hidden="true">chevron_left</span>
+                          </button>
+                          <div class="emoji-picker__grid" role="list">
+                            @for (emoji of visibleEmojis(); track emoji) {
+                              <button
+                                type="button"
+                                class="emoji-picker__option"
+                                role="listitem"
+                                [attr.aria-label]="'Insert ' + emoji"
+                                (click)="insertBodyEmoji(emoji)"
+                              >
+                                {{ emoji }}
+                              </button>
+                            }
+                          </div>
+                          <button
+                            type="button"
+                            class="emoji-picker__nav"
+                            aria-label="Next emojis"
+                            [disabled]="!hasNextEmojiPage()"
+                            (click)="goToNextEmojiPage($event)"
+                          >
+                            <span class="material-icons" aria-hidden="true">chevron_right</span>
+                          </button>
                         </div>
                       }
                     </div>
@@ -367,7 +465,7 @@ type PostForm = FormGroup<{
                     </p>
                   }
                   @if (geminiDraftActive() && geminiError()) {
-                    <p class="field__error" role="alert">{{ geminiError() }}</p>
+                    <p class="field__error gemini-field-error" role="alert">{{ geminiError() }}</p>
                   }
                   <ng-container
                     *ngTemplateOutlet="editActions; context: { $implicit: 'body', control: form.controls.body }"
@@ -390,6 +488,317 @@ type PostForm = FormGroup<{
       }
     </section>
 
+    @if (post()) {
+      <div class="gemini-chatbot" [class.gemini-chatbot--open]="geminiChatOpen() || geminiChatClosing()">
+        @if (geminiChatOpen() || geminiChatClosing()) {
+          <section
+            id="post-gemini-chatbot"
+            class="gemini-chatbot__panel"
+            [class.gemini-chatbot__panel--closing]="geminiChatClosing()"
+            role="dialog"
+            aria-label="Starvia AI chat"
+            aria-labelledby="post-detail-chat"
+          >
+            <header class="gemini-chatbot__head">
+              <div class="gemini-chatbot__head-copy">
+                <span class="gemini-chatbot__badge" aria-hidden="true">
+                  <span class="material-icons">auto_awesome</span>
+                </span>
+                <p id="post-detail-chat" class="gemini-chatbot__title">Starvia AI</p>
+              </div>
+              <button
+                type="button"
+                class="gemini-chatbot__close"
+                aria-label="Close chat"
+                (click)="closeGeminiChat()"
+              >
+                <span class="material-icons" aria-hidden="true">close</span>
+              </button>
+            </header>
+
+            <div
+              #geminiChatMessagesEl
+              class="gemini-chatbot__messages"
+              aria-live="polite"
+              (scroll)="onGeminiChatScroll($event)"
+            >
+              @if (geminiChatMessages().length === 0 && !isAskGeminiLoading() && !isAskGeminiHistoryLoading()) {
+                <p class="gemini-chatbot__empty">
+                  Ask Starvia AI about tone, structure, hashtags, or how to improve this post.
+                </p>
+              }
+
+              @for (message of geminiChatMessages(); track message.id) {
+                <article
+                  class="gemini-chatbot__message"
+                  [class.gemini-chatbot__message--user]="message.role === 'user'"
+                  [class.gemini-chatbot__message--assistant]="message.role === 'assistant'"
+                  [attr.aria-label]="message.role === 'user' ? 'Your message' : 'Starvia response'"
+                >
+                  @if (message.role === 'assistant') {
+                    <span class="gemini-chatbot__avatar gemini-chatbot__avatar--starvia" aria-hidden="true">
+                      <img
+                        class="gemini-chatbot__avatar-logo"
+                        src="/starvia-logo.png"
+                        alt=""
+                        width="22"
+                        height="22"
+                        decoding="async"
+                      />
+                    </span>
+                  }
+
+                  <div class="gemini-chatbot__message-body">
+                    @if (message.attachedPostContent) {
+                      <span class="gemini-chatbot__attachment">
+                        <span class="material-icons" aria-hidden="true">description</span>
+                        Content attached
+                      </span>
+                    }
+                    <div class="gemini-chatbot__message-content">
+                      @if (chatMessageBlocks(message.text).length === 0 && message.isTyping) {
+                        <p class="gemini-chatbot__message-text">
+                          <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                        </p>
+                      }
+                      @for (block of chatMessageBlocks(message.text); track $index; let isLastBlock = $last) {
+                        @switch (block.type) {
+                          @case ('heading') {
+                            <h4 class="gemini-chatbot__heading">
+                              @for (segment of block.segments; track $index) {
+                                @if (segment.bold) {
+                                  <strong>{{ segment.text }}</strong>
+                                } @else {
+                                  <span>{{ segment.text }}</span>
+                                }
+                              }
+                              @if (isLastBlock && message.isTyping) {
+                                <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                              }
+                            </h4>
+                          }
+                          @case ('list') {
+                            <ul class="gemini-chatbot__list">
+                              @for (item of block.items; track $index; let isLastItem = $last) {
+                                <li class="gemini-chatbot__list-item">
+                                  @for (segment of item; track $index) {
+                                    @if (segment.bold) {
+                                      <strong>{{ segment.text }}</strong>
+                                    } @else {
+                                      <span>{{ segment.text }}</span>
+                                    }
+                                  }
+                                  @if (isLastBlock && isLastItem && message.isTyping) {
+                                    <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                                  }
+                                </li>
+                              }
+                            </ul>
+                          }
+                          @case ('ordered-list') {
+                            <ol class="gemini-chatbot__olist">
+                              @for (item of block.items; track $index; let itemIndex = $index; let isLastItem = $last) {
+                                <li class="gemini-chatbot__olist-item">
+                                  <span class="gemini-chatbot__olist-num" aria-hidden="true">{{
+                                    itemIndex + 1
+                                  }}</span>
+                                  <p class="gemini-chatbot__olist-title">
+                                    @for (segment of item.title; track $index) {
+                                      @if (segment.bold) {
+                                        <strong>{{ segment.text }}</strong>
+                                      } @else {
+                                        <span>{{ segment.text }}</span>
+                                      }
+                                    }
+                                    @if (
+                                      isLastBlock &&
+                                      isLastItem &&
+                                      message.isTyping &&
+                                      !item.body.length &&
+                                      !item.bullets.length
+                                    ) {
+                                      <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                                    }
+                                  </p>
+                                  @if (item.body.length) {
+                                    <p class="gemini-chatbot__olist-body">
+                                      @for (segment of item.body; track $index) {
+                                        @if (segment.bold) {
+                                          <strong>{{ segment.text }}</strong>
+                                        } @else {
+                                          <span>{{ segment.text }}</span>
+                                        }
+                                      }
+                                      @if (
+                                        isLastBlock &&
+                                        isLastItem &&
+                                        message.isTyping &&
+                                        !item.bullets.length
+                                      ) {
+                                        <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                                      }
+                                    </p>
+                                  }
+                                  @if (item.bullets.length) {
+                                    <ul class="gemini-chatbot__list gemini-chatbot__list--nested">
+                                      @for (bullet of item.bullets; track $index; let isLastBullet = $last) {
+                                        <li class="gemini-chatbot__list-item">
+                                          @for (segment of bullet; track $index) {
+                                            @if (segment.bold) {
+                                              <strong>{{ segment.text }}</strong>
+                                            } @else {
+                                              <span>{{ segment.text }}</span>
+                                            }
+                                          }
+                                          @if (isLastBlock && isLastItem && isLastBullet && message.isTyping) {
+                                            <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                                          }
+                                        </li>
+                                      }
+                                    </ul>
+                                  }
+                                </li>
+                              }
+                            </ol>
+                          }
+                          @default {
+                            <p class="gemini-chatbot__message-text">
+                              @for (segment of block.segments; track $index) {
+                                @if (segment.bold) {
+                                  <strong>{{ segment.text }}</strong>
+                                } @else {
+                                  <span>{{ segment.text }}</span>
+                                }
+                              }
+                              @if (isLastBlock && message.isTyping) {
+                                <span class="post-detail__typing-cursor" aria-hidden="true"></span>
+                              }
+                            </p>
+                          }
+                        }
+                      }
+                    </div>
+                  </div>
+
+                  @if (message.role === 'user') {
+                    <span class="gemini-chatbot__avatar gemini-chatbot__avatar--user" aria-hidden="true">
+                      {{ userInitials() }}
+                    </span>
+                  }
+                </article>
+              }
+
+              @if (isAskGeminiLoading() || isAskGeminiHistoryLoading()) {
+                <div class="gemini-chatbot__thinking" aria-live="polite">
+                  <span class="gemini-chatbot__avatar gemini-chatbot__avatar--starvia" aria-hidden="true">
+                    <img
+                      class="gemini-chatbot__avatar-logo"
+                      src="/starvia-logo.png"
+                      alt=""
+                      width="22"
+                      height="22"
+                      decoding="async"
+                    />
+                  </span>
+                  <div class="gemini-chatbot__thinking-body">
+                    <div class="gemini-chatbot__thinking-dots" aria-hidden="true">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                    <p class="gemini-chatbot__thinking-label">Starvia AI is thinking…</p>
+                    <span class="sr-only">Waiting for response</span>
+                  </div>
+                </div>
+              }
+
+              <div #geminiChatScrollAnchor class="gemini-chatbot__scroll-anchor" aria-hidden="true"></div>
+            </div>
+
+            @if (geminiChatError()) {
+              <p class="field__error gemini-chatbot__error" role="alert">{{ geminiChatError() }}</p>
+            }
+
+            <div class="gemini-chatbot__composer">
+              <div class="gemini-chatbot__composer-toolbar">
+                <label
+                  class="gemini-chatbot__attach"
+                  matTooltip="Includes post content so Starvia AI can give more relevant answers."
+                  matTooltipPosition="above"
+                  [matTooltipDisabled]="tooltipsDisabled() || !hasPostContentToAttach()"
+                >
+                  <input
+                    type="checkbox"
+                    class="gemini-chatbot__attach-input"
+                    [checked]="includePostContentInChat()"
+                    [disabled]="!canUseGeminiChat() || !hasPostContentToAttach()"
+                    (change)="onIncludePostContentChange($event)"
+                  />
+                  <span class="gemini-chatbot__attach-chip">
+                    <span class="material-icons" aria-hidden="true">description</span>
+                    Include content
+                  </span>
+                </label>
+                <p
+                  class="gemini-prompt-meta gemini-prompt-meta--inline"
+                  [class.gemini-prompt-meta--limit]="geminiChatPrompt().length >= geminiChatPromptMaxLength"
+                  aria-live="polite"
+                >
+                  {{ geminiChatPrompt().length }}/{{ geminiChatPromptMaxLength }}
+                </p>
+              </div>
+
+              <div class="gemini-prompt-input-row">
+                <textarea
+                  #geminiChatPromptInput
+                  id="post-gemini-chat-prompt"
+                  class="field__input gemini-prompt-input gemini-prompt-input--chat"
+                  rows="1"
+                  [attr.maxlength]="geminiChatPromptMaxLength"
+                  placeholder="Ask anything about this post…"
+                  [value]="geminiChatPrompt()"
+                  [disabled]="!canUseGeminiChat()"
+                  (input)="onGeminiChatPromptInput($event)"
+                  (keydown)="onGeminiChatPromptKeydown($event)"
+                ></textarea>
+                <button
+                  type="button"
+                  class="gemini-prompt-send gemini-prompt-send--chat"
+                  aria-label="Send message to Gemini"
+                  [disabled]="!canSendGeminiChat()"
+                  (click)="sendGeminiChatMessage()"
+                >
+                  <span class="material-icons" aria-hidden="true">arrow_upward</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        }
+
+        @if (!geminiChatOpen() && !geminiChatClosing()) {
+          <button
+            type="button"
+            class="gemini-chatbot__launcher"
+            [attr.aria-expanded]="false"
+            aria-controls="post-gemini-chatbot"
+            aria-label="Open Ask AI chat"
+            [disabled]="!post()"
+            (click)="toggleGeminiChat()"
+          >
+            <img
+              class="gemini-chatbot__launcher-logo"
+              src="/starvia-logo.png"
+              alt=""
+              aria-hidden="true"
+              width="22"
+              height="22"
+            />
+            <span class="gemini-chatbot__launcher-label">Ask AI</span>
+          </button>
+        }
+      </div>
+    }
+
     <ng-template #hashtagText let-text="text">
       @for (segment of hashtagSegments(text); track $index) {
         @if (segment.highlighted) {
@@ -408,7 +817,7 @@ type PostForm = FormGroup<{
         [attr.aria-label]="label"
         matTooltip="Edit"
         matTooltipPosition="below"
-        [matTooltipDisabled]="isActionLocked()"
+        [matTooltipDisabled]="tooltipsDisabled() || isActionLocked()"
         [class.edit-icon--disabled]="isActionLocked()"
         [attr.aria-disabled]="isActionLocked() ? true : null"
         (click)="onEditIconActivate($event, field)"
@@ -446,6 +855,7 @@ export class DashboardPostDetail {
   private readonly router = inject(Router);
   private readonly postService = inject(PostService);
   private readonly geminiService = inject(GeminiService);
+  private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly titleInput = viewChild<ElementRef<HTMLTextAreaElement>>('titleInput');
   private readonly bodyInput = viewChild<ElementRef<HTMLTextAreaElement>>('bodyInput');
@@ -454,16 +864,29 @@ export class DashboardPostDetail {
   private readonly geminiAnchor = viewChild<ElementRef<HTMLElement>>('geminiAnchor');
   private readonly deleteConfirmPanel = viewChild<ElementRef<HTMLElement>>('deleteConfirm');
   private readonly geminiPromptInput = viewChild<ElementRef<HTMLTextAreaElement>>('geminiPromptInput');
+  private readonly geminiChatPromptInput = viewChild<ElementRef<HTMLTextAreaElement>>('geminiChatPromptInput');
+  private readonly geminiChatMessagesEl = viewChild<ElementRef<HTMLElement>>('geminiChatMessagesEl');
+  private readonly geminiChatScrollAnchor = viewChild<ElementRef<HTMLElement>>('geminiChatScrollAnchor');
   private saveMessageTimeout: ReturnType<typeof setTimeout> | undefined;
   private stopTypewriter: (() => void) | undefined;
   private bodyInputObserver: ResizeObserver | undefined;
   private bodyBeforeGemini = '';
   private wasEditingBodyBeforeGemini = false;
+  private geminiChatMessageId = 0;
+  private cancelChatTypewriter: (() => void) | undefined;
+  private geminiChatStickToBottom = true;
+  private geminiChatScrollRaf: number | null = null;
+  private geminiChatCloseTimeout: ReturnType<typeof setTimeout> | undefined;
+  private geminiPopupCloseTimeout: ReturnType<typeof setTimeout> | undefined;
+  private geminiChatHistoryLoaded = false;
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
   protected readonly bodyMaxLength = POST_BODY_MAX_LENGTH;
   protected readonly contentEmojis = POST_BODY_EMOJIS;
   protected readonly hashtagSegments = parseHashtagSegments;
+  protected readonly geminiPromptMaxLength = GEMINI_PROMPT_MAX_LENGTH;
+  protected readonly geminiChatPromptMaxLength = GEMINI_CHAT_PROMPT_MAX_LENGTH;
+  protected readonly chatMessageBlocks = parseChatMessageBlocks;
   protected readonly form: PostForm = new FormGroup({
     title: new FormControl('', {
       nonNullable: true,
@@ -476,6 +899,7 @@ export class DashboardPostDetail {
   });
 
   protected readonly post = signal<PostItem | null>(null);
+  protected readonly account = signal<UserAccount | null>(null);
   protected readonly editingField = signal<EditableField | null>(null);
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
@@ -484,13 +908,36 @@ export class DashboardPostDetail {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly saveMessage = signal<string | null>(null);
   protected readonly emojiPickerOpen = signal(false);
+  protected readonly emojiPage = signal(0);
+  private readonly emojiColumns = 8;
+  private readonly emojiRows = 2;
+  private readonly emojiPageSize = this.emojiColumns * this.emojiRows;
+  protected readonly visibleEmojis = computed(() => {
+    const start = this.emojiPage() * this.emojiPageSize;
+    return this.contentEmojis.slice(start, start + this.emojiPageSize);
+  });
+  protected readonly hasPreviousEmojiPage = computed(() => this.emojiPage() > 0);
+  protected readonly hasNextEmojiPage = computed(
+    () => (this.emojiPage() + 1) * this.emojiPageSize < this.contentEmojis.length
+  );
   protected readonly geminiPopupOpen = signal(false);
+  protected readonly geminiPopupClosing = signal(false);
   protected readonly geminiDraftActive = signal(false);
   protected readonly geminiPrompt = signal('');
   protected readonly isGenerating = signal(false);
   protected readonly isTyping = signal(false);
   protected readonly geminiError = signal<string | null>(null);
+  protected readonly geminiChatOpen = signal(false);
+  protected readonly geminiChatClosing = signal(false);
+  protected readonly geminiChatMessages = signal<GeminiChatMessage[]>([]);
+  protected readonly geminiChatPrompt = signal('');
+  protected readonly geminiChatError = signal<string | null>(null);
+  protected readonly isAskGeminiLoading = signal(false);
+  protected readonly isAskGeminiHistoryLoading = signal(false);
+  protected readonly isAskGeminiTyping = signal(false);
+  protected readonly includePostContentInChat = signal(false);
   protected readonly bodyHighlightText = signal('');
+  protected readonly tooltipsDisabled = signal(this.isMobileViewport());
   protected readonly postsReturnQueryParams = signal(
     postsListQueryToParams(readPostsListQueryFromHistory() ?? DEFAULT_POSTS_LIST_QUERY)
   );
@@ -499,8 +946,27 @@ export class DashboardPostDetail {
     this.destroyRef.onDestroy(() => {
       this.clearSaveMessage();
       this.stopGeminiTypewriter();
+      this.stopChatTypewriter();
+      this.clearGeminiChatCloseTimeout();
+      this.clearGeminiPopupCloseTimeout();
       this.disconnectBodyInputObserver();
+      document.body.classList.remove('post-gemini-popup-open');
     });
+
+    if (typeof window !== 'undefined') {
+      const mobileQuery = window.matchMedia('(max-width: 48rem)');
+      const syncTooltips = (): void => {
+        this.tooltipsDisabled.set(mobileQuery.matches);
+      };
+      syncTooltips();
+      mobileQuery.addEventListener('change', syncTooltips);
+      this.destroyRef.onDestroy(() => mobileQuery.removeEventListener('change', syncTooltips));
+    }
+
+    this.authService
+      .getAccount()
+      .pipe(catchError(() => of(null)), takeUntilDestroyed())
+      .subscribe((account) => this.account.set(account));
 
     this.route.paramMap
       .pipe(
@@ -531,8 +997,13 @@ export class DashboardPostDetail {
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
-    if (this.geminiPopupOpen()) {
-      this.geminiPopupOpen.set(false);
+    if (this.geminiPopupOpen() && !this.geminiPopupClosing()) {
+      this.closeGeminiPopup();
+      return;
+    }
+
+    if (this.geminiChatOpen()) {
+      this.closeGeminiChat();
       return;
     }
 
@@ -555,10 +1026,10 @@ export class DashboardPostDetail {
   protected onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node;
 
-    if (this.geminiPopupOpen()) {
+    if (this.geminiPopupOpen() && !this.geminiPopupClosing()) {
       const geminiAnchor = this.geminiAnchor()?.nativeElement;
       if (!geminiAnchor?.contains(target)) {
-        this.geminiPopupOpen.set(false);
+        this.closeGeminiPopup();
       }
     }
 
@@ -598,6 +1069,27 @@ export class DashboardPostDetail {
     );
   }
 
+  protected canUseGeminiChat(): boolean {
+    return (
+      this.canUseGemini() &&
+      !this.isAskGeminiLoading() &&
+      !this.isAskGeminiHistoryLoading() &&
+      !this.isAskGeminiTyping()
+    );
+  }
+
+  protected canSendGeminiChat(): boolean {
+    return this.canUseGeminiChat() && this.geminiChatPrompt().trim().length > 0;
+  }
+
+  protected canSendGeminiGenerate(): boolean {
+    return this.canUseGemini() && this.geminiPrompt().trim().length > 0;
+  }
+
+  protected hasPostContentToAttach(): boolean {
+    return this.currentPostBodyForContext().trim().length > 0;
+  }
+
   protected toggleGeminiPopup(event: Event): void {
     event.stopPropagation();
 
@@ -606,7 +1098,7 @@ export class DashboardPostDetail {
     }
 
     if (this.geminiPopupOpen()) {
-      this.geminiPopupOpen.set(false);
+      this.closeGeminiPopup();
       return;
     }
 
@@ -618,16 +1110,52 @@ export class DashboardPostDetail {
     this.emojiPickerOpen.set(false);
     this.clearSaveMessage();
     this.geminiError.set(null);
-    this.geminiPrompt.set('');
-    this.geminiPopupOpen.set(true);
+    this.setGeminiPopupOpen(true);
 
-    queueMicrotask(() => this.geminiPromptInput()?.nativeElement.focus());
+    queueMicrotask(() => {
+      this.geminiPromptInput()?.nativeElement.focus({ preventScroll: true });
+    });
+  }
+
+  protected closeGeminiPopup(): void {
+    if (!this.geminiPopupOpen() || this.geminiPopupClosing()) {
+      return;
+    }
+
+    this.geminiPopupClosing.set(true);
+    this.clearGeminiPopupCloseTimeout();
+    this.geminiPopupCloseTimeout = setTimeout(() => {
+      this.setGeminiPopupOpen(false);
+      this.geminiPopupClosing.set(false);
+      this.geminiPopupCloseTimeout = undefined;
+    }, GEMINI_POPUP_CLOSE_MS);
   }
 
   protected onGeminiPromptInput(event: Event): void {
-    const value = (event.target as HTMLTextAreaElement).value;
+    const input = event.target as HTMLTextAreaElement;
+    const value = input.value.slice(0, GEMINI_PROMPT_MAX_LENGTH);
+
+    if (input.value !== value) {
+      input.value = value;
+    }
+
     this.geminiPrompt.set(value);
     this.geminiError.set(null);
+    this.resizeGeminiPromptInput();
+  }
+
+  protected onGeminiPromptKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    this.generateWithGemini();
+  }
+
+  protected hasExistingBodyContent(): boolean {
+    const item = this.post();
+    return !!item && this.clampBody(item.body).trim().length > 0;
   }
 
   protected generateWithGemini(): void {
@@ -638,7 +1166,7 @@ export class DashboardPostDetail {
       return;
     }
 
-    this.geminiPopupOpen.set(false);
+    this.closeGeminiPopup();
     this.geminiError.set(null);
     this.beginGeminiDraft();
     this.isGenerating.set(true);
@@ -647,7 +1175,6 @@ export class DashboardPostDetail {
       .generatePost({
         prompt,
         postId: item.id,
-        model: GEMINI_DEFAULT_MODEL,
       })
       .pipe(finalize(() => this.isGenerating.set(false)))
       .subscribe({
@@ -657,6 +1184,186 @@ export class DashboardPostDetail {
         error: (error) => {
           this.geminiError.set(toApplicationError(error, 'Could not generate content.').description);
           this.abortGeminiDraft(true);
+        },
+      });
+  }
+
+  protected userInitials(): string {
+    const userName = this.account()?.userName;
+    return userName ? getUserInitials(userName) : '?';
+  }
+
+  protected toggleGeminiChat(): void {
+    if (this.geminiChatOpen() || this.geminiChatClosing()) {
+      this.closeGeminiChat();
+      return;
+    }
+
+    this.geminiChatClosing.set(false);
+    this.geminiChatOpen.set(true);
+    this.geminiChatStickToBottom = true;
+    this.loadGeminiChatHistory();
+    this.scheduleGeminiPromptInputLayout(
+      () => this.geminiChatPromptInput()?.nativeElement,
+      () => this.geminiChatPrompt(),
+      { focus: true }
+    );
+    queueMicrotask(() => this.scrollGeminiChatToBottom(true));
+  }
+
+  protected closeGeminiChat(): void {
+    if (!this.geminiChatOpen() || this.geminiChatClosing()) {
+      return;
+    }
+
+    this.geminiChatClosing.set(true);
+    this.clearGeminiChatCloseTimeout();
+    this.geminiChatCloseTimeout = setTimeout(() => {
+      this.geminiChatOpen.set(false);
+      this.geminiChatClosing.set(false);
+      this.geminiChatCloseTimeout = undefined;
+      this.resetGeminiChatSession();
+    }, GEMINI_CHAT_CLOSE_MS);
+  }
+
+  private loadGeminiChatHistory(): void {
+    const item = this.post();
+    if (!item || this.geminiChatHistoryLoaded) {
+      return;
+    }
+
+    this.geminiChatHistoryLoaded = true;
+    this.isAskGeminiHistoryLoading.set(true);
+    this.geminiChatError.set(null);
+
+    this.geminiService
+      .getConversation(item.id)
+      .pipe(finalize(() => this.isAskGeminiHistoryLoading.set(false)))
+      .subscribe({
+        next: (items) => {
+          if (!this.geminiChatOpen()) {
+            return;
+          }
+
+          const messages = mapConversationToChatMessages(items);
+          this.geminiChatMessages.set(messages);
+          this.geminiChatMessageId =
+            messages.length > 0 ? Math.max(...messages.map((message) => message.id)) : 0;
+          queueMicrotask(() => this.scrollGeminiChatToBottom(true));
+        },
+        error: (error) => {
+          if (!this.geminiChatOpen()) {
+            return;
+          }
+
+          this.geminiChatError.set(
+            toApplicationError(error, 'Could not load conversation history.').description
+          );
+        },
+      });
+  }
+
+  private resetGeminiChatSession(): void {
+    this.geminiChatHistoryLoaded = false;
+    this.isAskGeminiHistoryLoading.set(false);
+    this.geminiChatMessages.set([]);
+    this.geminiChatMessageId = 0;
+    this.geminiChatPrompt.set('');
+    this.geminiChatError.set(null);
+    this.isAskGeminiLoading.set(false);
+    this.isAskGeminiTyping.set(false);
+    this.stopChatTypewriter();
+  }
+
+  protected onGeminiChatPromptInput(event: Event): void {
+    const input = event.target as HTMLTextAreaElement;
+    const value = input.value.slice(0, GEMINI_CHAT_PROMPT_MAX_LENGTH);
+
+    if (input.value !== value) {
+      input.value = value;
+    }
+
+    this.geminiChatPrompt.set(value);
+    this.geminiChatError.set(null);
+    this.resizeGeminiChatInput();
+  }
+
+  protected onGeminiChatPromptKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    this.sendGeminiChatMessage();
+  }
+
+  protected onIncludePostContentChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.includePostContentInChat.set(checked && this.hasPostContentToAttach());
+  }
+
+  protected onGeminiChatScroll(event: Event): void {
+    const container = event.target as HTMLElement;
+    const threshold = 64;
+    this.geminiChatStickToBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+  }
+
+  protected sendGeminiChatMessage(): void {
+    const item = this.post();
+    const prompt = this.geminiChatPrompt().trim();
+    const includePostContent = this.includePostContentInChat() && this.hasPostContentToAttach();
+
+    if (!item || !prompt || !this.canSendGeminiChat()) {
+      return;
+    }
+
+    this.geminiChatError.set(null);
+    this.geminiChatPrompt.set('');
+    this.geminiChatStickToBottom = true;
+    this.scheduleGeminiPromptInputLayout(
+      () => this.geminiChatPromptInput()?.nativeElement,
+      () => this.geminiChatPrompt()
+    );
+    this.geminiChatMessages.update((messages) => [
+      ...messages,
+      {
+        id: ++this.geminiChatMessageId,
+        role: 'user',
+        text: prompt,
+        attachedPostContent: includePostContent,
+      },
+    ]);
+    this.scrollGeminiChatToBottom(true);
+    this.isAskGeminiLoading.set(true);
+    this.scrollGeminiChatToBottom(true);
+
+    this.geminiService
+      .askGemini({
+        prompt,
+        postId: item.id,
+        includePostContent,
+        postContent: includePostContent ? this.currentPostBodyForContext() : undefined,
+      })
+      .pipe(finalize(() => this.isAskGeminiLoading.set(false)))
+      .subscribe({
+        next: (text) => {
+          const messageId = ++this.geminiChatMessageId;
+          this.geminiChatMessages.update((messages) => [
+            ...messages,
+            {
+              id: messageId,
+              role: 'assistant',
+              text: '',
+              isTyping: true,
+            },
+          ]);
+          this.scrollGeminiChatToBottom(true);
+          this.typeGeminiChatResponse(messageId, text);
+        },
+        error: (error) => {
+          this.geminiChatError.set(toApplicationError(error, 'Could not get a response from Gemini.').description);
+          this.scrollGeminiChatToBottom(true);
         },
       });
   }
@@ -760,7 +1467,27 @@ export class DashboardPostDetail {
 
   protected toggleEmojiPicker(event: Event): void {
     event.stopPropagation();
-    this.emojiPickerOpen.update((open) => !open);
+    this.emojiPickerOpen.update((open) => {
+      const next = !open;
+      if (next) {
+        this.emojiPage.set(0);
+      }
+      return next;
+    });
+  }
+
+  protected goToPreviousEmojiPage(event: Event): void {
+    event.stopPropagation();
+    if (this.hasPreviousEmojiPage()) {
+      this.emojiPage.update((page) => page - 1);
+    }
+  }
+
+  protected goToNextEmojiPage(event: Event): void {
+    event.stopPropagation();
+    if (this.hasNextEmojiPage()) {
+      this.emojiPage.update((page) => page + 1);
+    }
   }
 
   protected onBodyInput(): void {
@@ -849,17 +1576,66 @@ export class DashboardPostDetail {
     }
   }
 
+  private isMobileViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 48rem)').matches;
+  }
+
+  private setGeminiPopupOpen(open: boolean): void {
+    if (open) {
+      this.geminiPopupClosing.set(false);
+      this.clearGeminiPopupCloseTimeout();
+    }
+
+    this.geminiPopupOpen.set(open);
+    if (open) {
+      this.scheduleGeminiPromptInputLayout(
+        () => this.geminiPromptInput()?.nativeElement,
+        () => this.geminiPrompt()
+      );
+    }
+    this.syncGeminiPopupBodyLock();
+  }
+
+  private syncGeminiPopupBodyLock(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    document.body.classList.toggle(
+      'post-gemini-popup-open',
+      (this.geminiPopupOpen() || this.geminiPopupClosing()) &&
+        window.matchMedia('(max-width: 48rem)').matches
+    );
+  }
+
   private resetView(): void {
     this.disconnectBodyInputObserver();
     this.stopGeminiTypewriter();
     this.post.set(null);
     this.editingField.set(null);
     this.deleteConfirmOpen.set(false);
-    this.geminiPopupOpen.set(false);
+    this.setGeminiPopupOpen(false);
     this.geminiDraftActive.set(false);
     this.isGenerating.set(false);
     this.isTyping.set(false);
     this.geminiError.set(null);
+    this.geminiChatMessages.set([]);
+    this.geminiChatPrompt.set('');
+    this.geminiPrompt.set('');
+    this.geminiChatError.set(null);
+    this.isAskGeminiLoading.set(false);
+    this.isAskGeminiHistoryLoading.set(false);
+    this.isAskGeminiTyping.set(false);
+    this.includePostContentInChat.set(false);
+    this.clearGeminiChatCloseTimeout();
+    this.clearGeminiPopupCloseTimeout();
+    this.geminiChatOpen.set(false);
+    this.geminiChatClosing.set(false);
+    this.geminiPopupClosing.set(false);
+    this.geminiChatHistoryLoaded = false;
+    this.geminiChatMessageId = 0;
+    this.geminiChatStickToBottom = true;
+    this.stopChatTypewriter();
     this.bodyBeforeGemini = '';
     this.wasEditingBodyBeforeGemini = false;
     this.isDeleting.set(false);
@@ -968,6 +1744,180 @@ export class DashboardPostDetail {
     return normalizePostBody(value).slice(0, POST_BODY_MAX_LENGTH);
   }
 
+  private currentPostBodyForContext(): string {
+    const item = this.post();
+    if (!item) {
+      return '';
+    }
+
+    if (this.editingField() === 'body' || this.geminiDraftActive()) {
+      return this.clampBody(this.form.controls.body.value);
+    }
+
+    return this.clampBody(item.body);
+  }
+
+  private clearGeminiChatCloseTimeout(): void {
+    if (this.geminiChatCloseTimeout === undefined) {
+      return;
+    }
+
+    clearTimeout(this.geminiChatCloseTimeout);
+    this.geminiChatCloseTimeout = undefined;
+  }
+
+  private clearGeminiPopupCloseTimeout(): void {
+    if (this.geminiPopupCloseTimeout === undefined) {
+      return;
+    }
+
+    clearTimeout(this.geminiPopupCloseTimeout);
+    this.geminiPopupCloseTimeout = undefined;
+  }
+
+  private resizeGeminiChatInput(): void {
+    const textarea = this.geminiChatPromptInput()?.nativeElement;
+    if (!textarea) {
+      return;
+    }
+
+    this.resizeGeminiPromptTextarea(textarea, this.geminiChatPrompt());
+  }
+
+  private resizeGeminiPromptInput(): void {
+    const textarea = this.geminiPromptInput()?.nativeElement;
+    if (!textarea) {
+      return;
+    }
+
+    this.resizeGeminiPromptTextarea(textarea, this.geminiPrompt());
+  }
+
+  private resizeGeminiPromptTextarea(textarea: HTMLTextAreaElement, value?: string): void {
+    if (value !== undefined && textarea.value !== value) {
+      textarea.value = value;
+    }
+
+    textarea.style.height = 'auto';
+    const height = textarea.scrollHeight;
+    textarea.style.height = `${height}px`;
+    textarea.style.borderRadius = this.computeGeminiPromptBorderRadius(height);
+  }
+
+  private scheduleGeminiPromptInputLayout(
+    textareaRef: () => HTMLTextAreaElement | undefined,
+    value: () => string,
+    options: { focus?: boolean } = {}
+  ): void {
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const textarea = textareaRef();
+          if (!textarea) {
+            return;
+          }
+
+          this.resizeGeminiPromptTextarea(textarea, value());
+
+          if (options.focus) {
+            textarea.focus({ preventScroll: true });
+          }
+        });
+      });
+    });
+  }
+
+  private computeGeminiPromptBorderRadius(heightPx: number): string {
+    const singleLineHeight = 44;
+    const minRadiusPx = 10;
+    const pillRadius = singleLineHeight / 2;
+    const extra = Math.max(0, heightPx - singleLineHeight);
+    const radiusPx = Math.max(minRadiusPx, pillRadius - extra * 0.22);
+
+    return `${radiusPx}px`;
+  }
+
+  private scrollGeminiChatToBottom(force = false): void {
+    if (!force && !this.geminiChatStickToBottom) {
+      return;
+    }
+
+    if (this.geminiChatScrollRaf !== null) {
+      return;
+    }
+
+    this.geminiChatScrollRaf = requestAnimationFrame(() => {
+      this.geminiChatScrollRaf = requestAnimationFrame(() => {
+        this.geminiChatScrollRaf = null;
+
+        const container = this.geminiChatMessagesEl()?.nativeElement;
+        const anchor = this.geminiChatScrollAnchor()?.nativeElement;
+
+        if (!container) {
+          return;
+        }
+
+        if (anchor) {
+          const targetTop = anchor.offsetTop + anchor.offsetHeight - container.clientHeight;
+          container.scrollTop = Math.max(0, targetTop);
+          return;
+        }
+
+        container.scrollTop = container.scrollHeight;
+      });
+    });
+  }
+
+  private stopChatTypewriter(): void {
+    this.cancelChatTypewriter?.();
+    this.cancelChatTypewriter = undefined;
+    this.isAskGeminiTyping.set(false);
+  }
+
+  private updateGeminiChatMessage(messageId: number, text: string, isTyping: boolean): void {
+    this.geminiChatMessages.update((messages) =>
+      messages.map((message) =>
+        message.id === messageId ? { ...message, text, isTyping } : message
+      )
+    );
+  }
+
+  private typeGeminiChatResponse(messageId: number, fullText: string): void {
+    this.stopChatTypewriter();
+
+    const prefersReducedMotion =
+      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      this.updateGeminiChatMessage(messageId, fullText, false);
+      this.scrollGeminiChatToBottom();
+      return;
+    }
+
+    this.isAskGeminiTyping.set(true);
+    this.geminiChatStickToBottom = true;
+
+    let scrollEvery = 0;
+
+    this.cancelChatTypewriter = createTypewriter(
+      fullText,
+      (partial) => {
+        this.updateGeminiChatMessage(messageId, partial, true);
+        scrollEvery += 1;
+        if (scrollEvery % 2 === 0 || partial.length >= fullText.length) {
+          this.scrollGeminiChatToBottom();
+        }
+      },
+      () => {
+        this.updateGeminiChatMessage(messageId, fullText, false);
+        this.isAskGeminiTyping.set(false);
+        this.cancelChatTypewriter = undefined;
+        this.scrollGeminiChatToBottom();
+      },
+      { intervalMs: 42 }
+    );
+  }
+
   private showSaveMessage(message: string): void {
     this.clearSaveMessage();
     this.saveMessage.set(message);
@@ -1037,9 +1987,8 @@ export class DashboardPostDetail {
     this.editingField.set(null);
 
     if (reopenPopup) {
-      this.geminiPrompt.set('');
-      this.geminiPopupOpen.set(true);
-      queueMicrotask(() => this.geminiPromptInput()?.nativeElement.focus());
+      this.setGeminiPopupOpen(true);
+      queueMicrotask(() => this.geminiPromptInput()?.nativeElement.focus({ preventScroll: true }));
     }
   }
 

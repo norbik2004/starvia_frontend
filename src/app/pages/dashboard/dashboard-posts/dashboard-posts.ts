@@ -22,6 +22,8 @@ import {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
+type PaginationToken = { kind: 'page'; n: number } | { kind: 'gap' };
+
 type PostsForm = FormGroup<{
   pageNumber: FormControl<number>;
   pageSize: FormControl<number>;
@@ -256,11 +258,14 @@ type PostsForm = FormGroup<{
             {{ filtersActive() ? 'No posts match your filters.' : 'No posts yet.' }}
           </p>
         } @else {
-          <div class="posts-board">
+          <div class="posts-board" [class.posts-board--loading]="isLoading()">
             <div class="posts-board__head">
-              <p class="posts-board__count" aria-live="polite">
-                <strong>{{ page.items.length }}</strong>
-                {{ page.items.length === 1 ? 'post' : 'posts' }} on this page
+              <p class="posts-board__summary" aria-live="polite">
+                Showing
+                <strong>{{ showingFrom(page) }}–{{ showingTo(page) }}</strong>
+                @if (page.totalPages > 0) {
+                  · Page <strong>{{ page.pageIndex }}</strong> of <strong>{{ page.totalPages }}</strong>
+                }
               </p>
             </div>
             <ul class="posts-list">
@@ -287,16 +292,22 @@ type PostsForm = FormGroup<{
                     </p>
                   }
                   @else {
-                    <p class="post-card__body">No content yet.</p>
+                    <p class="post-card__body post-card__body--empty">No content yet.</p>
                   }
                   @if (post.promptText) {
                     <p class="post-card__prompt">
-                      <span class="post-card__label">Prompt:</span> {{ post.promptText }}
+                      <span class="post-card__label">Prompt</span>
+                      {{ post.promptText }}
                     </p>
                   }
-                  <p class="post-card__meta">
-                    <time [attr.datetime]="post.createdAt">{{ post.createdAt | date: 'medium' }}</time>
-                  </p>
+                  <div class="post-card__foot">
+                    <p class="post-card__meta">
+                      <time [attr.datetime]="post.createdAt">{{ post.createdAt | date: 'medium' }}</time>
+                    </p>
+                    <span class="post-card__open-hint" aria-hidden="true">
+                      <span class="material-icons">arrow_forward</span>
+                    </span>
+                  </div>
                 </a>
               </li>
             }
@@ -305,19 +316,17 @@ type PostsForm = FormGroup<{
         }
       }
 
-      <footer class="posts-footer" [formGroup]="form" aria-label="Posts pagination">
-        @if (result(); as page) {
-          <div class="posts-footer__row">
-            <p class="posts-footer__meta" aria-live="polite">
-              Page <strong>{{ page.pageIndex }}</strong>
-              @if (page.totalPages > 0) {
-                of <strong>{{ page.totalPages }}</strong>
-              }
-            </p>
+      @if (result(); as page) {
+        <footer class="posts-footer" [formGroup]="form">
+          <div class="posts-footer__bar">
+            <div class="posts-footer__start">
+              <p class="posts-footer__range" aria-live="polite">
+                <span class="posts-footer__range-label">Showing</span>
+                <strong>{{ showingFrom(page) }}–{{ showingTo(page) }}</strong>
+              </p>
 
-            <div class="posts-footer__controls">
-              <div class="field field--compact field--inline">
-                <label class="field__label" for="pageSize">Per page</label>
+              <div class="field field--compact field--inline posts-footer__page-size">
+                <label class="field__label" for="pageSize">Rows</label>
                 <select
                   id="pageSize"
                   class="field__input field__input--select"
@@ -330,29 +339,54 @@ type PostsForm = FormGroup<{
                   }
                 </select>
               </div>
+            </div>
 
-              <div class="posts-pager">
+            @if (page.totalPages > 1) {
+              <nav class="posts-pager" aria-label="Posts pagination">
                 <button
                   type="button"
-                  class="btn btn--secondary"
-                  [disabled]="isLoading() || !result()?.hasPreviousPage"
+                  class="posts-pager__btn"
+                  aria-label="Previous page"
+                  [disabled]="isLoading() || !page.hasPreviousPage"
                   (click)="goToPrevious()"
                 >
-                  Previous
+                  <span class="material-icons" aria-hidden="true">chevron_left</span>
                 </button>
+
+                <div class="posts-pager__pages" role="group" aria-label="Page numbers">
+                  @for (token of paginationTokens(page); track $index) {
+                    @if (token.kind === 'gap') {
+                      <span class="posts-pager__gap" aria-hidden="true">…</span>
+                    } @else {
+                      <button
+                        type="button"
+                        class="posts-pager__page"
+                        [class.is-active]="token.n === page.pageIndex"
+                        [attr.aria-current]="token.n === page.pageIndex ? 'page' : null"
+                        [attr.aria-label]="'Page ' + token.n"
+                        [disabled]="isLoading() || token.n === page.pageIndex"
+                        (click)="goToPage(token.n)"
+                      >
+                        {{ token.n }}
+                      </button>
+                    }
+                  }
+                </div>
+
                 <button
                   type="button"
-                  class="btn btn--secondary"
-                  [disabled]="isLoading() || !result()?.hasNextPage"
+                  class="posts-pager__btn"
+                  aria-label="Next page"
+                  [disabled]="isLoading() || !page.hasNextPage"
                   (click)="goToNext()"
                 >
-                  Next
+                  <span class="material-icons" aria-hidden="true">chevron_right</span>
                 </button>
-              </div>
-            </div>
+              </nav>
+            }
           </div>
-        }
-      </footer>
+        </footer>
+      }
     </section>
   `,
 })
@@ -484,13 +518,65 @@ export class DashboardPosts {
       });
   }
 
+  protected showingFrom(page: PagedPostsResponse): number {
+    if (page.items.length === 0) {
+      return 0;
+    }
+    return (page.pageIndex - 1) * this.form.controls.pageSize.value + 1;
+  }
+
+  protected showingTo(page: PagedPostsResponse): number {
+    return this.showingFrom(page) + page.items.length - 1;
+  }
+
+  protected paginationTokens(page: PagedPostsResponse): PaginationToken[] {
+    const total = page.totalPages;
+    const current = page.pageIndex;
+    if (total <= 1) {
+      return [];
+    }
+
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, index) => ({ kind: 'page', n: index + 1 }));
+    }
+
+    const pages = new Set<number>([1, total, current]);
+    if (current > 1) {
+      pages.add(current - 1);
+    }
+    if (current < total) {
+      pages.add(current + 1);
+    }
+
+    const sorted = [...pages].sort((a, b) => a - b);
+    const tokens: PaginationToken[] = [];
+
+    for (let index = 0; index < sorted.length; index++) {
+      const pageNumber = sorted[index];
+      if (index > 0 && pageNumber - sorted[index - 1] > 1) {
+        tokens.push({ kind: 'gap' });
+      }
+      tokens.push({ kind: 'page', n: pageNumber });
+    }
+
+    return tokens;
+  }
+
+  protected goToPage(pageNumber: number): void {
+    const page = this.result();
+    if (!page || pageNumber === page.pageIndex || pageNumber < 1 || pageNumber > page.totalPages) {
+      return;
+    }
+    this.form.patchValue({ pageNumber });
+    this.loadPosts();
+  }
+
   protected goToPrevious(): void {
     const page = this.result();
     if (!page?.hasPreviousPage) {
       return;
     }
-    this.form.patchValue({ pageNumber: Math.max(1, page.pageIndex - 1) });
-    this.loadPosts();
+    this.goToPage(Math.max(1, page.pageIndex - 1));
   }
 
   protected goToNext(): void {
@@ -498,8 +584,7 @@ export class DashboardPosts {
     if (!page?.hasNextPage) {
       return;
     }
-    this.form.patchValue({ pageNumber: page.pageIndex + 1 });
-    this.loadPosts();
+    this.goToPage(page.pageIndex + 1);
   }
 
   private currentListQuery(): PostsListQuery {

@@ -29,5 +29,22 @@ function getErrorDescription(errorBody: unknown): string | null {
     return errorBody.description;
   }
 
-  return typeof errorBody === 'string' ? errorBody : null;
+  if (typeof errorBody === 'string') {
+    const trimmed = errorBody.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return getErrorDescription(JSON.parse(trimmed));
+      } catch {
+        return trimmed;
+      }
+    }
+
+    return trimmed;
+  }
+
+  return null;
 }
