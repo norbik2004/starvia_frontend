@@ -71,27 +71,9 @@
   transition:
     background-color 0.2s ease,
     color 0.2s ease,
-    border-color 0.2s ease;
-}
-
-.btn--primary {
-  color: var(--mat-sys-on-primary);
-  background: var(--mat-sys-primary);
-}
-
-.btn--primary:hover {
-  background: color-mix(in srgb, var(--mat-sys-primary) 88%, var(--mat-sys-on-surface));
-}
-
-.btn--secondary {
-  color: var(--mat-sys-on-surface);
-  background: transparent;
-  border: 1px solid var(--border-muted);
-}
-
-.btn--secondary:hover {
-  border-color: var(--mat-sys-outline);
-  background: var(--mat-sys-surface-container);
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .btn:focus-visible {

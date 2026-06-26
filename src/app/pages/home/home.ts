@@ -3,18 +3,20 @@ import { Footer } from '../../layout/footer/footer';
 import { Header } from '../../layout/header/header';
 import { Hero } from '../../layout/hero/hero';
 import { Features } from '../../layout/features/features';
+import { PageRevealDirective } from '../../directives/page-reveal';
 
 @Component({
   selector: 'app-home-page',
-  imports: [Header, Hero, Features, Footer],
+  imports: [Header, Hero, Features, Footer, PageRevealDirective],
   styleUrl: './home.scss',
   template: `
-    <app-header />
-    <app-hero [title]="title" />
-    <main>
-      <app-features />
+    <div appPageReveal>
+      <app-header />
+      <app-hero [title]="title" />
+      <main>
+        <app-features />
 
-      <section id="about" class="page-section content-section content-section--after-features">
+        <section id="about" class="page-section content-section content-section--after-features">
         <div class="section-inner">
           <header class="section-header">
             <p class="section-eyebrow">About</p>
@@ -48,6 +50,7 @@ import { Features } from '../../layout/features/features';
       </section>
     </main>
     <app-footer />
+    </div>
   `,
 })
 export class HomePage {

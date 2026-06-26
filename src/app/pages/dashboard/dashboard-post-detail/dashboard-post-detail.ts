@@ -7,6 +7,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EMPTY, finalize, map, switchMap, catchError, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { toApplicationError } from '../../../models/application-error';
+import { DisplayDatetimePipe } from '../../../pipes/display-datetime';
 import {
   normalizePostTitle,
   normalizePostBody,
@@ -28,6 +29,8 @@ import {
 
 import { POST_BODY_EMOJIS } from '../shared/post-body-emojis';
 import { createTypewriter } from '../shared/typewriter-text';
+import { PageLoading } from '../../../components/page-loading/page-loading';
+import { PageRevealDirective } from '../../../directives/page-reveal';
 
 type EditableField = 'title' | 'body';
 
@@ -42,7 +45,7 @@ type PostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-detail',
-  imports: [RouterLink, DatePipe, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet],
+  imports: [RouterLink, DatePipe, DisplayDatetimePipe, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective],
   styleUrl: './dashboard-post-detail.scss',
   template: `
     <section class="dashboard-content-page post-detail" aria-labelledby="post-detail-title">
@@ -61,7 +64,7 @@ type PostForm = FormGroup<{
               <span class="post-detail__status-badge post-detail__status-badge--toolbar">{{ item.status }}</span>
               <p class="post-detail__meta post-detail__top-date">
                 <time [attr.datetime]="item.createdAt" class="post-detail__meta-date post-detail__meta-date--full">
-                  {{ item.createdAt | date: 'medium' }}
+                  {{ item.createdAt | displayDatetime }}
                 </time>
                 <time [attr.datetime]="item.createdAt" class="post-detail__meta-date post-detail__meta-date--short">
                   {{ item.createdAt | date: 'mediumDate' }}
@@ -92,7 +95,7 @@ type PostForm = FormGroup<{
           <span class="post-detail__status-badge post-detail__status-badge--title">{{ item.status }}</span>
 
           @if (editingField() === 'title') {
-            <div class="post-detail__edit-panel" [formGroup]="form">
+            <div class="dashboard-edit-panel" [formGroup]="form">
               <textarea
                 #titleInput
                 id="post-title"
@@ -104,8 +107,8 @@ type PostForm = FormGroup<{
                 aria-describedby="post-title-hint post-title-error"
                 (input)="onTitleInput()"
               ></textarea>
-              <div class="post-detail__edit-foot">
-                <p id="post-title-hint" class="post-detail__hint">
+              <div class="dashboard-edit-foot">
+                <p id="post-title-hint" class="dashboard-edit-hint">
                   {{ form.controls.title.value.length }}/{{ titleMaxLength }} · Esc to cancel
                 </p>
                 @if (form.controls.title.touched && form.controls.title.hasError('required')) {
@@ -123,7 +126,7 @@ type PostForm = FormGroup<{
             </div>
           } @else {
             <h1 id="post-detail-title" class="post-detail__title">
-              <span class="post-detail__title-text">{{ item.title || 'Untitled' }}</span>
+              <span class="dashboard-editable-text post-detail__title-text">{{ item.title || 'Untitled' }}</span>
               <ng-container
                 *ngTemplateOutlet="editIcon; context: { $implicit: 'title', label: 'Edit title' }"
               />
@@ -135,7 +138,7 @@ type PostForm = FormGroup<{
       </header>
 
       @if (isLoading()) {
-        <p class="posts-status" aria-live="polite">Loading post…</p>
+        <app-page-loading label="Loading post…" />
       }
 
       @if (errorMessage()) {
@@ -143,7 +146,7 @@ type PostForm = FormGroup<{
       }
 
       @if (post(); as item) {
-        <div class="post-detail__sections">
+        <div class="post-detail__sections" appPageReveal>
           @if (deleteConfirmOpen()) {
             <section
               #deleteConfirm
@@ -171,7 +174,7 @@ type PostForm = FormGroup<{
               <div class="post-detail__delete-confirm-actions">
                 <button
                   type="button"
-                  class="btn btn--secondary btn--compact"
+                  class="btn btn--raised-secondary btn--compact"
                   [disabled]="isDeleting()"
                   (click)="cancelDelete()"
                 >
@@ -334,9 +337,9 @@ type PostForm = FormGroup<{
 
             @if (editingField() === 'body' || geminiDraftActive()) {
               <div
-                class="post-detail__edit-panel"
-                [class.post-detail__edit-panel--ai-writing]="isGenerating() || isTyping()"
-                [class.post-detail__edit-panel--typing]="isTyping()"
+                class="dashboard-edit-panel"
+                [class.dashboard-edit-panel--ai-writing]="isGenerating() || isTyping()"
+                [class.dashboard-edit-panel--typing]="isTyping()"
                 [formGroup]="form"
               >
                 <div class="post-detail__body-editor">
@@ -381,12 +384,12 @@ type PostForm = FormGroup<{
                     (scroll)="syncBodyHighlightScroll()"
                   ></textarea>
                 </div>
-                <div class="post-detail__edit-foot">
-                  <div class="post-detail__edit-meta">
+                <div class="dashboard-edit-foot">
+                  <div class="dashboard-edit-meta">
                     <p
                       id="post-body-hint"
-                      class="post-detail__hint"
-                      [class.post-detail__hint--ai-writing]="isTyping()"
+                      class="dashboard-edit-hint"
+                      [class.dashboard-edit-hint--ai-writing]="isTyping()"
                       aria-live="polite"
                     >
                       @if (isTyping()) {
@@ -829,10 +832,10 @@ type PostForm = FormGroup<{
     </ng-template>
 
     <ng-template #editActions let-field let-control="control">
-      <div class="post-detail__inline-actions">
+      <div class="dashboard-inline-actions">
         <button
           type="button"
-          class="btn btn--primary btn--compact"
+          class="btn btn--raised-primary btn--compact"
           [disabled]="isSaving() || control.invalid || isGenerating() || isTyping()"
           (click)="saveField(field)"
         >
@@ -840,7 +843,7 @@ type PostForm = FormGroup<{
         </button>
         <button
           type="button"
-          class="btn btn--secondary btn--compact"
+          class="btn btn--raised-secondary btn--compact"
           [disabled]="isSaving() || isGenerating() || isTyping()"
           (click)="cancelEdit()"
         >

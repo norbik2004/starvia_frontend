@@ -14,7 +14,8 @@ const LINKS: readonly HeaderLink[] = [
   { id: 'contact', label: 'Contact' },
 ] as const;
 
-const SCROLL_STATE_THRESHOLD_PX = 12;
+const SCROLL_ON_THRESHOLD_PX = 24;
+const SCROLL_OFF_THRESHOLD_PX = 8;
 
 @Component({
   selector: 'app-header',
@@ -92,9 +93,9 @@ const SCROLL_STATE_THRESHOLD_PX = 12;
           </a>
         }
         @if (session.loggedIn()) {
-          <a [routerLink]="'/dashboard'" class="btn btn--secondary" (click)="closeMenu()">Dashboard</a>
+          <a [routerLink]="'/dashboard'" class="btn btn--raised-secondary" (click)="closeMenu()">Dashboard</a>
         } @else {
-          <a [routerLink]="actionRoute" class="btn btn--secondary" (click)="closeMenu()">
+          <a [routerLink]="actionRoute" class="btn btn--raised-secondary" (click)="closeMenu()">
             {{ actionLabel }}
           </a>
         }
@@ -126,12 +127,29 @@ export class Header implements OnDestroy {
   protected readonly headerHidden = signal(false);
 
   private lastScrollY = 0;
+  private scrollRafId = 0;
 
   private readonly onScroll = (): void => {
-    const scrollY = window.scrollY;
-    this.scrolled.set(scrollY > SCROLL_STATE_THRESHOLD_PX);
+    if (this.scrollRafId !== 0) {
+      return;
+    }
 
-    if (!this.shouldAutoHideOnScroll() || this.menuOpen() || scrollY <= SCROLL_STATE_THRESHOLD_PX) {
+    this.scrollRafId = requestAnimationFrame(() => {
+      this.scrollRafId = 0;
+      this.applyScrollState(window.scrollY);
+    });
+  };
+
+  private applyScrollState(scrollY: number): void {
+    const wasScrolled = this.scrolled();
+    const nextScrolled =
+      scrollY > SCROLL_ON_THRESHOLD_PX ? true : scrollY < SCROLL_OFF_THRESHOLD_PX ? false : wasScrolled;
+
+    if (nextScrolled !== wasScrolled) {
+      this.scrolled.set(nextScrolled);
+    }
+
+    if (!this.shouldAutoHideOnScroll() || this.menuOpen() || scrollY <= SCROLL_ON_THRESHOLD_PX) {
       this.headerHidden.set(false);
     } else if (scrollY > this.lastScrollY) {
       this.headerHidden.set(true);
@@ -140,20 +158,24 @@ export class Header implements OnDestroy {
     }
 
     this.lastScrollY = scrollY;
-  };
+  }
 
   constructor() {
-    this.onScroll();
+    this.applyScrollState(window.scrollY);
     window.addEventListener('scroll', this.onScroll, { passive: true });
     this.session.checkOnce().subscribe();
 
     this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
-      this.onScroll();
+      this.applyScrollState(window.scrollY);
     });
   }
 
   ngOnDestroy(): void {
     window.removeEventListener('scroll', this.onScroll);
+    if (this.scrollRafId !== 0) {
+      cancelAnimationFrame(this.scrollRafId);
+      this.scrollRafId = 0;
+    }
   }
 
   @HostListener('document:keydown.escape')

@@ -10,6 +10,7 @@ import {
   postsListQueryToParams,
   readPostsListQueryFromHistory,
 } from '../dashboard-posts/posts-list-query';
+import { PageRevealDirective } from '../../../directives/page-reveal';
 
 type CreatePostForm = FormGroup<{
   title: FormControl<string>;
@@ -17,10 +18,10 @@ type CreatePostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-create',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, PageRevealDirective],
   styleUrl: '../dashboard-post-detail/dashboard-post-detail.scss',
   template: `
-    <section class="dashboard-content-page post-detail" aria-labelledby="post-create-title">
+    <section class="dashboard-content-page post-detail" aria-labelledby="post-create-title" appPageReveal>
       <header class="post-detail__header">
         <div class="post-detail__top">
           <div class="post-detail__nav">
@@ -69,12 +70,12 @@ type CreatePostForm = FormGroup<{
                 </p>
               }
               <div class="post-detail__inline-actions">
-                <button type="submit" class="btn btn--primary btn--compact" [disabled]="isCreating() || form.invalid">
+                <button type="submit" class="btn btn--raised-primary btn--compact" [disabled]="isCreating() || form.invalid">
                   {{ isCreating() ? 'Creating…' : 'Create post' }}
                 </button>
                 <button
                   type="button"
-                  class="btn btn--secondary btn--compact"
+                  class="btn btn--raised-secondary btn--compact"
                   [disabled]="isCreating()"
                   (click)="cancel()"
                 >

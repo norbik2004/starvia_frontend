@@ -6,12 +6,13 @@
   --features-blue: color-mix(in srgb, var(--mat-sys-primary) 82%, white);
   --features-text: #fff;
   --features-text-muted: color-mix(in srgb, #fff 88%, var(--mat-sys-primary));
-  --features-surface: color-mix(in srgb, #fff 14%, transparent);
-  --features-surface-strong: color-mix(in srgb, #fff 22%, transparent);
+  --features-surface: color-mix(in srgb, #fff 18%, var(--mat-sys-primary));
+  --features-surface-strong: color-mix(in srgb, #fff 26%, var(--mat-sys-primary));
   --features-border: color-mix(in srgb, #fff 38%, transparent);
   position: relative;
   isolation: isolate;
   overflow: visible;
+  contain: layout style;
   padding: var(--section-gap) var(--container-padding);
   padding-bottom: calc(var(--section-gap) + clamp(1.5rem, 3vw, 2.25rem));
   background-color: color-mix(in srgb, var(--mat-sys-primary) 94%, #fff);
@@ -52,6 +53,8 @@
   max-width: var(--container-max);
   margin-inline: auto;
   min-width: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48rem;
 }
 
 .features .section-eyebrow {
@@ -74,8 +77,6 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--features-border);
   background: var(--features-surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 20px 48px color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
 }
 
@@ -193,8 +194,6 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--features-border);
   background: var(--features-surface);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 12px 32px color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
   transition:
     border-color 0.2s ease,

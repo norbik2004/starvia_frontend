@@ -1,0 +1,19 @@
+.page-loading {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: min(24rem, 50vh);
+  padding: var(--space-xl) var(--space-md);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.page-loading__label {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
+}

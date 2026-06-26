@@ -12,22 +12,22 @@
 @keyframes section-star-twinkle {
   0%,
   100% {
-    opacity: var(--star-opacity, 0.65);
+    scale: 1;
   }
 
   50% {
-    opacity: calc(var(--star-opacity, 0.65) * 0.55);
+    scale: 0.72;
   }
 }
 
 @keyframes section-star-blink {
   0%,
   100% {
-    opacity: calc(var(--star-opacity, 0.65) * 0.45);
+    scale: 1.15;
   }
 
   50% {
-    opacity: min(calc(var(--star-opacity, 0.65) * 1.5), 1);
+    scale: 1.55;
   }
 }
 
@@ -37,10 +37,11 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  contain: strict;
+  contain: layout style paint;
+  transform: translateZ(0);
 }
 
-.section-stars--idle .section-star {
+.section-stars-paused .section-star {
   animation-play-state: paused;
 }
 
@@ -52,7 +53,7 @@
   border-radius: 50%;
   background: #fff;
   opacity: var(--star-opacity, 0.65);
-  transform: scale(1);
+  scale: 1;
   animation:
     section-star-drift var(--drift-duration, 6s) ease-in-out infinite,
     section-star-twinkle var(--twinkle-duration, 3s) ease-in-out infinite;
@@ -60,7 +61,7 @@
 }
 
 .section-star--near {
-  transform: scale(1.4);
+  scale: 1.4;
   animation:
     section-star-drift var(--drift-duration, 6s) ease-in-out infinite,
     section-star-blink 0.5s ease-in-out infinite;
@@ -81,7 +82,7 @@
   }
 
   .section-star--near {
-    transform: scale(1.3);
+    scale: 1.3;
     opacity: min(calc(var(--star-opacity, 0.65) * 1.35), 1);
   }
 }

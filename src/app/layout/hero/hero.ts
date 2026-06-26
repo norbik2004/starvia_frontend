@@ -33,7 +33,6 @@ import { SectionStarsLayer } from '../shared/section-stars-layer';
           class="hero-stars"
           [stars]="stars"
           [nearIds]="starsInteraction.nearStarIds()"
-          [visible]="starsInteraction.visible()"
         />
       </div>
 
@@ -55,15 +54,15 @@ import { SectionStarsLayer } from '../shared/section-stars-layer';
             @if (showActions) {
               <div class="hero-actions">
                 @if (primaryActionRoute; as route) {
-                  <a [routerLink]="route" class="btn btn--primary">{{ primaryActionLabel }}</a>
+                  <a [routerLink]="route" class="btn btn--raised-primary">{{ primaryActionLabel }}</a>
                 } @else {
-                  <a [href]="primaryActionHref" class="btn btn--primary">{{ primaryActionLabel }}</a>
+                  <a [href]="primaryActionHref" class="btn btn--raised-primary">{{ primaryActionLabel }}</a>
                 }
 
                 @if (secondaryActionRoute; as route) {
-                  <a [routerLink]="route" class="btn btn--secondary">{{ secondaryActionLabel }}</a>
+                  <a [routerLink]="route" class="btn btn--raised-secondary">{{ secondaryActionLabel }}</a>
                 } @else if (secondaryActionHref; as href) {
-                  <a [href]="href" class="btn btn--secondary">{{ secondaryActionLabel }}</a>
+                  <a [href]="href" class="btn btn--raised-secondary">{{ secondaryActionLabel }}</a>
                 }
               </div>
             }

@@ -1,11 +1,15 @@
-import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, HostListener, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, take } from 'rxjs';
 import { toApplicationError } from '../../../models/application-error';
+import { DisplayDatetimePipe } from '../../../pipes/display-datetime';
 import { PLATFORM_TYPES, POST_SORT_BY_OPTIONS, POST_STATUSES, parseHashtagSegments, type PagedPostsResponse } from '../../../models/post';
 import { PostService } from '../../../services/post';
+import { DashboardPaginationPanel } from '../shared/dashboard-pagination-panel/dashboard-pagination-panel';
+import { toPaginationPage } from '../shared/pagination';
+import { PageLoading } from '../../../components/page-loading/page-loading';
+import { PageRevealDirective } from '../../../directives/page-reveal';
 import {
   DEFAULT_POSTS_LIST_QUERY,
   hasActiveFilters,
@@ -21,8 +25,6 @@ import {
 } from './posts-list-query';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
-
-type PaginationToken = { kind: 'page'; n: number } | { kind: 'gap' };
 
 type PostsForm = FormGroup<{
   pageNumber: FormControl<number>;
@@ -40,10 +42,11 @@ type PostsForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-posts',
-  imports: [ReactiveFormsModule, DatePipe, RouterLink],
+  imports: [ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardPaginationPanel, PageLoading, PageRevealDirective],
   styleUrl: './dashboard-posts.scss',
   template: `
     <section class="dashboard-content-page dashboard-posts" aria-labelledby="dashboard-posts-title">
+      <div appPageReveal>
       <div class="dashboard-posts__intro">
         <header class="dashboard-posts__header">
           <div class="dashboard-posts__header-row">
@@ -231,10 +234,10 @@ type PostsForm = FormGroup<{
           </div>
 
           <div class="posts-filters__actions">
-            <button type="submit" class="btn btn--primary" [disabled]="isLoading()">Apply filters</button>
+            <button type="submit" class="btn btn--raised-primary" [disabled]="isLoading()">Apply filters</button>
             <button
               type="button"
-              class="btn btn--secondary"
+              class="btn btn--raised-secondary"
               [disabled]="isLoading() || !filtersActive()"
               (click)="clearFilters()"
             >
@@ -247,20 +250,22 @@ type PostsForm = FormGroup<{
       @if (errorMessage()) {
         <p class="posts-status posts-status--error" role="alert">{{ errorMessage() }}</p>
       }
+      </div>
 
       @if (isLoading() && !result()) {
-        <p class="posts-status" aria-live="polite">Loading posts…</p>
+        <app-page-loading label="Loading posts…" />
       }
 
       @if (result(); as page) {
+        <div appPageReveal>
         @if (page.items.length === 0) {
           <p class="posts-status">
             {{ filtersActive() ? 'No posts match your filters.' : 'No posts yet.' }}
           </p>
         } @else {
-          <div class="posts-board" [class.posts-board--loading]="isLoading()">
-            <div class="posts-board__head">
-              <p class="posts-board__summary" aria-live="polite">
+          <div class="dashboard-list-board" [class.dashboard-list-board--loading]="isLoading()">
+            <div class="dashboard-list-board__head">
+              <p class="dashboard-list-board__summary" aria-live="polite">
                 Showing
                 <strong>{{ showingFrom(page) }}–{{ showingTo(page) }}</strong>
                 @if (page.totalPages > 0) {
@@ -268,7 +273,7 @@ type PostsForm = FormGroup<{
                 }
               </p>
             </div>
-            <ul class="posts-list">
+            <ul class="posts-list" appPageReveal [appPageRevealList]="true">
             @for (post of page.items; track post.id) {
               <li>
                 <a
@@ -302,7 +307,7 @@ type PostsForm = FormGroup<{
                   }
                   <div class="post-card__foot">
                     <p class="post-card__meta">
-                      <time [attr.datetime]="post.createdAt">{{ post.createdAt | date: 'medium' }}</time>
+                      <time [attr.datetime]="post.createdAt">{{ post.createdAt | displayDatetime }}</time>
                     </p>
                     <span class="post-card__open-hint" aria-hidden="true">
                       <span class="material-icons">arrow_forward</span>
@@ -314,78 +319,23 @@ type PostsForm = FormGroup<{
             </ul>
           </div>
         }
-      }
 
-      @if (result(); as page) {
-        <footer class="posts-footer" [formGroup]="form">
-          <div class="posts-footer__bar">
-            <div class="posts-footer__start">
-              <p class="posts-footer__range" aria-live="polite">
-                <span class="posts-footer__range-label">Showing</span>
-                <strong>{{ showingFrom(page) }}–{{ showingTo(page) }}</strong>
-              </p>
-
-              <div class="field field--compact field--inline posts-footer__page-size">
-                <label class="field__label" for="pageSize">Rows</label>
-                <select
-                  id="pageSize"
-                  class="field__input field__input--select"
-                  formControlName="pageSize"
-                  [disabled]="isLoading()"
-                  (change)="onPageSizeChange()"
-                >
-                  @for (size of pageSizeOptions; track size) {
-                    <option [value]="size">{{ size }}</option>
-                  }
-                </select>
-              </div>
-            </div>
-
-            @if (page.totalPages > 1) {
-              <nav class="posts-pager" aria-label="Posts pagination">
-                <button
-                  type="button"
-                  class="posts-pager__btn"
-                  aria-label="Previous page"
-                  [disabled]="isLoading() || !page.hasPreviousPage"
-                  (click)="goToPrevious()"
-                >
-                  <span class="material-icons" aria-hidden="true">chevron_left</span>
-                </button>
-
-                <div class="posts-pager__pages" role="group" aria-label="Page numbers">
-                  @for (token of paginationTokens(page); track $index) {
-                    @if (token.kind === 'gap') {
-                      <span class="posts-pager__gap" aria-hidden="true">…</span>
-                    } @else {
-                      <button
-                        type="button"
-                        class="posts-pager__page"
-                        [class.is-active]="token.n === page.pageIndex"
-                        [attr.aria-current]="token.n === page.pageIndex ? 'page' : null"
-                        [attr.aria-label]="'Page ' + token.n"
-                        [disabled]="isLoading() || token.n === page.pageIndex"
-                        (click)="goToPage(token.n)"
-                      >
-                        {{ token.n }}
-                      </button>
-                    }
-                  }
-                </div>
-
-                <button
-                  type="button"
-                  class="posts-pager__btn"
-                  aria-label="Next page"
-                  [disabled]="isLoading() || !page.hasNextPage"
-                  (click)="goToNext()"
-                >
-                  <span class="material-icons" aria-hidden="true">chevron_right</span>
-                </button>
-              </nav>
-            }
-          </div>
-        </footer>
+        @if (page.items.length > 0 || page.totalPages > 1) {
+          <app-dashboard-pagination-panel
+            [page]="toPaginationPage(page)"
+            [pageSize]="form.controls.pageSize.value"
+            [pageSizeOptions]="pageSizeOptions"
+            [disabled]="isLoading()"
+            ariaLabel="Posts pagination"
+            pageSizeLabel="Rows"
+            pageSizeSelectId="posts-page-size"
+            (pageChange)="goToPage($event)"
+            (pageSizeChange)="onPageSizeChange($event)"
+            (previous)="goToPrevious()"
+            (next)="goToNext()"
+          />
+        }
+        </div>
       }
     </section>
   `,
@@ -401,6 +351,7 @@ export class DashboardPosts {
   protected readonly platformTypes = PLATFORM_TYPES;
   protected readonly sortByOptions = POST_SORT_BY_OPTIONS;
   protected readonly hashtagSegments = parseHashtagSegments;
+  protected readonly toPaginationPage = toPaginationPage;
 
   protected readonly form: PostsForm = new FormGroup({
     pageNumber: new FormControl(1, {
@@ -487,8 +438,8 @@ export class DashboardPosts {
     this.closeFilters();
   }
 
-  protected onPageSizeChange(): void {
-    this.form.patchValue({ pageNumber: 1 });
+  protected onPageSizeChange(pageSize = this.form.controls.pageSize.value): void {
+    this.form.patchValue({ pageNumber: 1, pageSize });
     this.loadPosts();
   }
 
@@ -527,39 +478,6 @@ export class DashboardPosts {
 
   protected showingTo(page: PagedPostsResponse): number {
     return this.showingFrom(page) + page.items.length - 1;
-  }
-
-  protected paginationTokens(page: PagedPostsResponse): PaginationToken[] {
-    const total = page.totalPages;
-    const current = page.pageIndex;
-    if (total <= 1) {
-      return [];
-    }
-
-    if (total <= 7) {
-      return Array.from({ length: total }, (_, index) => ({ kind: 'page', n: index + 1 }));
-    }
-
-    const pages = new Set<number>([1, total, current]);
-    if (current > 1) {
-      pages.add(current - 1);
-    }
-    if (current < total) {
-      pages.add(current + 1);
-    }
-
-    const sorted = [...pages].sort((a, b) => a - b);
-    const tokens: PaginationToken[] = [];
-
-    for (let index = 0; index < sorted.length; index++) {
-      const pageNumber = sorted[index];
-      if (index > 0 && pageNumber - sorted[index - 1] > 1) {
-        tokens.push({ kind: 'gap' });
-      }
-      tokens.push({ kind: 'page', n: pageNumber });
-    }
-
-    return tokens;
   }
 
   protected goToPage(pageNumber: number): void {

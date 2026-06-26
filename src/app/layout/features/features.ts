@@ -6,7 +6,7 @@ import {
   OnDestroy,
   inject,
 } from '@angular/core';
-import { createSectionStars } from '../shared/section-stars';
+import { createFeaturesStars } from '../shared/section-stars';
 import { createSectionStarsInteraction } from '../shared/section-stars-pointer';
 import { SectionStarsLayer } from '../shared/section-stars-layer';
 
@@ -63,7 +63,6 @@ const FEATURES_ZIGZAG_FILL =
       <app-section-stars-layer
         [stars]="stars"
         [nearIds]="starsInteraction.nearStarIds()"
-        [visible]="starsInteraction.visible()"
       />
 
       <div class="section-inner">
@@ -141,7 +140,7 @@ export class Features implements AfterViewInit, OnDestroy {
 
   protected readonly aiBenefits = AI_BENEFITS;
   protected readonly supportingFeatures = SUPPORTING_FEATURES;
-  protected readonly stars = createSectionStars();
+  protected readonly stars = createFeaturesStars();
   protected readonly zigzagFill = FEATURES_ZIGZAG_FILL;
   protected readonly starsInteraction = createSectionStarsInteraction(this.stars);
 

@@ -34,6 +34,8 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
   { label: 'Posts', route: '/dashboard/posts' },
 
+  { label: 'Media', route: '/dashboard/media' },
+
   { label: 'Prompts', route: '/dashboard/prompts' },
 
 ] as const;

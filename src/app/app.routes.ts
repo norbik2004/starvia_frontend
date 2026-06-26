@@ -4,10 +4,12 @@ import { DashboardAccount } from './pages/dashboard/dashboard-account/dashboard-
 import { DashboardOverview } from './pages/dashboard/dashboard-overview/dashboard-overview';
 import { DashboardPostCreate } from './pages/dashboard/dashboard-post-create/dashboard-post-create';
 import { DashboardPostDetail } from './pages/dashboard/dashboard-post-detail/dashboard-post-detail';
+import { DashboardMedia } from './pages/dashboard/dashboard-media/dashboard-media';
 import { DashboardPosts } from './pages/dashboard/dashboard-posts/dashboard-posts';
 import { DashboardPage } from './pages/dashboard/dashboard';
 import { HomePage } from './pages/home/home';
 import { LoginPage } from './pages/login/login';
+import { NotFoundPage } from './pages/not-found/not-found';
 import { RegisterPage } from './pages/register/register';
 
 export const routes: Routes = [
@@ -42,6 +44,10 @@ export const routes: Routes = [
         component: DashboardPosts,
       },
       {
+        path: 'media',
+        component: DashboardMedia,
+      },
+      {
         path: 'posts/new',
         component: DashboardPostCreate,
       },
@@ -53,10 +59,18 @@ export const routes: Routes = [
         path: 'account',
         component: DashboardAccount,
       },
+      {
+        path: '**',
+        redirectTo: '/404',
+      },
     ],
   },
   {
+    path: '404',
+    component: NotFoundPage,
+  },
+  {
     path: '**',
-    redirectTo: '',
+    component: NotFoundPage,
   },
 ];

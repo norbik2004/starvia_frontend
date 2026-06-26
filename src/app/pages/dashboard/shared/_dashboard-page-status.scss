@@ -1,0 +1,6 @@
+@use '../dashboard-content-shell' as shell;
+
+.posts-status {
+  @include shell.posts-status;
+  flex: 0 0 auto;
+}

@@ -7,6 +7,7 @@ import { Hero } from '../../layout/hero/hero';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
 import { SessionService } from '../../services/session';
+import { PageRevealDirective } from '../../directives/page-reveal';
 
 type LoginForm = FormGroup<{
   email: FormControl<string>;
@@ -15,10 +16,11 @@ type LoginForm = FormGroup<{
 
 @Component({
   selector: 'app-login-page',
-  imports: [ReactiveFormsModule, RouterLink, Header, Hero],
+  imports: [ReactiveFormsModule, RouterLink, Header, Hero, PageRevealDirective],
   styleUrl: './login.scss',
   template: `
-    <app-header
+    <div appPageReveal>
+      <app-header
       [links]="[]"
       actionLabel="Back home"
       actionRoute="/"
@@ -77,7 +79,7 @@ type LoginForm = FormGroup<{
           </div>
 
           <div class="auth-actions">
-            <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
+            <button type="submit" class="btn btn--raised-primary submit-btn" [disabled]="isSubmitting()">
               {{ isSubmitting() ? 'Logging in...' : 'Log in' }}
             </button>
           </div>
@@ -96,6 +98,7 @@ type LoginForm = FormGroup<{
         </form>
       </div>
     </app-hero>
+    </div>
   `,
 })
 export class LoginPage {

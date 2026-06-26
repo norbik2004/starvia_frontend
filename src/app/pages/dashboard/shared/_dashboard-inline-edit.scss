@@ -1,0 +1,101 @@
+@use '../../../../styles/auth-page' as auth;
+
+.dashboard-editable-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboard-editable-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.dashboard-edit-panel {
+  @include auth.auth-form;
+
+  display: grid;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-md);
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, var(--mat-sys-primary) 8%);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--mat-sys-surface) 96%, var(--mat-sys-surface-container-low));
+
+  .field__input {
+    min-height: 2.25rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .btn--compact {
+    min-width: 4.75rem;
+    min-height: 0;
+    padding: 0.35rem 1rem;
+    border-radius: var(--radius-md);
+    font-size: var(--text-body-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+  }
+
+  &--compact {
+    padding: var(--space-sm);
+  }
+}
+
+.dashboard-edit-panel .field__input.field__input--title {
+  height: calc(2 * 1.15 * 1em + 0.9rem + 2px);
+  min-height: 0;
+  max-height: calc(3 * 1.15 * 1em + 0.9rem + 2px);
+  font-size: clamp(1.375rem, 4vw, 1.75rem);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  resize: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dashboard-edit-panel .field__input.field__input--inline-title {
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-snug);
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dashboard-edit-foot {
+  display: grid;
+  gap: var(--space-xs);
+  overflow: visible;
+}
+
+.dashboard-edit-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.dashboard-edit-hint {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: var(--text-eyebrow);
+}
+
+.dashboard-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}

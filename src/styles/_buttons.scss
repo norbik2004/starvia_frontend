@@ -1,0 +1,62 @@
+// Raised button variants — gradient primary + frosted secondary
+
+.btn--raised-primary {
+  min-height: 2.875rem;
+  padding-inline: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
+  color: var(--mat-sys-on-primary);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--mat-sys-primary) 88%, #fff),
+    var(--mat-sys-primary)
+  );
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--mat-sys-primary) 24%, transparent);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+    box-shadow: none;
+  }
+}
+
+.btn--raised-secondary {
+  min-height: 2.875rem;
+  padding-inline: 1.25rem;
+  border: 2px solid color-mix(in srgb, var(--mat-sys-primary) 36%, var(--border-muted));
+  background: color-mix(in srgb, var(--mat-sys-surface) 75%, transparent);
+  color: var(--mat-sys-on-surface);
+  backdrop-filter: blur(8px);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--mat-sys-primary);
+    background: color-mix(in srgb, var(--mat-sys-surface) 92%, transparent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn--raised-primary:hover:not(:disabled),
+  .btn--raised-secondary:hover:not(:disabled) {
+    transform: none;
+  }
+}

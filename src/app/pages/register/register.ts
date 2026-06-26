@@ -14,6 +14,7 @@ import { Header } from '../../layout/header/header';
 import { Hero } from '../../layout/hero/hero';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
+import { PageRevealDirective } from '../../directives/page-reveal';
 
 type RegisterForm = FormGroup<{
   userName: FormControl<string>;
@@ -37,10 +38,11 @@ const passwordsMatchValidator: ValidatorFn = (
 
 @Component({
   selector: 'app-register-page',
-  imports: [ReactiveFormsModule, RouterLink, Header, Hero],
+  imports: [ReactiveFormsModule, RouterLink, Header, Hero, PageRevealDirective],
   styleUrl: './register.scss',
   template: `
-    <app-header
+    <div appPageReveal>
+      <app-header
       [links]="[]"
       actionLabel="Back home"
       actionRoute="/"
@@ -134,7 +136,7 @@ const passwordsMatchValidator: ValidatorFn = (
             </div>
           </div>
 
-          <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
+          <button type="submit" class="btn btn--raised-primary submit-btn" [disabled]="isSubmitting()">
             {{ isSubmitting() ? 'Creating account...' : 'Create account' }}
           </button>
 
@@ -153,6 +155,7 @@ const passwordsMatchValidator: ValidatorFn = (
         </form>
       </div>
     </app-hero>
+    </div>
   `,
 })
 export class RegisterPage {

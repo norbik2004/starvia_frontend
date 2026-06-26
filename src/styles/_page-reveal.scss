@@ -1,0 +1,66 @@
+@mixin page-reveal-keyframes {
+  @keyframes page-reveal-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes page-reveal-list-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.985);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+@include page-reveal-keyframes;
+
+.page-reveal > * {
+  opacity: 0;
+  transform: translateY(0.75rem);
+}
+
+.page-reveal--ready > * {
+  animation: page-reveal-in 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@for $i from 1 through 24 {
+  .page-reveal--ready > *:nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 70ms};
+  }
+}
+
+.page-reveal-list > * {
+  opacity: 0;
+  transform: translateY(0.5rem) scale(0.985);
+}
+
+.page-reveal-list--ready > * {
+  animation: page-reveal-list-in 460ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@for $i from 1 through 48 {
+  .page-reveal-list--ready > *:nth-child(#{$i}) {
+    animation-delay: #{60ms + ($i - 1) * 42ms};
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-reveal > *,
+  .page-reveal-list > * {
+    opacity: 1;
+    transform: none;
+    animation: none !important;
+  }
+}

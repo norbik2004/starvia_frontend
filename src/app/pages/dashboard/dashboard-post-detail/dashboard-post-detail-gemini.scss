@@ -1236,7 +1236,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 }
 
-.post-detail__edit-panel {
+.dashboard-edit-panel {
   &--ai-writing {
     border-color: color-mix(in srgb, $gemini-green 28%, var(--border-subtle));
     background: color-mix(in srgb, $gemini-green 3%, var(--mat-sys-surface));
@@ -1325,7 +1325,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 }
 
-.post-detail__hint--ai-writing {
+.dashboard-edit-hint--ai-writing {
   min-height: 1.25rem;
 }
 
@@ -1590,8 +1590,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   .gemini-chatbot__message,
   .gemini-chatbot__thinking-dots span,
   .post-detail__gemini-btn--busy .post-detail__gemini-btn-icon .material-icons,
-  .post-detail__edit-panel--ai-writing,
-  .post-detail__edit-panel--typing .post-detail__body-editor::after,
+  .dashboard-edit-panel--ai-writing,
+  .dashboard-edit-panel--typing .post-detail__body-editor::after,
   .post-detail__ai-writing-hint__text,
   .post-detail__ai-writing-hint__dots span,
   .gemini-prompt-send:hover:not(:disabled) {

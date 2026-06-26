@@ -1,0 +1,28 @@
+@use '../dashboard-content-shell' as shell;
+
+.dashboard-list-board {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding-block: 0;
+  transition: opacity 0.2s ease;
+
+  &--loading {
+    opacity: 0.62;
+    pointer-events: none;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    min-height: 1.75rem;
+  }
+
+  &__summary {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    @include shell.meta-strong;
+  }
+}

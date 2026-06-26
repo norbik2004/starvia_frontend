@@ -5,13 +5,88 @@ const HOVER_CAPABLE =
   typeof matchMedia !== 'undefined' && matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 const POINTER_MOVE_EPSILON_SQ = 16;
+const SCROLL_IDLE_MS = 140;
+const SECTION_STARS_PAUSED_CLASS = 'section-stars-paused';
+
+type SectionBinding = {
+  el: HTMLElement;
+  isIntersecting: boolean;
+};
+
+let scrollListenerCount = 0;
+let scrollEndTimer = 0;
+let isScrolling = false;
+const boundSections = new Map<HTMLElement, SectionBinding>();
+const scrollClearCallbacks = new Set<() => void>();
+
+function syncSectionPaused(binding: SectionBinding): void {
+  binding.el.classList.toggle(
+    SECTION_STARS_PAUSED_CLASS,
+    !binding.isIntersecting || isScrolling
+  );
+}
+
+function syncAllSectionsPaused(): void {
+  for (const binding of boundSections.values()) {
+    syncSectionPaused(binding);
+  }
+}
+
+function onGlobalScroll(): void {
+  if (!isScrolling) {
+    isScrolling = true;
+    syncAllSectionsPaused();
+    for (const clear of scrollClearCallbacks) {
+      clear();
+    }
+  }
+
+  window.clearTimeout(scrollEndTimer);
+  scrollEndTimer = window.setTimeout(() => {
+    isScrolling = false;
+    syncAllSectionsPaused();
+  }, SCROLL_IDLE_MS);
+}
+
+function registerScrollPause(el: HTMLElement): void {
+  boundSections.set(el, { el, isIntersecting: true });
+  syncSectionPaused(boundSections.get(el)!);
+
+  if (scrollListenerCount === 0) {
+    window.addEventListener('scroll', onGlobalScroll, { passive: true, capture: true });
+  }
+
+  scrollListenerCount++;
+}
+
+function unregisterScrollPause(el: HTMLElement): void {
+  boundSections.delete(el);
+  el.classList.remove(SECTION_STARS_PAUSED_CLASS);
+
+  scrollListenerCount = Math.max(0, scrollListenerCount - 1);
+  if (scrollListenerCount === 0) {
+    window.clearTimeout(scrollEndTimer);
+    scrollEndTimer = 0;
+    isScrolling = false;
+    window.removeEventListener('scroll', onGlobalScroll, { capture: true });
+  }
+}
+
+function setSectionIntersecting(el: HTMLElement, intersecting: boolean): void {
+  const binding = boundSections.get(el);
+  if (!binding) {
+    return;
+  }
+
+  binding.isIntersecting = intersecting;
+  syncSectionPaused(binding);
+}
 
 export function createSectionStarsInteraction(
   stars: readonly SectionStar[] | (() => readonly SectionStar[])
 ) {
   const getStars = typeof stars === 'function' ? stars : () => stars;
   const nearStarIds = signal<ReadonlySet<number>>(new Set());
-  const visible = signal(true);
 
   let rafId = 0;
   let pendingEvent: MouseEvent | null = null;
@@ -20,12 +95,29 @@ export function createSectionStarsInteraction(
   let lastClientX = 0;
   let lastClientY = 0;
 
+  function isSectionVisible(): boolean {
+    if (!sectionEl) {
+      return false;
+    }
+
+    const binding = boundSections.get(sectionEl);
+    return Boolean(binding?.isIntersecting && !isScrolling);
+  }
+
+  function clearNearStars(): void {
+    if (nearStarIds().size === 0) {
+      return;
+    }
+
+    nearStarIds.set(new Set());
+  }
+
   function flushPointerUpdate(): void {
     rafId = 0;
     const event = pendingEvent;
     pendingEvent = null;
 
-    if (!event || !sectionEl) {
+    if (!event || !sectionEl || isScrolling) {
       return;
     }
 
@@ -51,7 +143,7 @@ export function createSectionStarsInteraction(
   }
 
   function onPointerMove(event: MouseEvent): void {
-    if (!HOVER_CAPABLE || !visible()) {
+    if (!HOVER_CAPABLE || !isSectionVisible()) {
       return;
     }
 
@@ -82,11 +174,7 @@ export function createSectionStarsInteraction(
       rafId = 0;
     }
 
-    if (nearStarIds().size === 0) {
-      return;
-    }
-
-    nearStarIds.set(new Set());
+    clearNearStars();
   }
 
   function attach(section: HTMLElement): void {
@@ -96,16 +184,18 @@ export function createSectionStarsInteraction(
 
     destroyObservers();
     sectionEl = section;
+    scrollClearCallbacks.add(clearNearStars);
+    registerScrollPause(section);
 
     if (typeof IntersectionObserver !== 'undefined') {
       intersectionObserver = new IntersectionObserver(
         ([entry]) => {
-          visible.set(entry.isIntersecting);
-          if (!entry.isIntersecting && nearStarIds().size > 0) {
-            nearStarIds.set(new Set());
+          setSectionIntersecting(section, entry.isIntersecting);
+          if (!entry.isIntersecting) {
+            clearNearStars();
           }
         },
-        { rootMargin: '10% 0px' }
+        { rootMargin: '15% 0px', threshold: 0 }
       );
       intersectionObserver.observe(section);
     }
@@ -118,6 +208,11 @@ export function createSectionStarsInteraction(
       rafId = 0;
     }
 
+    if (sectionEl) {
+      scrollClearCallbacks.delete(clearNearStars);
+      unregisterScrollPause(sectionEl);
+    }
+
     intersectionObserver?.disconnect();
     intersectionObserver = null;
     sectionEl = null;
@@ -126,14 +221,12 @@ export function createSectionStarsInteraction(
   function destroy(): void {
     destroyObservers();
     nearStarIds.set(new Set());
-    visible.set(true);
     lastClientX = 0;
     lastClientY = 0;
   }
 
   return {
     nearStarIds,
-    visible,
     attach,
     onPointerMove,
     onPointerLeave,

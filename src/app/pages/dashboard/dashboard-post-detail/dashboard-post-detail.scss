@@ -1,5 +1,6 @@
 ﻿@use '../../../../styles/auth-page' as auth;
 @use '../dashboard-content-shell' as shell;
+@use '../shared/dashboard-inline-edit';
 
 @use './dashboard-post-detail-gemini';
 
@@ -282,11 +283,10 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
 }
 
 .post-detail__title-text {
-  flex: 1 1 auto;
-  min-width: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   text-wrap: pretty;
+  user-select: text;
 }
 
 .post-detail__title .edit-icon {
@@ -404,33 +404,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   border: 1px solid color-mix(in srgb, var(--border-subtle) 65%, transparent);
 }
 
-.post-detail__edit-panel {
-  @include auth.auth-form;
-
-  display: grid;
-  gap: var(--space-xs);
-  width: 100%;
-  padding: var(--space-md);
-  overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, var(--mat-sys-primary) 8%);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--mat-sys-surface) 96%, var(--mat-sys-surface-container-low));
-
-  .field__input {
-    min-height: 2.25rem;
-    padding: 0.45rem 0.65rem;
-  }
-
-  .btn--compact {
-    min-width: 4.75rem;
-    min-height: 0;
-    padding: 0.35rem 1rem;
-    border-radius: var(--radius-md);
-    font-size: var(--text-body-sm);
-    font-weight: var(--font-weight-semibold);
-    line-height: 1.2;
-  }
-
+.dashboard-edit-panel {
   &.post-detail__three-quarters {
     width: 100%;
     max-width: 100%;
@@ -461,19 +435,6 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     border-color: transparent;
     background: transparent;
   }
-}
-
-.post-detail__edit-foot {
-  display: grid;
-  gap: var(--space-xs);
-  overflow: visible;
-}
-
-.post-detail__edit-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-xs);
 }
 
 .post-detail__emoji-anchor {
@@ -585,31 +546,6 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     outline: 2px solid var(--mat-sys-primary);
     outline-offset: 1px;
   }
-}
-
-.post-detail__inline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.post-detail__hint {
-  margin: 0;
-  color: var(--mat-sys-on-surface-variant);
-  font-size: var(--text-eyebrow);
-}
-
-.post-detail__edit-panel .field__input.field__input--title {
-  height: calc(2 * 1.15 * 1em + 0.9rem + 2px);
-  min-height: 0;
-  max-height: calc(3 * 1.15 * 1em + 0.9rem + 2px);
-  font-size: clamp(1.375rem, 4vw, 1.75rem);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  resize: none;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .field__input--body {

@@ -41,6 +41,17 @@ const HERO_CONFIG: SectionStarsConfig = {
   sizeMax: 4.2,
 };
 
+const FEATURES_CONFIG: SectionStarsConfig = {
+  gridCols: 7,
+  gridRows: 8,
+  skipProbability: 0.86,
+  extraCount: 8,
+  minY: 0,
+  maxY: 100,
+  sizeMin: 2.2,
+  sizeMax: 3.6,
+};
+
 function createStar(
   id: number,
   x: number,
@@ -145,6 +156,10 @@ export function createSectionStars(config: Partial<SectionStarsConfig> = {}): Se
 
 export function createHeroStars(): SectionStar[] {
   return createSectionStars(HERO_CONFIG);
+}
+
+export function createFeaturesStars(): SectionStar[] {
+  return createSectionStars(FEATURES_CONFIG);
 }
 
 export function getNearStarIds(

@@ -5,19 +5,22 @@ import { toApplicationError } from '../../../models/application-error';
 import type { UserAccount } from '../../../models/user-account';
 import { AuthService } from '../../../services/auth';
 import { SessionService } from '../../../services/session';
+import { PageLoading } from '../../../components/page-loading/page-loading';
+import { PageRevealDirective } from '../../../directives/page-reveal';
 
 @Component({
   selector: 'app-dashboard-account',
+  imports: [PageLoading, PageRevealDirective],
   styleUrl: './dashboard-account.scss',
   template: `
     <section class="dashboard-account" aria-labelledby="dashboard-account-title">
-      <header class="dashboard-account__header">
+      <header class="dashboard-account__header" appPageReveal>
         <p class="section-eyebrow dashboard-account__eyebrow">Settings</p>
         <h1 id="dashboard-account-title" class="dashboard-account__title">Account</h1>
       </header>
 
       @if (isLoading()) {
-        <p class="dashboard-account__status" aria-live="polite">Loading account…</p>
+        <app-page-loading label="Loading account…" />
       }
 
       @if (errorMessage()) {
@@ -27,6 +30,7 @@ import { SessionService } from '../../../services/session';
       }
 
       @if (account(); as profile) {
+        <div appPageReveal>
         <div class="dashboard-account__card">
           <dl class="dashboard-account__details">
             <div class="dashboard-account__detail">
@@ -39,18 +43,19 @@ import { SessionService } from '../../../services/session';
             </div>
           </dl>
         </div>
-      }
 
       <div class="dashboard-account__actions">
         <button
           type="button"
-          class="btn btn--secondary"
+          class="btn btn--raised-secondary"
           [disabled]="isLoggingOut()"
           (click)="logout()"
         >
           {{ isLoggingOut() ? 'Logging out…' : 'Log out' }}
         </button>
       </div>
+        </div>
+      }
     </section>
   `,
 })
