@@ -4,10 +4,6 @@
 
 @use './dashboard-post-detail-gemini';
 
-$delete-red: #c62828;
-$delete-red-hover: #b71c1c;
-$delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
-
 :host {
   display: flex;
   flex-direction: column;
@@ -37,6 +33,16 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   display: grid;
   gap: var(--space-lg);
   width: 100%;
+}
+
+.post-detail__content {
+  display: grid;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.post-detail__content-label {
+  margin: 0;
 }
 
 .post-detail__header-row {
@@ -89,173 +95,6 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
 
   &:empty {
     visibility: hidden;
-  }
-}
-
-.post-detail__delete-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, $delete-red 28%, var(--border-subtle));
-  border-radius: var(--radius-md);
-  background: $delete-red-soft;
-  color: $delete-red;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.15s ease,
-    box-shadow 0.2s ease;
-
-  .material-icons {
-    font-size: 1.375rem;
-  }
-
-  &:hover:not(:disabled) {
-    color: #fff;
-    border-color: $delete-red;
-    background: $delete-red;
-    box-shadow: 0 4px 14px color-mix(in srgb, $delete-red 28%, transparent);
-  }
-
-  &:focus-visible {
-    outline: 2px solid $delete-red;
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  &--active {
-    color: #fff;
-    border-color: $delete-red;
-    background: $delete-red;
-    box-shadow: 0 4px 14px color-mix(in srgb, $delete-red 28%, transparent);
-  }
-}
-
-.post-detail__delete-confirm {
-  @include shell.surface-card;
-
-  display: grid;
-  gap: var(--space-md);
-  width: 100%;
-  padding: var(--space-lg) var(--space-xl);
-  border-color: color-mix(in srgb, $delete-red 24%, var(--border-subtle));
-  background: color-mix(in srgb, $delete-red 4%, var(--mat-sys-surface));
-  box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 35%, transparent) inset,
-    0 10px 28px -18px color-mix(in srgb, $delete-red 28%, transparent);
-  animation: post-detail-delete-confirm-in 0.22s ease-out;
-
-  .btn--compact {
-    min-width: 5.5rem;
-    min-height: 2.25rem;
-    padding: 0.45rem 1rem;
-    border-radius: var(--radius-md);
-    font-size: var(--text-body-sm);
-    font-weight: var(--font-weight-semibold);
-    line-height: 1.2;
-  }
-}
-
-.post-detail__delete-confirm-main {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  min-width: 0;
-}
-
-.post-detail__delete-confirm-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, $delete-red 22%, transparent);
-  background: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
-  color: $delete-red;
-
-  .material-icons {
-    font-size: 1.375rem;
-  }
-}
-
-.post-detail__delete-confirm-copy {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-.post-detail__delete-confirm-eyebrow {
-  margin: 0;
-  font-size: var(--text-eyebrow);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  color: $delete-red;
-}
-
-.post-detail__delete-confirm-title {
-  margin: 0;
-  font-size: clamp(1.05rem, 1.8vw, 1.2rem);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-snug);
-  color: var(--mat-sys-on-surface);
-  overflow-wrap: anywhere;
-}
-
-.post-detail__delete-confirm-desc {
-  margin: 0;
-  max-width: 42rem;
-  font-size: var(--text-body-sm);
-  line-height: var(--leading-body);
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.post-detail__delete-confirm-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  padding-top: var(--space-md);
-  border-top: 1px solid color-mix(in srgb, $delete-red 14%, var(--border-subtle));
-}
-
-.btn--danger {
-  color: #fff;
-  background: $delete-red;
-  border: 1px solid $delete-red;
-
-  &:hover:not(:disabled) {
-    background: $delete-red-hover;
-    border-color: $delete-red-hover;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
-
-@keyframes post-detail-delete-confirm-in {
-  from {
-    opacity: 0;
-    transform: translateY(-0.35rem);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -676,13 +515,12 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     margin-top: 0.35rem;
   }
 
-  .post-detail__delete-btn {
-    width: 2.75rem;
-    height: 2.75rem;
-  }
-
   .post-detail__card {
     padding: var(--space-md);
+  }
+
+  .post-detail__content {
+    gap: var(--space-xs);
   }
 
   .post-detail__card-head--row {
@@ -697,29 +535,5 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     .material-icons.edit-icon__glyph {
       font-size: 1.375rem;
     }
-  }
-
-  .post-detail__delete-confirm {
-    padding: var(--space-md);
-  }
-
-  .post-detail__delete-confirm-main {
-    gap: var(--space-sm);
-  }
-
-  .post-detail__delete-confirm-actions {
-    justify-content: stretch;
-
-    .btn--compact {
-      flex: 1 1 calc(50% - 0.25rem);
-      min-width: 0;
-    }
-  }
-}
-
-
-@media (prefers-reduced-motion: reduce) {
-  .post-detail__delete-confirm {
-    animation: none;
   }
 }

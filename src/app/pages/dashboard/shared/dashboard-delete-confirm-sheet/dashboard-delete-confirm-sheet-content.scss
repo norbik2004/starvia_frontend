@@ -1,0 +1,178 @@
+$delete-red: #c62828;
+$keep-green: #2e7d32;
+$btn-surface: #fff;
+
+@mixin delete-sheet-btn-invert($background, $foreground) {
+  background-color: $background;
+  border-color: $foreground;
+  color: $foreground;
+
+  &:hover:not(:disabled) {
+    background-color: $foreground;
+    border-color: $foreground;
+    color: $background;
+  }
+}
+
+.dashboard-delete-sheet-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mat-sys-primary) 65%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  &--keep {
+    @include delete-sheet-btn-invert($btn-surface, $keep-green);
+
+    &:hover:not(:disabled) {
+      box-shadow: 0 4px 14px color-mix(in srgb, $keep-green 22%, transparent);
+    }
+  }
+
+  &--delete {
+    background-color: $delete-red;
+    border-color: $delete-red;
+    color: $btn-surface;
+
+    &:hover:not(:disabled) {
+      background-color: $btn-surface;
+      border-color: $delete-red;
+      color: $delete-red;
+      box-shadow: 0 6px 18px color-mix(in srgb, $delete-red 22%, transparent);
+    }
+  }
+}
+
+.dashboard-delete-sheet-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  width: 100%;
+  min-height: 4.75rem;
+  padding: var(--space-md) var(--space-lg);
+  box-sizing: border-box;
+
+  &__lead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid $delete-red;
+    border-radius: var(--radius-md);
+    background: $btn-surface;
+    color: $delete-red;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+
+    .material-icons {
+      font-size: 1.375rem;
+    }
+
+    &:hover {
+      background: $delete-red;
+      border-color: $delete-red;
+      color: $btn-surface;
+    }
+  }
+
+  &__copy {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    min-width: 0;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $delete-red;
+    white-space: nowrap;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--leading-snug);
+    letter-spacing: var(--tracking-tight);
+    color: var(--mat-sys-on-surface);
+    overflow-wrap: anywhere;
+  }
+
+  &__desc {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: var(--text-body-sm);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  &__actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+}
+
+@media (max-width: 40rem) {
+  .dashboard-delete-sheet-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
+
+    &__actions {
+      justify-content: stretch;
+
+      .dashboard-delete-sheet-btn {
+        flex: 1 1 calc(50% - 0.25rem);
+        min-width: 0;
+      }
+    }
+  }
+}

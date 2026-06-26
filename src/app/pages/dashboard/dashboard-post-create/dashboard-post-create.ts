@@ -45,7 +45,7 @@ type CreatePostForm = FormGroup<{
       <form class="post-detail__sections" [formGroup]="form" (ngSubmit)="submit()">
         <section class="post-detail__content" aria-labelledby="post-create-title-label">
           <p id="post-create-title-label" class="section-eyebrow post-detail__content-label">Title</p>
-          <div class="post-detail__edit-panel post-detail__three-quarters">
+          <div class="dashboard-edit-panel post-detail__three-quarters">
             <textarea
               #titleInput
               id="create-post-title"
@@ -57,8 +57,8 @@ type CreatePostForm = FormGroup<{
               aria-describedby="create-post-title-hint create-post-title-error"
               (input)="onTitleInput()"
             ></textarea>
-            <div class="post-detail__edit-foot">
-              <p id="create-post-title-hint" class="post-detail__hint">
+            <div class="dashboard-edit-foot">
+              <p id="create-post-title-hint" class="dashboard-edit-hint">
                 {{ form.controls.title.value.length }}/{{ titleMaxLength }}
               </p>
               @if (form.controls.title.touched && form.controls.title.hasError('required')) {
@@ -69,7 +69,7 @@ type CreatePostForm = FormGroup<{
                   Title cannot exceed {{ titleMaxLength }} characters.
                 </p>
               }
-              <div class="post-detail__inline-actions">
+              <div class="dashboard-inline-actions">
                 <button type="submit" class="btn btn--raised-primary btn--compact" [disabled]="isCreating() || form.invalid">
                   {{ isCreating() ? 'Creating…' : 'Create post' }}
                 </button>

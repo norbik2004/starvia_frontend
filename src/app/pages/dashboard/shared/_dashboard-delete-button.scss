@@ -1,0 +1,84 @@
+$delete-red: #c62828;
+$delete-red-hover: #b71c1c;
+$delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
+
+.dashboard-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, $delete-red 28%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: $delete-red-soft;
+  color: $delete-red;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+
+  .material-icons {
+    font-size: 1.375rem;
+  }
+
+  &:hover:not(:disabled) {
+    color: #fff;
+    border-color: $delete-red;
+    background: $delete-red;
+    box-shadow: 0 4px 14px color-mix(in srgb, $delete-red 28%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $delete-red;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &--active {
+    color: #fff;
+    border-color: $delete-red;
+    background: $delete-red;
+    box-shadow: 0 4px 14px color-mix(in srgb, $delete-red 28%, transparent);
+  }
+
+  &--sm {
+    width: 2.125rem;
+    height: 2.125rem;
+    border-radius: var(--radius-sm);
+
+    .material-icons {
+      font-size: 1.125rem;
+    }
+
+    &:hover:not(:disabled) {
+      box-shadow: 0 4px 12px color-mix(in srgb, $delete-red 24%, transparent);
+    }
+  }
+
+  &--dark {
+    border-color: color-mix(in srgb, $delete-red 35%, rgb(255 255 255 / 0.2));
+    background: color-mix(in srgb, $delete-red 18%, rgb(0 0 0 / 0.35));
+    color: #ffcdd2;
+
+    .material-icons {
+      font-size: 1.25rem;
+    }
+
+    &:hover:not(:disabled),
+    &.dashboard-delete-btn--active {
+      color: #fff;
+      border-color: $delete-red;
+      background: $delete-red;
+      box-shadow: none;
+    }
+  }
+}

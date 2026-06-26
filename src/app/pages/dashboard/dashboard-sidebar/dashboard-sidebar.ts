@@ -1,4 +1,4 @@
-import { Component, DestroyRef, HostListener, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnDestroy, inject, signal } from '@angular/core';
 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
@@ -13,6 +13,7 @@ import { getUserInitials, type UserAccount } from '../../../models/user-account'
 import { AuthService } from '../../../services/auth';
 
 import { SessionService } from '../../../services/session';
+import { mountDrawerBodyBackdrop } from '../../../layout/shared/drawer-body-backdrop';
 
 
 
@@ -107,22 +108,6 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
       </div>
 
 
-
-      @if (menuOpen()) {
-
-        <button
-
-          type="button"
-
-          class="dashboard-sidebar__backdrop"
-
-          aria-label="Close menu"
-
-          (click)="closeMenu()"
-
-        ></button>
-
-      }
 
 
 
@@ -304,7 +289,7 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
 })
 
-export class DashboardSidebar {
+export class DashboardSidebar implements OnDestroy {
 
   private readonly authService = inject(AuthService);
 
@@ -313,6 +298,8 @@ export class DashboardSidebar {
   private readonly router = inject(Router);
 
   private readonly destroyRef = inject(DestroyRef);
+
+  private unmountBodyBackdrop: (() => void) | null = null;
 
 
 
@@ -440,12 +427,31 @@ export class DashboardSidebar {
 
 
 
+  ngOnDestroy(): void {
+    this.clearBodyBackdrop();
+    document.body.classList.remove('dashboard-nav-open');
+  }
+
+
+
   private setMenuOpen(open: boolean): void {
 
     this.menuOpen.set(open);
 
     document.body.classList.toggle('dashboard-nav-open', open);
 
+    if (open) {
+      this.clearBodyBackdrop();
+      this.unmountBodyBackdrop = mountDrawerBodyBackdrop('Close menu', () => this.closeMenu());
+    } else {
+      this.clearBodyBackdrop();
+    }
+
+  }
+
+  private clearBodyBackdrop(): void {
+    this.unmountBodyBackdrop?.();
+    this.unmountBodyBackdrop = null;
   }
 
 }

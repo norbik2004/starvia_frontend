@@ -1,0 +1,5 @@
+@use 'drawer' as drawer;
+
+.drawer-body-backdrop {
+  @include drawer.backdrop(var(--drawer-z-backdrop-raised));
+}

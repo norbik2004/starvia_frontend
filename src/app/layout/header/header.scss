@@ -10,17 +10,17 @@
   top: 0;
   z-index: 200;
 
-  &.is-header-hidden .header-shell {
-    pointer-events: none;
-    transform: translateY(calc(-100% - 0.5rem));
+  &.is-nav-open {
+    z-index: var(--drawer-z-panel-raised);
   }
+}
 
-  @media (min-width: 64rem) {
-    &.is-header-hidden .nav {
-      pointer-events: none;
-      transform: translateY(calc(-100% - 0.5rem));
-    }
-  }
+.header-layout {
+  position: relative;
+}
+
+.header-motion {
+  position: relative;
 }
 
 .site-header {
@@ -109,7 +109,7 @@
     border-radius 0.35s ease,
     background 0.35s ease,
     box-shadow 0.35s ease,
-    transform 0.25s ease;
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .header-bar {
@@ -134,10 +134,6 @@
 
 .menu-icon {
   @include drawer.menu-icon;
-}
-
-.nav-backdrop {
-  display: none;
 }
 
 .nav {
@@ -427,10 +423,13 @@
 @media (max-width: 63.99rem) {
   .site-header {
     display: block;
+    width: 100%;
+    padding-inline: 0;
   }
 
-  .nav-backdrop {
-    @include drawer.backdrop;
+  :host.is-header-hidden .header-shell {
+    pointer-events: none;
+    transform: translate3d(0, calc(-100% - 0.5rem), 0);
   }
 
   .nav-drawer-head {
@@ -447,7 +446,10 @@
   }
 
   .nav {
-    @include drawer.panel-slide($padding: 0.875rem 1.25rem 2rem);
+    @include drawer.panel-slide(
+      $z-index: var(--drawer-z-panel-raised),
+      $padding: 0.875rem 1.25rem 2rem
+    );
     flex-direction: column;
     align-items: stretch;
     gap: 0.25rem;
@@ -519,6 +521,26 @@
     --header-offset: 4.75rem;
   }
 
+  .header-layout {
+    display: grid;
+    justify-items: center;
+    padding-inline: var(--header-scrolled-inset);
+    transform: translate3d(0, 0, 0);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :host.is-header-hidden .header-layout {
+    pointer-events: none;
+    transform: translate3d(0, calc(-100% - 0.5rem), 0);
+  }
+
+  .site-header {
+    display: block;
+    width: 100%;
+    padding-inline: 0;
+  }
+
+  .header-motion,
   .header-shell,
   .nav {
     grid-column: 1;
@@ -558,15 +580,6 @@
     box-shadow: none;
     visibility: visible;
     pointer-events: none;
-    transition: transform 0.25s ease;
-  }
-
-  :host:not(.is-header-hidden) .nav {
-    transform: none;
-  }
-
-  .nav.is-open {
-    transform: none;
   }
 
   .nav-link,
@@ -609,6 +622,8 @@
 );
 
 @media (prefers-reduced-motion: reduce) {
+  .header-layout,
+  .header-motion,
   :host.is-header-hidden .header-shell,
   .header-shell,
   .site-header,

@@ -43,8 +43,6 @@
 
 .dashboard-sidebar__mobile-bar,
 
-.dashboard-sidebar__backdrop,
-
 .dashboard-sidebar__drawer-head,
 
 .dashboard-sidebar__close {
@@ -678,12 +676,8 @@
     @include drawer.menu-icon;
   }
 
-  .dashboard-sidebar__backdrop {
-    @include drawer.backdrop;
-  }
-
   .dashboard-sidebar__panel {
-    @include drawer.panel-slide($blur-panel: false);
+    @include drawer.panel-slide($z-index: var(--drawer-z-panel-raised), $blur-panel: false);
     flex: none;
     gap: 0;
   }

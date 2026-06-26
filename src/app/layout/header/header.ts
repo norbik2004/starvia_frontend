@@ -2,6 +2,7 @@ import { Component, HostListener, Input, OnDestroy, inject, signal } from '@angu
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import { SessionService } from '../../services/session';
+import { mountDrawerBodyBackdrop } from '../shared/drawer-body-backdrop';
 
 type HeaderLink = {
   id: string;
@@ -23,52 +24,57 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
   styleUrl: './header.scss',
   host: {
     '[class.is-header-hidden]': 'headerHidden()',
+    '[class.is-nav-open]': 'menuOpen()',
   },
   template: `
-    <header class="site-header" [class.is-scrolled]="scrolled()" [class.is-at-top]="!scrolled()">
-      <div class="header-shell">
-        <div class="header-bar">
-        @if (brandMode === 'route') {
-          <a [routerLink]="brandRoute" class="brand" aria-label="Go to Starvia home" (click)="closeMenu()">
-            <span class="brand__icon-wrap">
-              <img
-                class="brand__icon"
-                src="/starvia-logo.png"
-                alt=""
-                width="44"
-                height="44"
-                decoding="async"
-              />
-            </span>
-            <span class="brand__name">Starvia</span>
-          </a>
-        } @else {
-          <a href="#top" class="brand" (click)="go($event, 'top')">
-            <span class="brand__icon-wrap">
-              <img
-                class="brand__icon"
-                src="/starvia-logo.png"
-                alt=""
-                width="44"
-                height="44"
-                decoding="async"
-              />
-            </span>
-            <span class="brand__name">Starvia</span>
-          </a>
-        }
+    <div class="header-layout">
+      <div class="header-motion">
+        <header class="site-header" [class.is-scrolled]="scrolled()" [class.is-at-top]="!scrolled()">
+          <div class="header-shell">
+            <div class="header-bar">
+              @if (brandMode === 'route') {
+                <a [routerLink]="brandRoute" class="brand" aria-label="Go to Starvia home" (click)="closeMenu()">
+                  <span class="brand__icon-wrap">
+                    <img
+                      class="brand__icon"
+                      src="/starvia-logo.png"
+                      alt=""
+                      width="44"
+                      height="44"
+                      decoding="async"
+                    />
+                  </span>
+                  <span class="brand__name">Starvia</span>
+                </a>
+              } @else {
+                <a href="#top" class="brand" (click)="go($event, 'top')">
+                  <span class="brand__icon-wrap">
+                    <img
+                      class="brand__icon"
+                      src="/starvia-logo.png"
+                      alt=""
+                      width="44"
+                      height="44"
+                      decoding="async"
+                    />
+                  </span>
+                  <span class="brand__name">Starvia</span>
+                </a>
+              }
 
-        <button
-          type="button"
-          class="menu-toggle"
-          [attr.aria-expanded]="menuOpen()"
-          aria-controls="site-nav"
-          (click)="toggleMenu()"
-        >
-          <span class="sr-only">{{ menuOpen() ? 'Close menu' : 'Open menu' }}</span>
-          <span class="menu-icon" [class.is-open]="menuOpen()" aria-hidden="true"></span>
-        </button>
-        </div>
+              <button
+                type="button"
+                class="menu-toggle"
+                [attr.aria-expanded]="menuOpen()"
+                aria-controls="site-nav"
+                (click)="toggleMenu()"
+              >
+                <span class="sr-only">{{ menuOpen() ? 'Close menu' : 'Open menu' }}</span>
+                <span class="menu-icon" [class.is-open]="menuOpen()" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+        </header>
       </div>
 
       <nav
@@ -100,16 +106,7 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
           </a>
         }
       </nav>
-
-      @if (menuOpen()) {
-        <button
-          type="button"
-          class="nav-backdrop"
-          aria-label="Close menu"
-          (click)="closeMenu()"
-        ></button>
-      }
-    </header>
+    </div>
   `,
 })
 export class Header implements OnDestroy {
@@ -128,6 +125,7 @@ export class Header implements OnDestroy {
 
   private lastScrollY = 0;
   private scrollRafId = 0;
+  private unmountBodyBackdrop: (() => void) | null = null;
 
   private readonly onScroll = (): void => {
     if (this.scrollRafId !== 0) {
@@ -176,6 +174,8 @@ export class Header implements OnDestroy {
       cancelAnimationFrame(this.scrollRafId);
       this.scrollRafId = 0;
     }
+    this.clearBodyBackdrop();
+    document.body.classList.remove('nav-open');
   }
 
   @HostListener('document:keydown.escape')
@@ -207,7 +207,16 @@ export class Header implements OnDestroy {
 
     if (open) {
       this.headerHidden.set(false);
+      this.clearBodyBackdrop();
+      this.unmountBodyBackdrop = mountDrawerBodyBackdrop('Close menu', () => this.closeMenu());
+    } else {
+      this.clearBodyBackdrop();
     }
+  }
+
+  private clearBodyBackdrop(): void {
+    this.unmountBodyBackdrop?.();
+    this.unmountBodyBackdrop = null;
   }
 
   private shouldAutoHideOnScroll(): boolean {

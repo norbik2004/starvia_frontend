@@ -31,12 +31,16 @@ import { POST_BODY_EMOJIS } from '../shared/post-body-emojis';
 import { createTypewriter } from '../shared/typewriter-text';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
+import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
+import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
+import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
 
 type EditableField = 'title' | 'body';
 
 const SAVE_MESSAGE_DURATION_MS = 5000;
 const GEMINI_CHAT_CLOSE_MS = 200;
 const GEMINI_POPUP_CLOSE_MS = GEMINI_CHAT_CLOSE_MS;
+const EDIT_CLOSE_MS = 220;
 
 type PostForm = FormGroup<{
   title: FormControl<string>;
@@ -45,7 +49,7 @@ type PostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-detail',
-  imports: [RouterLink, DatePipe, DisplayDatetimePipe, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective],
+  imports: [RouterLink, DatePipe, DisplayDatetimePipe, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective, DashboardDeleteButton, AutoExpandTextarea],
   styleUrl: './dashboard-post-detail.scss',
   template: `
     <section class="dashboard-content-page post-detail" aria-labelledby="post-detail-title">
@@ -70,21 +74,15 @@ type PostForm = FormGroup<{
                   {{ item.createdAt | date: 'mediumDate' }}
                 </time>
               </p>
-              <button
-                type="button"
-                class="post-detail__delete-btn"
-                [class.post-detail__delete-btn--active]="deleteConfirmOpen()"
-                matTooltip="Delete post"
-                matTooltipPosition="below"
-                [matTooltipDisabled]="tooltipsDisabled()"
-                aria-label="Delete post"
-                [attr.aria-expanded]="deleteConfirmOpen()"
-                aria-controls="post-delete-confirm"
+              <app-dashboard-delete-button
+                ariaLabel="Delete post"
+                tooltip="Delete post"
+                [active]="deleteConfirmOpen()"
                 [disabled]="isActionLocked()"
-                (click)="requestDelete()"
-              >
-                <span class="material-icons" aria-hidden="true">delete</span>
-              </button>
+                [ariaExpanded]="deleteConfirmOpen()"
+                ariaControls="dashboard-delete-sheet-title"
+                (clicked)="requestDelete()"
+              />
             </div>
           }
         </div>
@@ -95,7 +93,11 @@ type PostForm = FormGroup<{
           <span class="post-detail__status-badge post-detail__status-badge--title">{{ item.status }}</span>
 
           @if (editingField() === 'title') {
-            <div class="dashboard-edit-panel" [formGroup]="form">
+            <div
+              class="dashboard-edit-panel"
+              [class.dashboard-edit-panel--closing]="editClosing()"
+              [formGroup]="form"
+            >
               <textarea
                 #titleInput
                 id="post-title"
@@ -125,7 +127,11 @@ type PostForm = FormGroup<{
               </div>
             </div>
           } @else {
-            <h1 id="post-detail-title" class="post-detail__title">
+            <h1
+              id="post-detail-title"
+              class="post-detail__title"
+              [class.dashboard-edit-read-in]="editReadEnterField() === 'title'"
+            >
               <span class="dashboard-editable-text post-detail__title-text">{{ item.title || 'Untitled' }}</span>
               <ng-container
                 *ngTemplateOutlet="editIcon; context: { $implicit: 'title', label: 'Edit title' }"
@@ -147,51 +153,6 @@ type PostForm = FormGroup<{
 
       @if (post(); as item) {
         <div class="post-detail__sections" appPageReveal>
-          @if (deleteConfirmOpen()) {
-            <section
-              #deleteConfirm
-              id="post-delete-confirm"
-              class="post-detail__delete-confirm"
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="post-delete-title"
-              aria-describedby="post-delete-desc"
-            >
-              <div class="post-detail__delete-confirm-main">
-                <div class="post-detail__delete-confirm-badge" aria-hidden="true">
-                  <span class="material-icons">delete_outline</span>
-                </div>
-                <div class="post-detail__delete-confirm-copy">
-                  <p class="post-detail__delete-confirm-eyebrow">Confirm deletion</p>
-                  <h2 id="post-delete-title" class="post-detail__delete-confirm-title">
-                    Delete “{{ item.title || 'Untitled' }}”?
-                  </h2>
-                  <p id="post-delete-desc" class="post-detail__delete-confirm-desc">
-                    This post will be permanently removed from your workspace. This action cannot be undone.
-                  </p>
-                </div>
-              </div>
-              <div class="post-detail__delete-confirm-actions">
-                <button
-                  type="button"
-                  class="btn btn--raised-secondary btn--compact"
-                  [disabled]="isDeleting()"
-                  (click)="cancelDelete()"
-                >
-                  Keep post
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--danger btn--compact"
-                  [disabled]="isDeleting()"
-                  (click)="confirmDelete()"
-                >
-                  {{ isDeleting() ? 'Deleting…' : 'Delete post' }}
-                </button>
-              </div>
-            </section>
-          }
-
           @if (item.promptText) {
             <section class="post-detail__card post-detail__card--prompt" aria-labelledby="post-detail-prompt">
               <div class="post-detail__card-head">
@@ -281,18 +242,18 @@ type PostForm = FormGroup<{
 
                       <div class="gemini-popup__composer">
                         <div class="gemini-prompt-input-row">
-                          <textarea
+                          <app-auto-expand-textarea
                             #geminiPromptInput
                             id="post-gemini-prompt"
-                            class="field__input gemini-prompt-input"
-                            rows="1"
-                            [attr.maxlength]="geminiPromptMaxLength"
-                            placeholder="Describe what Starvia AI should write…"
+                            variant="gemini"
                             [value]="geminiPrompt()"
+                            [maxLength]="geminiPromptMaxLength"
+                            [enterSubmits]="true"
+                            placeholder="Describe what Starvia AI should write…"
                             [disabled]="!canUseGemini()"
-                            (input)="onGeminiPromptInput($event)"
-                            (keydown)="onGeminiPromptKeydown($event)"
-                          ></textarea>
+                            (valueChange)="onGeminiPromptValueChange($event)"
+                            (enter)="generateWithGemini()"
+                          />
                           @if (!hasExistingBodyContent()) {
                             <button
                               type="button"
@@ -338,6 +299,7 @@ type PostForm = FormGroup<{
             @if (editingField() === 'body' || geminiDraftActive()) {
               <div
                 class="dashboard-edit-panel"
+                [class.dashboard-edit-panel--closing]="editClosing()"
                 [class.dashboard-edit-panel--ai-writing]="isGenerating() || isTyping()"
                 [class.dashboard-edit-panel--typing]="isTyping()"
                 [formGroup]="form"
@@ -476,7 +438,10 @@ type PostForm = FormGroup<{
                 </div>
               </div>
             } @else {
-              <div class="post-detail__card-body">
+              <div
+                class="post-detail__card-body"
+                [class.dashboard-edit-read-in]="editReadEnterField() === 'body'"
+              >
                 @if (item.body) {
                   <p class="post-detail__body-text"><ng-container *ngTemplateOutlet="hashtagText; context: { text: item.body }" /></p>
                 } @else {
@@ -752,18 +717,18 @@ type PostForm = FormGroup<{
               </div>
 
               <div class="gemini-prompt-input-row">
-                <textarea
+                <app-auto-expand-textarea
                   #geminiChatPromptInput
                   id="post-gemini-chat-prompt"
-                  class="field__input gemini-prompt-input gemini-prompt-input--chat"
-                  rows="1"
-                  [attr.maxlength]="geminiChatPromptMaxLength"
-                  placeholder="Ask anything about this post…"
+                  variant="gemini-chat"
                   [value]="geminiChatPrompt()"
+                  [maxLength]="geminiChatPromptMaxLength"
+                  [enterSubmits]="true"
+                  placeholder="Ask anything about this post…"
                   [disabled]="!canUseGeminiChat()"
-                  (input)="onGeminiChatPromptInput($event)"
-                  (keydown)="onGeminiChatPromptKeydown($event)"
-                ></textarea>
+                  (valueChange)="onGeminiChatPromptValueChange($event)"
+                  (enter)="sendGeminiChatMessage()"
+                />
                 <button
                   type="button"
                   class="gemini-prompt-send gemini-prompt-send--chat"
@@ -857,6 +822,7 @@ export class DashboardPostDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly postService = inject(PostService);
+  private readonly deleteConfirm = inject(DashboardDeleteConfirmService);
   private readonly geminiService = inject(GeminiService);
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
@@ -865,9 +831,8 @@ export class DashboardPostDetail {
   private readonly bodyHighlight = viewChild<ElementRef<HTMLDivElement>>('bodyHighlight');
   private readonly emojiAnchor = viewChild<ElementRef<HTMLElement>>('emojiAnchor');
   private readonly geminiAnchor = viewChild<ElementRef<HTMLElement>>('geminiAnchor');
-  private readonly deleteConfirmPanel = viewChild<ElementRef<HTMLElement>>('deleteConfirm');
-  private readonly geminiPromptInput = viewChild<ElementRef<HTMLTextAreaElement>>('geminiPromptInput');
-  private readonly geminiChatPromptInput = viewChild<ElementRef<HTMLTextAreaElement>>('geminiChatPromptInput');
+  private readonly geminiPromptInput = viewChild<AutoExpandTextarea>('geminiPromptInput');
+  private readonly geminiChatPromptInput = viewChild<AutoExpandTextarea>('geminiChatPromptInput');
   private readonly geminiChatMessagesEl = viewChild<ElementRef<HTMLElement>>('geminiChatMessagesEl');
   private readonly geminiChatScrollAnchor = viewChild<ElementRef<HTMLElement>>('geminiChatScrollAnchor');
   private saveMessageTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -881,6 +846,7 @@ export class DashboardPostDetail {
   private geminiChatScrollRaf: number | null = null;
   private geminiChatCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private geminiPopupCloseTimeout: ReturnType<typeof setTimeout> | undefined;
+  private editCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private geminiChatHistoryLoaded = false;
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
@@ -904,6 +870,8 @@ export class DashboardPostDetail {
   protected readonly post = signal<PostItem | null>(null);
   protected readonly account = signal<UserAccount | null>(null);
   protected readonly editingField = signal<EditableField | null>(null);
+  protected readonly editClosing = signal(false);
+  protected readonly editReadEnterField = signal<EditableField | null>(null);
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
   protected readonly isDeleting = signal(false);
@@ -952,6 +920,7 @@ export class DashboardPostDetail {
       this.stopChatTypewriter();
       this.clearGeminiChatCloseTimeout();
       this.clearGeminiPopupCloseTimeout();
+      this.clearEditCloseTimeout();
       this.disconnectBodyInputObserver();
       document.body.classList.remove('post-gemini-popup-open');
     });
@@ -1015,12 +984,13 @@ export class DashboardPostDetail {
       return;
     }
 
-    if (this.deleteConfirmOpen() && !this.isDeleting()) {
-      this.cancelDelete();
-      return;
-    }
-
-    if (this.editingField() !== null && !this.isSaving() && !this.isGenerating() && !this.isTyping()) {
+    if (
+      this.editingField() !== null &&
+      !this.editClosing() &&
+      !this.isSaving() &&
+      !this.isGenerating() &&
+      !this.isTyping()
+    ) {
       this.cancelEdit();
     }
   }
@@ -1116,7 +1086,7 @@ export class DashboardPostDetail {
     this.setGeminiPopupOpen(true);
 
     queueMicrotask(() => {
-      this.geminiPromptInput()?.nativeElement.focus({ preventScroll: true });
+      this.geminiPromptInput()?.focus({ preventScroll: true });
     });
   }
 
@@ -1134,26 +1104,9 @@ export class DashboardPostDetail {
     }, GEMINI_POPUP_CLOSE_MS);
   }
 
-  protected onGeminiPromptInput(event: Event): void {
-    const input = event.target as HTMLTextAreaElement;
-    const value = input.value.slice(0, GEMINI_PROMPT_MAX_LENGTH);
-
-    if (input.value !== value) {
-      input.value = value;
-    }
-
+  protected onGeminiPromptValueChange(value: string): void {
     this.geminiPrompt.set(value);
     this.geminiError.set(null);
-    this.resizeGeminiPromptInput();
-  }
-
-  protected onGeminiPromptKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Enter' || event.shiftKey) {
-      return;
-    }
-
-    event.preventDefault();
-    this.generateWithGemini();
   }
 
   protected hasExistingBodyContent(): boolean {
@@ -1206,11 +1159,7 @@ export class DashboardPostDetail {
     this.geminiChatOpen.set(true);
     this.geminiChatStickToBottom = true;
     this.loadGeminiChatHistory();
-    this.scheduleGeminiPromptInputLayout(
-      () => this.geminiChatPromptInput()?.nativeElement,
-      () => this.geminiChatPrompt(),
-      { focus: true }
-    );
+    this.scheduleGeminiChatPromptLayout({ focus: true });
     queueMicrotask(() => this.scrollGeminiChatToBottom(true));
   }
 
@@ -1278,26 +1227,9 @@ export class DashboardPostDetail {
     this.stopChatTypewriter();
   }
 
-  protected onGeminiChatPromptInput(event: Event): void {
-    const input = event.target as HTMLTextAreaElement;
-    const value = input.value.slice(0, GEMINI_CHAT_PROMPT_MAX_LENGTH);
-
-    if (input.value !== value) {
-      input.value = value;
-    }
-
+  protected onGeminiChatPromptValueChange(value: string): void {
     this.geminiChatPrompt.set(value);
     this.geminiChatError.set(null);
-    this.resizeGeminiChatInput();
-  }
-
-  protected onGeminiChatPromptKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Enter' || event.shiftKey) {
-      return;
-    }
-
-    event.preventDefault();
-    this.sendGeminiChatMessage();
   }
 
   protected onIncludePostContentChange(event: Event): void {
@@ -1324,10 +1256,7 @@ export class DashboardPostDetail {
     this.geminiChatError.set(null);
     this.geminiChatPrompt.set('');
     this.geminiChatStickToBottom = true;
-    this.scheduleGeminiPromptInputLayout(
-      () => this.geminiChatPromptInput()?.nativeElement,
-      () => this.geminiChatPrompt()
-    );
+    this.scheduleGeminiChatPromptLayout();
     this.geminiChatMessages.update((messages) => [
       ...messages,
       {
@@ -1372,27 +1301,30 @@ export class DashboardPostDetail {
   }
 
   protected requestDelete(): void {
-    if (this.isActionLocked()) {
+    const item = this.post();
+    if (!item || this.isActionLocked()) {
       return;
     }
 
     this.clearSaveMessage();
     this.errorMessage.set(null);
     this.deleteConfirmOpen.set(true);
-    queueMicrotask(() => {
-      this.deleteConfirmPanel()?.nativeElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
+
+    this.deleteConfirm
+      .open({
+        title: `Delete “${item.title || 'Untitled'}”?`,
+        description:
+          'This post will be permanently removed from your workspace. This action cannot be undone.',
+        keepLabel: 'Keep post',
+        deleteLabel: 'Delete post',
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed) => {
+        this.deleteConfirmOpen.set(false);
+        if (confirmed) {
+          this.confirmDelete();
+        }
       });
-    });
-  }
-
-  protected cancelDelete(): void {
-    if (this.isDeleting()) {
-      return;
-    }
-
-    this.deleteConfirmOpen.set(false);
   }
 
   protected confirmDelete(): void {
@@ -1515,10 +1447,7 @@ export class DashboardPostDetail {
       return;
     }
 
-    this.emojiPickerOpen.set(false);
-    this.disconnectBodyInputObserver();
-    this.editingField.set(null);
-    this.clearSaveMessage();
+    this.closeEdit(true);
   }
 
   protected saveField(field: EditableField): void {
@@ -1544,11 +1473,11 @@ export class DashboardPostDetail {
       .pipe(finalize(() => this.isSaving.set(false)))
       .subscribe({
         next: (updated) => {
-          this.disconnectBodyInputObserver();
           this.geminiDraftActive.set(false);
           this.setPost(updated);
-          this.editingField.set(null);
-          this.showSaveMessage(field === 'title' ? 'Title saved.' : 'Content saved.');
+          this.closeEdit(true, () => {
+            this.showSaveMessage(field === 'title' ? 'Title saved.' : 'Content saved.');
+          });
         },
         error: (error) => {
           this.errorMessage.set(toApplicationError(error, 'Could not save post.').description);
@@ -1558,10 +1487,12 @@ export class DashboardPostDetail {
 
   private startEdit(field: EditableField): void {
     const item = this.post();
-    if (!item) {
+    if (!item || this.editClosing()) {
       return;
     }
 
+    this.clearEditCloseTimeout();
+    this.editClosing.set(false);
     this.clearSaveMessage();
     this.errorMessage.set(null);
     this.editingField.set(field);
@@ -1591,10 +1522,7 @@ export class DashboardPostDetail {
 
     this.geminiPopupOpen.set(open);
     if (open) {
-      this.scheduleGeminiPromptInputLayout(
-        () => this.geminiPromptInput()?.nativeElement,
-        () => this.geminiPrompt()
-      );
+      this.scheduleGeminiPromptLayout();
     }
     this.syncGeminiPopupBodyLock();
   }
@@ -1612,6 +1540,9 @@ export class DashboardPostDetail {
   }
 
   private resetView(): void {
+    this.clearEditCloseTimeout();
+    this.editClosing.set(false);
+    this.editReadEnterField.set(null);
     this.disconnectBodyInputObserver();
     this.stopGeminiTypewriter();
     this.post.set(null);
@@ -1778,66 +1709,12 @@ export class DashboardPostDetail {
     this.geminiPopupCloseTimeout = undefined;
   }
 
-  private resizeGeminiChatInput(): void {
-    const textarea = this.geminiChatPromptInput()?.nativeElement;
-    if (!textarea) {
-      return;
-    }
-
-    this.resizeGeminiPromptTextarea(textarea, this.geminiChatPrompt());
+  private scheduleGeminiPromptLayout(options: { focus?: boolean } = {}): void {
+    this.geminiPromptInput()?.scheduleLayout(options);
   }
 
-  private resizeGeminiPromptInput(): void {
-    const textarea = this.geminiPromptInput()?.nativeElement;
-    if (!textarea) {
-      return;
-    }
-
-    this.resizeGeminiPromptTextarea(textarea, this.geminiPrompt());
-  }
-
-  private resizeGeminiPromptTextarea(textarea: HTMLTextAreaElement, value?: string): void {
-    if (value !== undefined && textarea.value !== value) {
-      textarea.value = value;
-    }
-
-    textarea.style.height = 'auto';
-    const height = textarea.scrollHeight;
-    textarea.style.height = `${height}px`;
-    textarea.style.borderRadius = this.computeGeminiPromptBorderRadius(height);
-  }
-
-  private scheduleGeminiPromptInputLayout(
-    textareaRef: () => HTMLTextAreaElement | undefined,
-    value: () => string,
-    options: { focus?: boolean } = {}
-  ): void {
-    queueMicrotask(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const textarea = textareaRef();
-          if (!textarea) {
-            return;
-          }
-
-          this.resizeGeminiPromptTextarea(textarea, value());
-
-          if (options.focus) {
-            textarea.focus({ preventScroll: true });
-          }
-        });
-      });
-    });
-  }
-
-  private computeGeminiPromptBorderRadius(heightPx: number): string {
-    const singleLineHeight = 44;
-    const minRadiusPx = 10;
-    const pillRadius = singleLineHeight / 2;
-    const extra = Math.max(0, heightPx - singleLineHeight);
-    const radiusPx = Math.max(minRadiusPx, pillRadius - extra * 0.22);
-
-    return `${radiusPx}px`;
+  private scheduleGeminiChatPromptLayout(options: { focus?: boolean } = {}): void {
+    this.geminiChatPromptInput()?.scheduleLayout(options);
   }
 
   private scrollGeminiChatToBottom(force = false): void {
@@ -1986,12 +1863,62 @@ export class DashboardPostDetail {
       return;
     }
 
+    this.closeEdit(true, () => {
+      if (reopenPopup) {
+        this.setGeminiPopupOpen(true);
+        queueMicrotask(() => this.geminiPromptInput()?.focus({ preventScroll: true }));
+      }
+    });
+  }
+
+  private closeEdit(animated = true, onComplete?: () => void): void {
+    if (this.editingField() === null) {
+      onComplete?.();
+      return;
+    }
+
+    if (this.editClosing()) {
+      return;
+    }
+
+    if (!animated) {
+      this.finishEdit();
+      onComplete?.();
+      return;
+    }
+
+    this.emojiPickerOpen.set(false);
+    this.editClosing.set(true);
+    this.clearEditCloseTimeout();
+    this.editCloseTimeout = setTimeout(() => {
+      this.editCloseTimeout = undefined;
+      this.finishEdit(true);
+      onComplete?.();
+    }, EDIT_CLOSE_MS);
+  }
+
+  private finishEdit(animateRead = false): void {
+    const field = this.editingField();
+    this.editClosing.set(false);
+    this.emojiPickerOpen.set(false);
     this.disconnectBodyInputObserver();
     this.editingField.set(null);
+    this.clearSaveMessage();
 
-    if (reopenPopup) {
-      this.setGeminiPopupOpen(true);
-      queueMicrotask(() => this.geminiPromptInput()?.nativeElement.focus({ preventScroll: true }));
+    if (animateRead && field) {
+      this.editReadEnterField.set(field);
+      setTimeout(() => {
+        if (this.editReadEnterField() === field) {
+          this.editReadEnterField.set(null);
+        }
+      }, EDIT_CLOSE_MS);
+    }
+  }
+
+  private clearEditCloseTimeout(): void {
+    if (this.editCloseTimeout !== undefined) {
+      clearTimeout(this.editCloseTimeout);
+      this.editCloseTimeout = undefined;
     }
   }
 

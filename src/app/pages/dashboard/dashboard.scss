@@ -91,6 +91,10 @@
     border-bottom: 1px solid var(--border-subtle);
     background: #fff;
     box-shadow: 0 8px 24px color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+
+    &:has(.dashboard-sidebar.is-menu-open) {
+      z-index: var(--drawer-z-panel-raised);
+    }
   }
 
   .dashboard-layout__main {

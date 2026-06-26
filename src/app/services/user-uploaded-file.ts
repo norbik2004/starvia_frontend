@@ -4,8 +4,8 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type {
   PagedUserUploadedFilesResponse,
-  UpdateUserUploadedFilePayload,
   UserUploadedFileItem,
+  UserUploadedFileUpdateRequest,
   UserUploadedFilesFilterParams,
 } from '../models/user-uploaded-file';
 
@@ -60,8 +60,14 @@ export class UserUploadedFileService {
     });
   }
 
-  updateFile(payload: UpdateUserUploadedFilePayload): Observable<UserUploadedFileItem> {
+  updateFile(payload: UserUploadedFileUpdateRequest): Observable<UserUploadedFileItem> {
     return this.http.put<UserUploadedFileItem>(this.filesUrl, payload, {
+      withCredentials: true,
+    });
+  }
+
+  deleteFile(fileId: string): Observable<void> {
+    return this.http.delete<void>(`${this.filesUrl}/${fileId}`, {
       withCredentials: true,
     });
   }

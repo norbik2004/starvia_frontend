@@ -1,11 +1,13 @@
 export type UserUploadedFileItem = {
   id: string;
   fileName: string | null;
+  description: string | null;
   createdAt: string;
   previewUrl: string | null;
 };
 
 export const USER_UPLOADED_FILE_NAME_MAX_LENGTH = 50;
+export const USER_UPLOADED_FILE_DESCRIPTION_MAX_LENGTH = 250;
 
 export type PagedUserUploadedFilesResponse = {
   pageIndex: number;
@@ -15,10 +17,46 @@ export type PagedUserUploadedFilesResponse = {
   hasNextPage: boolean;
 };
 
-export type UpdateUserUploadedFilePayload = {
+export type UserUploadedFileUpdateRequest = {
   id: string;
   fileName: string;
+  description: string | null;
 };
+
+export function normalizeUserUploadedFileDescription(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function hasUserUploadedFileDescription(value: string | null | undefined): boolean {
+  return (value ?? '').trim().length > 0;
+}
+
+export function displayUserUploadedFileDescription(value: string | null | undefined): string {
+  const trimmed = (value ?? '').trim();
+  return trimmed.length > 0 ? trimmed : 'No description yet.';
+}
+
+export function resolveUserUploadedFileName(fileName: string | null | undefined): string {
+  const trimmed = (fileName ?? '').trim();
+  return trimmed.length > 0 ? trimmed : 'Untitled';
+}
+
+export function toUserUploadedFileUpdateRequest(
+  file: Pick<UserUploadedFileItem, 'id' | 'fileName' | 'description'>,
+  updates: Partial<Pick<UserUploadedFileUpdateRequest, 'fileName' | 'description'>> = {},
+): UserUploadedFileUpdateRequest {
+  const description =
+    updates.description !== undefined ? updates.description : (file.description ?? null);
+
+  return {
+    id: file.id,
+    fileName: resolveUserUploadedFileName(
+      updates.fileName !== undefined ? updates.fileName : file.fileName,
+    ),
+    description,
+  };
+}
 
 export type UserUploadedFilesFilterParams = {
   createdBefore?: string;

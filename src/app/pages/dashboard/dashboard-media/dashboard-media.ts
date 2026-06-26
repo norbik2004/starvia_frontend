@@ -18,7 +18,12 @@ import { toApplicationError } from '../../../models/application-error';
 import {
   isSupportedImageFile,
   SUPPORTED_IMAGE_ACCEPT,
+  USER_UPLOADED_FILE_DESCRIPTION_MAX_LENGTH,
   USER_UPLOADED_FILE_NAME_MAX_LENGTH,
+  normalizeUserUploadedFileDescription,
+  displayUserUploadedFileDescription,
+  hasUserUploadedFileDescription,
+  toUserUploadedFileUpdateRequest,
   type PagedUserUploadedFilesResponse,
   type UserUploadedFileItem,
 } from '../../../models/user-uploaded-file';
@@ -28,8 +33,13 @@ import { DashboardPaginationPanel } from '../shared/dashboard-pagination-panel/d
 import { showingFrom, showingTo, toPaginationPage } from '../shared/pagination';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
+import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
+import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
+import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
+const LIGHTBOX_CLOSE_MS = 280;
+const EDIT_CLOSE_MS = 220;
 
 type MediaForm = FormGroup<{
   pageNumber: FormControl<number>;
@@ -38,7 +48,16 @@ type MediaForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-media',
-  imports: [DisplayDatetimePipe, DashboardPaginationPanel, ReactiveFormsModule, MatTooltip, PageLoading, PageRevealDirective],
+  imports: [
+    DisplayDatetimePipe,
+    DashboardPaginationPanel,
+    ReactiveFormsModule,
+    MatTooltip,
+    PageLoading,
+    PageRevealDirective,
+    DashboardDeleteButton,
+    AutoExpandTextarea,
+  ],
   styleUrl: './dashboard-media.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -122,32 +141,48 @@ type MediaForm = FormGroup<{
               @for (file of page.items; track file.id) {
                 <li>
                   <article class="media-card">
-                    <button
-                      type="button"
-                      class="media-card__preview-btn"
-                      [attr.aria-label]="'Preview ' + (file.fileName || 'image')"
-                      (click)="openPreview(file)"
-                    >
-                      <div class="media-card__frame">
-                        @if (previewUrl(file.id); as src) {
-                          <img
-                            class="media-card__preview"
-                            [src]="src"
-                            [alt]="file.fileName || 'Uploaded image'"
-                            loading="lazy"
-                          />
-                        } @else {
-                          <span class="media-card__preview-placeholder" aria-hidden="true">
-                            <span class="material-icons">image</span>
-                          </span>
-                        }
+                    <div class="media-card__preview-wrap">
+                      <div class="media-card__delete-overlay">
+                        <app-dashboard-delete-button
+                          size="sm"
+                          tone="dark"
+                          ariaLabel="Delete image"
+                          tooltip="Delete image"
+                          [active]="deleteConfirmFileId() === file.id"
+                          [disabled]="isMediaBusy()"
+                          [ariaExpanded]="deleteConfirmFileId() === file.id"
+                          ariaControls="dashboard-delete-sheet-title"
+                          (clicked)="requestDelete(file, $event)"
+                        />
                       </div>
-                    </button>
+                      <button
+                        type="button"
+                        class="media-card__preview-btn"
+                        [attr.aria-label]="'Preview ' + (file.fileName || 'image')"
+                        (click)="openPreview(file)"
+                      >
+                        <div class="media-card__frame">
+                          @if (previewUrl(file.id); as src) {
+                            <img
+                              class="media-card__preview"
+                              [src]="src"
+                              [alt]="file.fileName || 'Uploaded image'"
+                              loading="lazy"
+                            />
+                          } @else {
+                            <span class="media-card__preview-placeholder" aria-hidden="true">
+                              <span class="material-icons">image</span>
+                            </span>
+                          }
+                        </div>
+                      </button>
+                    </div>
 
                     <div class="media-card__foot">
                       <div class="media-card__meta">
                         @if (isRenaming(file.id)) {
-                          <div class="media-card__rename">
+                          <div class="media-card__edit" [class.media-card__edit--closing]="renameClosing()">
+                            <div class="media-card__rename">
                             <input
                               #renameInput
                               class="field__input field__input--inline-title"
@@ -166,25 +201,64 @@ type MediaForm = FormGroup<{
                               <p class="field__error media-card__rename-error" role="alert">{{ renameError() }}</p>
                             }
                           </div>
+                          <div class="media-card__description media-card__description--edit">
+                            <app-auto-expand-textarea
+                              #descriptionInput
+                              variant="field"
+                              [id]="'media-description-' + file.id"
+                              [formControl]="descriptionControl"
+                              [maxLength]="descriptionMaxLength"
+                              ariaLabel="Image description"
+                              placeholder="Add a short description for this image…"
+                              [escapeCancels]="true"
+                              (escaped)="cancelRename()"
+                            />
+                            <p class="dashboard-edit-hint media-card__description-hint">
+                              {{ descriptionControl.value.length }}/{{ descriptionMaxLength }} · Esc to cancel
+                            </p>
+                            @if (descriptionError()) {
+                              <p class="field__error media-card__description-error" role="alert">
+                                {{ descriptionError() }}
+                              </p>
+                            }
+                          </div>
+                          </div>
                         } @else {
-                          <p class="dashboard-editable-text media-card__name" [title]="file.fileName || 'Untitled'">
-                            {{ file.fileName || 'Untitled' }}
+                          <div
+                            class="media-card__read"
+                            [class.dashboard-edit-read-in]="renameReadEnterFileId() === file.id"
+                          >
+                          <div class="media-card__meta-head">
+                            <p class="dashboard-editable-text media-card__name" [title]="file.fileName || 'Untitled'">
+                              {{ file.fileName || 'Untitled' }}
+                            </p>
+                            <p class="media-card__date">
+                              <time [attr.datetime]="file.createdAt">{{ file.createdAt | displayDatetime }}</time>
+                            </p>
+                          </div>
+                          <p
+                            class="media-card__description-text"
+                            [class.media-card__description-text--empty]="!hasUserUploadedFileDescription(file.description)"
+                          >
+                            {{ displayUserUploadedFileDescription(file.description) }}
                           </p>
-                          <p class="media-card__date">
-                            <time [attr.datetime]="file.createdAt">{{ file.createdAt | displayDatetime }}</time>
-                          </p>
+                          </div>
                         }
                       </div>
 
-                      <div class="media-card__actions">
+                      <div
+                        class="media-card__actions"
+                        [class.media-card__actions--edit]="isRenaming(file.id)"
+                        [class.media-card__actions--edit--closing]="renameClosing() && isRenaming(file.id)"
+                      >
                         @if (isRenaming(file.id)) {
                           <button
                             type="button"
                             class="media-card__icon-btn media-card__icon-btn--confirm"
-                            aria-label="Save file name"
+                            aria-label="Save name and description"
                             matTooltip="Save"
-                            matTooltipPosition="below"
-                            [disabled]="isSavingRename() || renameControl.invalid"
+                            matTooltipPosition="left"
+                            [disabled]="isSavingRename() || renameControl.invalid || descriptionControl.invalid"
                             (click)="saveRename($event)"
                           >
                             <span class="material-icons" aria-hidden="true">check</span>
@@ -192,9 +266,9 @@ type MediaForm = FormGroup<{
                           <button
                             type="button"
                             class="media-card__icon-btn"
-                            aria-label="Cancel rename"
+                            aria-label="Cancel edit"
                             matTooltip="Cancel"
-                            matTooltipPosition="below"
+                            matTooltipPosition="left"
                             [disabled]="isSavingRename()"
                             (click)="cancelRename($event)"
                           >
@@ -202,25 +276,17 @@ type MediaForm = FormGroup<{
                           </button>
                         } @else {
                           <span
-                            class="edit-icon media-card__edit-icon"
+                            class="edit-icon"
                             role="button"
                             tabindex="0"
-                            matTooltip="Rename"
+                            matTooltip="Edit name and description"
                             matTooltipPosition="below"
-                            [attr.aria-label]="'Rename ' + (file.fileName || 'image')"
+                            [attr.aria-label]="'Edit name and description for ' + (file.fileName || 'image')"
                             (click)="startRename(file, $event)"
                             (keydown.enter)="startRename(file, $event)"
                             (keydown.space)="startRename(file, $event)"
                           >
                             <span class="material-icons edit-icon__glyph" aria-hidden="true">edit</span>
-                          </span>
-                          <span
-                            class="media-card__open-hint"
-                            matTooltip="Preview"
-                            matTooltipPosition="below"
-                            aria-hidden="true"
-                          >
-                            <span class="material-icons">zoom_in</span>
                           </span>
                         }
                       </div>
@@ -251,7 +317,11 @@ type MediaForm = FormGroup<{
       }
 
       @if (lightboxFile(); as file) {
-        <div class="dashboard-media__lightbox-layer" role="presentation">
+        <div
+          class="dashboard-media__lightbox-layer dashboard-media__lightbox-layer--open"
+          [class.dashboard-media__lightbox-layer--closing]="lightboxClosing()"
+          role="presentation"
+        >
           <button
             type="button"
             class="dashboard-media__lightbox-backdrop"
@@ -305,6 +375,17 @@ type MediaForm = FormGroup<{
                   <span class="material-icons" aria-hidden="true">fit_screen</span>
                 </button>
               </div>
+              <app-dashboard-delete-button
+                size="sm"
+                tone="dark"
+                ariaLabel="Delete image"
+                tooltip="Delete image"
+                [active]="deleteConfirmFileId() === file.id"
+                [disabled]="isMediaBusy()"
+                [ariaExpanded]="deleteConfirmFileId() === file.id"
+                ariaControls="dashboard-delete-sheet-title"
+                (clicked)="requestDelete(file, $event)"
+              />
               <button
                 type="button"
                 class="dashboard-media__lightbox-close"
@@ -335,24 +416,45 @@ type MediaForm = FormGroup<{
               }
             </div>
 
-            <p class="dashboard-media__lightbox-hint">Scroll to zoom · Double-click to toggle · Drag when zoomed in</p>
+            <footer class="dashboard-media__lightbox-footer">
+              <div class="dashboard-media__lightbox-description">
+                <p class="dashboard-media__lightbox-description-label">Description</p>
+                <p
+                  class="dashboard-media__lightbox-description-text"
+                  [class.dashboard-media__lightbox-description-text--empty]="!hasUserUploadedFileDescription(file.description)"
+                >
+                  {{ displayUserUploadedFileDescription(file.description) }}
+                </p>
+              </div>
+              <p class="dashboard-media__lightbox-hint">Scroll to zoom · Double-click to toggle · Drag when zoomed in</p>
+            </footer>
           </div>
         </div>
       }
+
     </section>
   `,
 })
 export class DashboardMedia {
   private readonly fileService = inject(UserUploadedFileService);
+  private readonly deleteConfirm = inject(DashboardDeleteConfirmService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly ngZone = inject(NgZone);
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>('renameInput');
+  private readonly descriptionInput = viewChild<AutoExpandTextarea>('descriptionInput');
 
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
   protected readonly supportedImageAccept = SUPPORTED_IMAGE_ACCEPT;
   protected readonly fileNameMaxLength = USER_UPLOADED_FILE_NAME_MAX_LENGTH;
+  protected readonly descriptionMaxLength = USER_UPLOADED_FILE_DESCRIPTION_MAX_LENGTH;
   protected readonly toPaginationPage = toPaginationPage;
+  protected readonly displayUserUploadedFileDescription = displayUserUploadedFileDescription;
+  protected readonly hasUserUploadedFileDescription = hasUserUploadedFileDescription;
+  protected readonly descriptionControl = new FormControl('', {
+    nonNullable: true,
+    validators: [Validators.maxLength(USER_UPLOADED_FILE_DESCRIPTION_MAX_LENGTH)],
+  });
   protected readonly renameControl = new FormControl('', {
     nonNullable: true,
     validators: [Validators.required, Validators.maxLength(USER_UPLOADED_FILE_NAME_MAX_LENGTH)],
@@ -376,17 +478,25 @@ export class DashboardMedia {
   protected readonly result = signal<PagedUserUploadedFilesResponse | null>(null);
   protected readonly dragActive = signal(false);
   protected readonly lightboxFile = signal<UserUploadedFileItem | null>(null);
+  protected readonly lightboxClosing = signal(false);
   protected readonly previewUrls = signal<Record<string, string>>({});
   protected readonly previewZoom = signal(1);
   protected readonly previewPan = signal({ x: 0, y: 0 });
   protected readonly isPreviewPanning = signal(false);
   protected readonly renamingFileId = signal<string | null>(null);
+  protected readonly renameClosing = signal(false);
+  protected readonly renameReadEnterFileId = signal<string | null>(null);
   protected readonly isSavingRename = signal(false);
   protected readonly renameError = signal<string | null>(null);
+  protected readonly descriptionError = signal<string | null>(null);
+  protected readonly deleteConfirmFileId = signal<string | null>(null);
+  protected readonly isDeleting = signal(false);
   protected readonly zoomPercent = computed(() => Math.round(this.previewZoom() * 100));
   protected readonly maxPreviewZoom = 4;
 
   private dragDepth = 0;
+  private lightboxCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private renameCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly previewObjectUrls = new Set<string>();
   private panSession: { startX: number; startY: number; panX: number; panY: number } | null = null;
   private panListening = false;
@@ -416,6 +526,8 @@ export class DashboardMedia {
     this.loadFiles();
 
     this.destroyRef.onDestroy(() => {
+      this.clearLightboxCloseTimer();
+      this.clearRenameCloseTimer();
       this.detachPanListeners();
       this.revokePreviewUrls();
     });
@@ -423,7 +535,7 @@ export class DashboardMedia {
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
-    if (this.renamingFileId()) {
+    if (this.renamingFileId() && !this.renameClosing()) {
       this.cancelRename();
       return;
     }
@@ -431,8 +543,67 @@ export class DashboardMedia {
     this.closePreview();
   }
 
+  protected isMediaBusy(): boolean {
+    return (
+      this.isSavingRename() ||
+      this.isDeleting() ||
+      this.isUploading() ||
+      this.renameClosing()
+    );
+  }
+
   protected previewUrl(fileId: string): string | null {
     return this.previewUrls()[fileId] ?? null;
+  }
+
+  protected requestDelete(file: UserUploadedFileItem, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+
+    if (this.isMediaBusy()) {
+      return;
+    }
+
+    this.cancelRename(undefined, false);
+    this.errorMessage.set(null);
+    this.deleteConfirmFileId.set(file.id);
+
+    this.deleteConfirm
+      .open({
+        title: `Delete “${file.fileName || 'Untitled'}”?`,
+        description:
+          'This image will be permanently removed from your library. This action cannot be undone.',
+        keepLabel: 'Keep image',
+        deleteLabel: 'Delete image',
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed) => {
+        this.deleteConfirmFileId.set(null);
+        if (confirmed) {
+          this.performDelete(file.id);
+        }
+      });
+  }
+
+  private performDelete(fileId: string): void {
+    if (this.isDeleting()) {
+      return;
+    }
+
+    this.isDeleting.set(true);
+    this.errorMessage.set(null);
+
+    this.fileService
+      .deleteFile(fileId)
+      .pipe(finalize(() => this.isDeleting.set(false)))
+      .subscribe({
+        next: () => {
+          this.removeDeletedFile(fileId);
+        },
+        error: (error) => {
+          this.errorMessage.set(toApplicationError(error, 'Could not delete image.').description);
+        },
+      });
   }
 
   protected isRenaming(fileId: string): boolean {
@@ -442,25 +613,75 @@ export class DashboardMedia {
   protected startRename(file: UserUploadedFileItem, event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
+
+    if (this.isMediaBusy()) {
+      return;
+    }
+
+    this.clearRenameCloseTimer();
+    this.renameClosing.set(false);
     this.renamingFileId.set(file.id);
     this.renameControl.setValue(file.fileName ?? '');
     this.renameControl.markAsPristine();
+    this.descriptionControl.setValue((file.description ?? '').trim());
+    this.descriptionControl.markAsPristine();
     this.renameError.set(null);
+    this.descriptionError.set(null);
 
     queueMicrotask(() => {
       const input = this.renameInput()?.nativeElement;
       input?.focus();
       input?.select();
+      this.descriptionInput()?.scheduleLayout();
     });
   }
 
-  protected cancelRename(event?: Event): void {
+  protected cancelRename(event?: Event, animated = true): void {
     event?.stopPropagation();
     event?.preventDefault();
+
+    if (!this.renamingFileId() || this.renameClosing()) {
+      return;
+    }
+
+    if (!animated) {
+      this.finishRenameEdit();
+      return;
+    }
+
+    this.renameClosing.set(true);
+    this.clearRenameCloseTimer();
+    this.renameCloseTimer = setTimeout(() => {
+      this.renameCloseTimer = null;
+      this.finishRenameEdit(true);
+    }, EDIT_CLOSE_MS);
+  }
+
+  private finishRenameEdit(animateRead = false): void {
+    const fileId = this.renamingFileId();
+    this.renameClosing.set(false);
     this.renamingFileId.set(null);
     this.renameControl.reset();
+    this.descriptionControl.reset();
     this.renameError.set(null);
+    this.descriptionError.set(null);
     this.isSavingRename.set(false);
+
+    if (animateRead && fileId) {
+      this.renameReadEnterFileId.set(fileId);
+      setTimeout(() => {
+        if (this.renameReadEnterFileId() === fileId) {
+          this.renameReadEnterFileId.set(null);
+        }
+      }, EDIT_CLOSE_MS);
+    }
+  }
+
+  private clearRenameCloseTimer(): void {
+    if (this.renameCloseTimer !== null) {
+      clearTimeout(this.renameCloseTimer);
+      this.renameCloseTimer = null;
+    }
   }
 
   protected saveRename(event?: Event): void {
@@ -469,29 +690,45 @@ export class DashboardMedia {
 
     const fileId = this.renamingFileId();
     const fileName = this.renameControl.value.trim();
-    if (!fileId || this.renameControl.invalid || this.isSavingRename()) {
+    const normalizedDescription = normalizeUserUploadedFileDescription(this.descriptionControl.value);
+    if (
+      !fileId ||
+      this.renameControl.invalid ||
+      this.descriptionControl.invalid ||
+      this.isSavingRename()
+    ) {
       return;
     }
 
     const current = this.result()?.items.find((item) => item.id === fileId);
-    if (current?.fileName === fileName) {
+    if (!current) {
+      return;
+    }
+
+    if (current.fileName === fileName && (current.description ?? null) === normalizedDescription) {
       this.cancelRename();
       return;
     }
 
     this.isSavingRename.set(true);
     this.renameError.set(null);
+    this.descriptionError.set(null);
 
     this.fileService
-      .updateFile({ id: fileId, fileName })
+      .updateFile(
+        toUserUploadedFileUpdateRequest(current, {
+          fileName,
+          description: normalizedDescription,
+        }),
+      )
       .pipe(finalize(() => this.isSavingRename.set(false)))
       .subscribe({
         next: (updated) => {
-          this.applyRenamedFile(updated);
+          this.applyUpdatedFile(updated);
           this.cancelRename();
         },
         error: (error) => {
-          this.renameError.set(toApplicationError(error, 'Could not rename file.').description);
+          this.renameError.set(toApplicationError(error, 'Could not save changes.').description);
         },
       });
   }
@@ -532,15 +769,42 @@ export class DashboardMedia {
   }
 
   protected openPreview(file: UserUploadedFileItem): void {
+    if (this.isMediaBusy()) {
+      return;
+    }
+
+    this.clearLightboxCloseTimer();
+    this.lightboxClosing.set(false);
+    this.cancelRename(undefined, false);
     this.resetPreviewZoom();
     this.ensurePreview(file);
     this.lightboxFile.set(file);
   }
 
   protected closePreview(): void {
-    this.cancelRename();
-    this.lightboxFile.set(null);
-    this.resetPreviewZoom();
+    if (!this.lightboxFile() || this.lightboxClosing()) {
+      return;
+    }
+
+    this.lightboxClosing.set(true);
+    this.clearLightboxCloseTimer();
+    this.lightboxCloseTimer = setTimeout(() => {
+      this.lightboxCloseTimer = null;
+      this.cancelRename(undefined, false);
+      if (!this.isDeleting()) {
+        this.deleteConfirmFileId.set(null);
+      }
+      this.lightboxFile.set(null);
+      this.lightboxClosing.set(false);
+      this.resetPreviewZoom();
+    }, LIGHTBOX_CLOSE_MS);
+  }
+
+  private clearLightboxCloseTimer(): void {
+    if (this.lightboxCloseTimer !== null) {
+      clearTimeout(this.lightboxCloseTimer);
+      this.lightboxCloseTimer = null;
+    }
   }
 
   protected previewTransform(): string {
@@ -770,7 +1034,7 @@ export class DashboardMedia {
       });
   }
 
-  private applyRenamedFile(updated: UserUploadedFileItem): void {
+  private applyUpdatedFile(updated: UserUploadedFileItem): void {
     this.result.update((page) => {
       if (!page) {
         return page;
@@ -786,6 +1050,47 @@ export class DashboardMedia {
     if (lightbox?.id === updated.id) {
       this.lightboxFile.set(updated);
     }
+  }
+
+  private removeDeletedFile(fileId: string): void {
+    const currentUrl = this.previewUrls()[fileId];
+    if (currentUrl) {
+      URL.revokeObjectURL(currentUrl);
+      this.previewObjectUrls.delete(currentUrl);
+      this.previewUrls.update((urls) => {
+        const next = { ...urls };
+        delete next[fileId];
+        return next;
+      });
+    }
+
+    if (this.lightboxFile()?.id === fileId) {
+      this.lightboxFile.set(null);
+      this.resetPreviewZoom();
+    }
+
+    const page = this.result();
+    if (!page) {
+      return;
+    }
+
+    const items = page.items.filter((item) => item.id !== fileId);
+    if (items.length === page.items.length) {
+      return;
+    }
+
+    if (items.length === 0) {
+      if (page.pageIndex > 1) {
+        this.form.patchValue({ pageNumber: page.pageIndex - 1 });
+      }
+      this.loadFiles();
+      return;
+    }
+
+    this.result.set({
+      ...page,
+      items,
+    });
   }
 
   private revokePreviewUrls(): void {

@@ -26,17 +26,18 @@
 
 @include page-reveal-keyframes;
 
-.page-reveal > * {
+// Header hosts fixed drawer backdrops; transform on the host breaks viewport coverage.
+.page-reveal > *:not(app-header) {
   opacity: 0;
   transform: translateY(0.75rem);
 }
 
-.page-reveal--ready > * {
+.page-reveal--ready > *:not(app-header) {
   animation: page-reveal-in 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @for $i from 1 through 24 {
-  .page-reveal--ready > *:nth-child(#{$i}) {
+  .page-reveal--ready > *:not(app-header):nth-child(#{$i}) {
     animation-delay: #{($i - 1) * 70ms};
   }
 }
@@ -57,7 +58,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page-reveal > *,
+  .page-reveal > *:not(app-header),
   .page-reveal-list > * {
     opacity: 1;
     transform: none;
