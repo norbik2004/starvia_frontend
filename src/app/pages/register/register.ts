@@ -15,9 +15,9 @@ import { Hero } from '../../layout/hero/hero';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
 import { PageRevealDirective } from '../../directives/page-reveal';
+import { lockAuthPageBody } from '../shared/auth-page-body-lock';
 
 type RegisterForm = FormGroup<{
-  userName: FormControl<string>;
   email: FormControl<string>;
   password: FormControl<string>;
   repeatPassword: FormControl<string>;
@@ -64,23 +64,6 @@ const passwordsMatchValidator: ValidatorFn = (
         <form class="register-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <div class="register-form__intro">
             <p class="register-form__eyebrow">Account setup</p>
-          </div>
-
-          <div class="field">
-            <label class="field__label" for="user-name">Username</label>
-            <input
-              id="user-name"
-              class="field__input"
-              type="text"
-              formControlName="userName"
-              autocomplete="username"
-              placeholder="yourname"
-            />
-            <div class="field__message" aria-live="polite">
-              @if (userName.invalid && (userName.touched || userName.dirty)) {
-                <p class="field__error">Enter a username.</p>
-              }
-            </div>
           </div>
 
           <div class="field">
@@ -162,12 +145,12 @@ export class RegisterPage {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
+  constructor() {
+    lockAuthPageBody();
+  }
+
   protected readonly form: RegisterForm = new FormGroup(
     {
-      userName: new FormControl('', {
-        nonNullable: true,
-        validators: [Validators.required],
-      }),
       email: new FormControl('', {
         nonNullable: true,
         validators: [Validators.required, Validators.email],
@@ -186,10 +169,6 @@ export class RegisterPage {
 
   protected readonly isSubmitting = signal(false);
   protected readonly registerError = signal<ApplicationError | null>(null);
-
-  protected get userName(): FormControl<string> {
-    return this.form.controls.userName;
-  }
 
   protected get email(): FormControl<string> {
     return this.form.controls.email;
@@ -213,13 +192,16 @@ export class RegisterPage {
 
     this.isSubmitting.set(true);
 
-    const { userName, email, password } = this.form.getRawValue();
+    const { email, password } = this.form.getRawValue();
 
     this.authService
-      .register({ userName, email, password })
+      .register({ email, password })
       .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
-        next: () => void this.router.navigateByUrl('/login'),
+        next: () =>
+          void this.router.navigate(['/confirm-email'], {
+            state: { email },
+          }),
         error: (error: unknown) => {
           this.registerError.set(
             toApplicationError(

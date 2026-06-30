@@ -74,8 +74,14 @@ video {
 }
 
 body.nav-open,
-body.dashboard-nav-open {
+body.dashboard-nav-open,
+body.auth-page {
   overflow: hidden;
+}
+
+html:has(body.auth-page) {
+  overflow: hidden;
+  scrollbar-gutter: auto;
 }
 
 @media (max-width: 48rem) {

@@ -1,0 +1,71 @@
+@mixin post-status-tones {
+  &.post-status--draft {
+    --post-status-fg: #546e7a;
+    --post-status-bg: color-mix(in srgb, #546e7a 12%, transparent);
+    --post-status-border: color-mix(in srgb, #546e7a 28%, transparent);
+    --post-status-hover-bg: color-mix(in srgb, #546e7a 18%, transparent);
+  }
+
+  &.post-status--in-progress {
+    --post-status-fg: var(--mat-sys-primary);
+    --post-status-bg: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+    --post-status-border: color-mix(in srgb, var(--mat-sys-primary) 28%, transparent);
+    --post-status-hover-bg: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+  }
+
+  &.post-status--done {
+    --post-status-fg: #2e7d32;
+    --post-status-bg: color-mix(in srgb, #2e7d32 12%, transparent);
+    --post-status-border: color-mix(in srgb, #2e7d32 28%, transparent);
+    --post-status-hover-bg: color-mix(in srgb, #2e7d32 18%, transparent);
+  }
+
+  &.post-status--archived {
+    --post-status-fg: #8d6e63;
+    --post-status-bg: color-mix(in srgb, #8d6e63 12%, transparent);
+    --post-status-border: color-mix(in srgb, #8d6e63 28%, transparent);
+    --post-status-hover-bg: color-mix(in srgb, #8d6e63 18%, transparent);
+  }
+}
+
+@mixin post-status-chip {
+  @include post-status-tones;
+
+  color: var(--post-status-fg);
+  border: 1px solid var(--post-status-border);
+  background-color: var(--post-status-bg);
+}
+
+@mixin post-status-interactive {
+  transition:
+    color 0.28s ease,
+    background-color 0.28s ease,
+    border-color 0.28s ease;
+
+  &--pulse {
+    animation: post-status-pulse 0.32s ease-out;
+  }
+}
+
+@keyframes post-status-pulse {
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes post-status-pulse {
+    from,
+    to {
+      transform: none;
+    }
+  }
+}

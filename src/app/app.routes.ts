@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { sessionGuard } from './guards/session.guard';
+import { DashboardSocialAccounts } from './pages/dashboard/dashboard-social-accounts/dashboard-social-accounts';
+import { DashboardSocialAccountDetail } from './pages/dashboard/dashboard-social-account-detail/dashboard-social-account-detail';
 import { DashboardAccount } from './pages/dashboard/dashboard-account/dashboard-account';
 import { DashboardOverview } from './pages/dashboard/dashboard-overview/dashboard-overview';
 import { DashboardPostCreate } from './pages/dashboard/dashboard-post-create/dashboard-post-create';
@@ -11,6 +13,11 @@ import { HomePage } from './pages/home/home';
 import { LoginPage } from './pages/login/login';
 import { NotFoundPage } from './pages/not-found/not-found';
 import { RegisterPage } from './pages/register/register';
+import { ConfirmEmailPage } from './pages/confirm-email/confirm-email';
+import { EmailConfirmedPage } from './pages/email-confirmed/email-confirmed';
+import { ForgotPasswordPage } from './pages/forgot-password/forgot-password';
+import { ResetPasswordPage } from './pages/reset-password/reset-password';
+import { ResetPasswordSuccessPage } from './pages/reset-password-success/reset-password-success';
 
 export const routes: Routes = [
   {
@@ -24,10 +31,36 @@ export const routes: Routes = [
     data: { session: { mode: 'guest' } },
   },
   {
+    path: 'forgot-password',
+    component: ForgotPasswordPage,
+    canActivate: [sessionGuard],
+    data: { session: { mode: 'guest' } },
+  },
+  {
     path: 'register',
     component: RegisterPage,
     canActivate: [sessionGuard],
     data: { session: { mode: 'guest' } },
+  },
+  {
+    path: 'confirm-email',
+    component: ConfirmEmailPage,
+    canActivate: [sessionGuard],
+    data: { session: { mode: 'guest' } },
+  },
+  {
+    path: 'email-confirmed',
+    component: EmailConfirmedPage,
+    canActivate: [sessionGuard],
+    data: { session: { mode: 'guest' } },
+  },
+  {
+    path: 'reset-password',
+    component: ResetPasswordPage,
+  },
+  {
+    path: 'reset-password-success',
+    component: ResetPasswordSuccessPage,
   },
   {
     path: 'dashboard',
@@ -58,6 +91,14 @@ export const routes: Routes = [
       {
         path: 'account',
         component: DashboardAccount,
+      },
+      {
+        path: 'social-accounts/:id',
+        component: DashboardSocialAccountDetail,
+      },
+      {
+        path: 'social-accounts',
+        component: DashboardSocialAccounts,
       },
       {
         path: '**',

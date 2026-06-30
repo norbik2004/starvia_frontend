@@ -8,12 +8,11 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/ro
 
 import { catchError, filter, finalize, of } from 'rxjs';
 
-import { getUserInitials, type UserAccount } from '../../../models/user-account';
-
+import type { UserAccount } from '../../../models/user-account';
 import { AuthService } from '../../../services/auth';
-
 import { SessionService } from '../../../services/session';
 import { mountDrawerBodyBackdrop } from '../../../layout/shared/drawer-body-backdrop';
+import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-user-avatar';
 
 
 
@@ -32,12 +31,16 @@ type DashboardNavItem = {
 const NAV_ITEMS: readonly DashboardNavItem[] = [
 
   { label: 'Overview', route: '/dashboard', exact: true },
-
-  { label: 'Posts', route: '/dashboard/posts' },
+  
+  { label: 'Social accounts', route: '/dashboard/social-accounts' },
 
   { label: 'Media', route: '/dashboard/media' },
 
+  { label: 'Posts', route: '/dashboard/posts' },
+
   { label: 'Prompts', route: '/dashboard/prompts' },
+
+  
 
 ] as const;
 
@@ -47,7 +50,7 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
   selector: 'app-dashboard-sidebar',
 
-  imports: [RouterLink, RouterLinkActive, MatTooltip],
+  imports: [RouterLink, RouterLinkActive, MatTooltip, DashboardUserAvatar],
 
   styleUrl: './dashboard-sidebar.scss',
 
@@ -213,7 +216,14 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
           <div class="dashboard-sidebar__user-row">
 
-            <span class="dashboard-sidebar__avatar" aria-hidden="true">{{ userInitials() }}</span>
+            @if (account(); as profile) {
+              <app-dashboard-user-avatar
+                [userName]="profile.userName"
+                [profilePictureUrl]="profile.profilePictureUrl"
+              />
+            } @else {
+              <app-dashboard-user-avatar userName="Account" />
+            }
 
             <div class="dashboard-sidebar__identity">
 
@@ -255,10 +265,14 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
           <div class="dashboard-sidebar__user-actions">
 
-            <a routerLink="/dashboard/account" class="dashboard-sidebar__action" (click)="closeMenu()">
-
+            <a
+              routerLink="/dashboard/account"
+              routerLinkActive="is-active"
+              [routerLinkActiveOptions]="{ exact: true }"
+              class="dashboard-sidebar__action"
+              (click)="closeMenu()"
+            >
               Account
-
             </a>
 
             <button
@@ -339,26 +353,21 @@ export class DashboardSidebar implements OnDestroy {
 
       .subscribe(() => this.closeMenu());
 
+
+
+    this.authService.accountChanges$
+
+      .pipe(takeUntilDestroyed(this.destroyRef))
+
+      .subscribe((profile) => this.account.set(profile));
+
   }
 
 
 
   @HostListener('document:keydown.escape')
-
   protected onEscape(): void {
-
     this.closeMenu();
-
-  }
-
-
-
-  protected userInitials(): string {
-
-    const userName = this.account()?.userName;
-
-    return userName ? getUserInitials(userName) : '?';
-
   }
 
 

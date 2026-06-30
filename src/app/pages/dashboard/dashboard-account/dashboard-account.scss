@@ -1,4 +1,9 @@
 @use '../dashboard-content-shell' as shell;
+@use '../shared/dashboard-page-status';
+@use '../shared/account-panel';
+@use '../shared/account-section';
+@use '../shared/account-field';
+@use '../shared/dashboard-inline-edit';
 
 :host {
   @include shell.content-host;
@@ -6,65 +11,174 @@
 
 .dashboard-account {
   @include shell.page;
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  gap: var(--space-lg);
+  align-items: stretch;
   min-height: 0;
-  align-content: start;
 
   &__header {
     @include shell.page-header;
+    flex: 0 0 auto;
     width: 100%;
   }
 
+  &__header-copy {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+  }
+
   &__eyebrow {
-    margin: 0 0 var(--space-xs);
+    margin: 0;
+    line-height: 1.2;
+    flex-shrink: 0;
+
+    &::after {
+      content: '/';
+      margin-left: 0.5rem;
+      color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 70%, transparent);
+      font-weight: var(--font-weight-medium);
+    }
   }
 
   &__title {
     @include shell.page-title;
+    font-size: clamp(1.375rem, 2vw, 1.75rem);
+    line-height: 1.15;
   }
 
-  &__status {
-    @include shell.posts-status;
-    flex: 0 0 auto;
-  }
-
-  &__card {
-    @include shell.surface-card;
+  &__body {
+    display: grid;
+    gap: var(--space-xl);
     width: 100%;
-    padding: var(--space-lg) var(--space-xl);
   }
+}
 
-  &__details {
-    display: grid;
-    gap: var(--space-md);
+.account-connected {
+  &__empty {
     margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
   }
 
-  &__detail {
+  &__list {
     display: grid;
-    gap: 0.25rem;
-
-    dt {
-      margin: 0;
-      color: var(--mat-sys-on-surface-variant);
-      font-size: var(--text-eyebrow);
-      font-weight: var(--font-weight-semibold);
-      letter-spacing: var(--tracking-wide);
-      text-transform: uppercase;
-    }
-
-    dd {
-      margin: 0;
-      color: var(--mat-sys-on-surface);
-      font-size: var(--text-body);
-      line-height: var(--leading-body);
-      overflow-wrap: anywhere;
-    }
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  &__actions {
+  &__item {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-sm);
+    align-items: center;
+    gap: var(--space-md);
+    padding: 0.75rem 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--mat-sys-surface-container-low) 35%, #fff);
+  }
+
+  &__photo {
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  &__copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  &__platform {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.6875rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  &__username {
+    margin: 0;
+    color: var(--mat-sys-on-surface);
+    font-size: var(--text-body-sm);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--leading-body);
+    overflow-wrap: anywhere;
+  }
+}
+
+.account-panel__btn {
+  text-decoration: none;
+}
+
+.account-session__btn {
+  min-height: 2.25rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--mat-sys-error) 28%, var(--border-subtle));
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--mat-sys-error);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--mat-sys-error) 55%, transparent);
+    background: color-mix(in srgb, var(--mat-sys-error) 6%, #fff);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--mat-sys-error) 12%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mat-sys-error) 45%, transparent);
+    outline-offset: 3px;
+  }
+}
+
+@media (max-width: 40rem) {
+  .account-field--action {
+    flex-direction: column;
+    align-items: stretch;
+
+    .account-field__actions {
+      width: 100%;
+
+      .account-panel__btn,
+      .account-session__btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-field__edit > *,
+  .account-field__edit--closing > *,
+  .account-field__actions--edit .account-field__icon-btn,
+  .account-field__actions--edit--closing .account-field__icon-btn {
+    animation: none !important;
   }
 }

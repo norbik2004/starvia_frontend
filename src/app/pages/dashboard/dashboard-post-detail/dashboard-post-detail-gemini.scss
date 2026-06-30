@@ -862,7 +862,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   flex-shrink: 0;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 48rem) {
   .post-detail__gemini-anchor {
     grid-area: auto;
   }
@@ -1177,6 +1177,10 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   display: grid;
   gap: 0.45rem;
   width: 100%;
+}
+
+.gemini-popup__composer-toolbar {
+  margin-bottom: -0.1rem;
 }
 
 @keyframes post-detail-gemini-icon-spin {
@@ -1508,13 +1512,14 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 48rem) {
   .post-detail__gemini-anchor {
     position: relative;
   }
 
   .post-detail__gemini-btn {
-    width: auto;
+    width: 100%;
+    justify-content: center;
     min-height: 2.375rem;
     padding: 0.4rem 0.85rem;
     font-size: 0.8125rem;

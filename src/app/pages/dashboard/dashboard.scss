@@ -99,6 +99,10 @@
 
   .dashboard-layout__main {
     min-height: 0;
-    padding: var(--space-md) var(--space-md) var(--space-xl);
+    padding:
+      var(--space-md)
+      max(var(--space-md), env(safe-area-inset-right))
+      max(var(--space-xl), env(safe-area-inset-bottom))
+      max(var(--space-md), env(safe-area-inset-left));
   }
 }

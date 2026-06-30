@@ -3,6 +3,7 @@
 @use '../dashboard-content-shell' as shell;
 @use '../shared/dashboard-list-board';
 @use '../shared/dashboard-page-status';
+@use '../shared/post-status';
 
 $posts-green: #2e7d32;
 $compact-input-height: 1.875rem;
@@ -345,7 +346,7 @@ $panel-divider: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transpare
   list-style: none;
   grid-template-columns: 1fr;
 
-  @media (min-width: 36rem) {
+  @media (min-width: 48rem) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-lg);
   }
@@ -423,8 +424,44 @@ $panel-divider: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transpare
     @include post-text-clamp(2);
   }
 
+  &__badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  &__platforms {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  &__platform-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+
   &__status {
-    @include shell.status-pill(0.6875rem, 0.22rem 0.6rem);
+    @include post-status.post-status-chip;
+    @include post-status.post-status-interactive;
+
+    flex-shrink: 0;
+    padding: 0.28rem 0.65rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.6875rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-transform: uppercase;
   }
 
   &__body {
@@ -672,3 +709,75 @@ $panel-divider: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transpare
 }
 
 @include drawer.motion-safe('.posts-filters');
+
+@media (max-width: 48rem) {
+  .dashboard-posts {
+    gap: var(--space-sm);
+
+    &__header-copy {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+
+    &__eyebrow::after {
+      display: none;
+    }
+
+    &__title {
+      font-size: 1.5rem;
+    }
+
+    &__add-btn {
+      margin-left: 0;
+      width: 100%;
+      justify-content: center;
+      min-height: 2.75rem;
+    }
+  }
+
+  .dashboard-list-board {
+    gap: 0.375rem;
+
+    &__head {
+      display: none;
+    }
+  }
+
+  .posts-list {
+    gap: var(--space-sm);
+  }
+
+  .post-card {
+    min-height: 0;
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+
+    &:hover {
+      transform: none;
+    }
+
+    &__head {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+
+    &__title {
+      font-size: 1rem;
+    }
+
+    &__badges {
+      justify-content: flex-start;
+      width: 100%;
+    }
+
+    &__foot {
+      padding-top: 0.625rem;
+    }
+
+    &__open-hint {
+      display: none;
+    }
+  }
+}

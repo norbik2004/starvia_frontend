@@ -373,44 +373,6 @@
 
 
 
-.dashboard-sidebar__avatar {
-
-  display: inline-flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  flex-shrink: 0;
-
-  width: 2.25rem;
-
-  height: 2.25rem;
-
-  border-radius: 50%;
-
-  background: linear-gradient(
-
-    145deg,
-
-    color-mix(in srgb, var(--mat-sys-primary) 78%, #fff),
-
-    color-mix(in srgb, var(--mat-sys-primary) 42%, var(--mat-sys-surface-container-high))
-
-  );
-
-  color: #fff;
-
-  font-size: 0.8125rem;
-
-  font-weight: var(--font-weight-bold);
-
-  letter-spacing: 0.03em;
-
-}
-
-
-
 .dashboard-sidebar__identity {
 
   display: grid;
@@ -520,16 +482,16 @@
 
 
   &:hover:not(:disabled),
-
   &:focus-visible {
-
     background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
-
     color: var(--mat-sys-primary);
-
   }
 
-
+  &.is-active {
+    background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+    color: var(--mat-sys-primary);
+    font-weight: var(--font-weight-semibold);
+  }
 
   &--danger {
 

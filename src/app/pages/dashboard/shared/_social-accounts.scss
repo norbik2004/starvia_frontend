@@ -1,0 +1,197 @@
+@use '../dashboard-content-shell' as shell;
+
+.social-accounts {
+  &__list {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__other {
+    display: grid;
+    gap: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  }
+
+  &__other-title,
+  &__section-title {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.6875rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  &__connected,
+  &__category {
+    display: grid;
+    gap: var(--space-sm);
+  }
+}
+
+.social-account-card {
+  display: grid;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 82%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--mat-sys-surface-container-low) 35%, #fff);
+
+  @media (min-width: 40rem) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  &--linkedin {
+    border-left: 3px solid color-mix(in srgb, #0a66c2 55%, transparent);
+  }
+
+  &--facebook {
+    border-left: 3px solid color-mix(in srgb, #1877f2 55%, transparent);
+  }
+
+  &--instagram {
+    border-left: 3px solid color-mix(in srgb, #e4405f 55%, transparent);
+  }
+
+  &--connected {
+    @media (min-width: 40rem) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+  }
+
+  &--link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--mat-sys-primary) 28%, var(--border-subtle));
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+      transform: translateY(-1px);
+    }
+
+    &:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--mat-sys-primary) 65%, transparent);
+      outline-offset: 3px;
+    }
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    align-self: center;
+    color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 70%, transparent);
+    font-size: 1.375rem;
+  }
+
+  &__identity {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    min-width: 0;
+  }
+
+  &__visual {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    padding: 0.35rem;
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--mat-sys-surface-container-low) 55%, #fff);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  }
+
+  &__photo {
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent);
+  }
+
+  &__visual app-dashboard-user-avatar {
+    display: inline-flex;
+  }
+
+  &__soon {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.875rem;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--mat-sys-on-surface-variant) 10%, transparent);
+    color: var(--mat-sys-on-surface-variant);
+    font-size: var(--text-body-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+  }
+
+  &__copy {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  &__headline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__name {
+    margin: 0;
+    color: var(--mat-sys-on-surface);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--leading-snug);
+  }
+
+  &__badge {
+    @include shell.status-pill(0.625rem, 0.18rem 0.55rem);
+  }
+
+  &__description,
+  &__username,
+  &__comment,
+  &__meta {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
+    overflow-wrap: anywhere;
+  }
+
+  &__username {
+    color: var(--mat-sys-on-surface);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__meta strong {
+    color: var(--mat-sys-on-surface);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+
+    @media (min-width: 40rem) {
+      justify-content: flex-end;
+    }
+  }
+}

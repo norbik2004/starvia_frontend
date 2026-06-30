@@ -8,6 +8,7 @@ import { ApplicationError, toApplicationError } from '../../models/application-e
 import { AuthService } from '../../services/auth';
 import { SessionService } from '../../services/session';
 import { PageRevealDirective } from '../../directives/page-reveal';
+import { lockAuthPageBody } from '../shared/auth-page-body-lock';
 
 type LoginForm = FormGroup<{
   email: FormControl<string>;
@@ -85,6 +86,10 @@ type LoginForm = FormGroup<{
           </div>
 
           <p class="auth-switch">
+            <a routerLink="/forgot-password" class="auth-switch__link">Forgot password?</a>
+          </p>
+
+          <p class="auth-switch">
             New to Starvia?
             <a routerLink="/register" class="auth-switch__link">Create an account</a>
           </p>
@@ -105,6 +110,10 @@ export class LoginPage {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly session = inject(SessionService);
+
+  constructor() {
+    lockAuthPageBody();
+  }
 
   protected readonly form: LoginForm = new FormGroup({
     email: new FormControl('', {

@@ -1,12 +1,14 @@
+import { NgClass } from '@angular/common';
 import { Component, DestroyRef, HostListener, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, take } from 'rxjs';
 import { toApplicationError } from '../../../models/application-error';
 import { DisplayDatetimePipe } from '../../../pipes/display-datetime';
-import { PLATFORM_TYPES, POST_SORT_BY_OPTIONS, POST_STATUSES, parseHashtagSegments, type PagedPostsResponse } from '../../../models/post';
+import { PLATFORM_TYPES, POST_SORT_BY_OPTIONS, POST_STATUS_OPTIONS, getPlatformTypeLabel, getPlatformTypeName, getPostStatusLabel, getPostStatusClass, parseHashtagSegments, type PagedPostsResponse } from '../../../models/post';
 import { PostService } from '../../../services/post';
 import { DashboardPaginationPanel } from '../shared/dashboard-pagination-panel/dashboard-pagination-panel';
+import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { toPaginationPage } from '../shared/pagination';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
@@ -23,6 +25,7 @@ import {
   type SortOrder,
   type StatusFilter,
 } from './posts-list-query';
+import { postMetaChipAnimation, postMetaFadeSlideAnimation } from '../shared/post-meta.animations';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
@@ -42,7 +45,8 @@ type PostsForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-posts',
-  imports: [ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardPaginationPanel, PageLoading, PageRevealDirective],
+  imports: [NgClass, ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardPaginationPanel, DashboardPlatformLogo, PageLoading, PageRevealDirective],
+  animations: [postMetaChipAnimation, postMetaFadeSlideAnimation],
   styleUrl: './dashboard-posts.scss',
   template: `
     <section class="dashboard-content-page dashboard-posts" aria-labelledby="dashboard-posts-title">
@@ -152,8 +156,8 @@ type PostsForm = FormGroup<{
               <label class="field__label" for="filter-status">Status</label>
               <select id="filter-status" class="field__input field__input--select" formControlName="status">
                 <option value="">Any status</option>
-                @for (status of postStatuses; track status) {
-                  <option [value]="status">{{ status }}</option>
+                @for (status of postStatusOptions; track status.value) {
+                  <option [value]="status.value">{{ status.label }}</option>
                 }
               </select>
             </div>
@@ -283,7 +287,22 @@ type PostsForm = FormGroup<{
                 >
                   <div class="post-card__head">
                     <h2 class="post-card__title">{{ post.title || 'Untitled' }}</h2>
-                    <span class="post-card__status">{{ post.status }}</span>
+                    <div class="post-card__badges">
+                      @if (post.tags.length > 0) {
+                        <div class="post-card__platforms" @postMetaFadeSlide aria-label="Platforms">
+                          @for (tag of post.tags; track tag) {
+                            <span class="post-card__platform-logo" @postMetaChip [attr.aria-label]="platformTypeLabel(tag)">
+                              <app-dashboard-platform-logo
+                                [platformType]="platformTypeName(tag)"
+                                size="xs"
+                                [compact]="true"
+                              />
+                            </span>
+                          }
+                        </div>
+                      }
+                      <span class="post-card__status" [ngClass]="postStatusClass(post.status)">{{ postStatusLabel(post.status) }}</span>
+                    </div>
                   </div>
                   @if (post.body) {
                     <p class="post-card__body">
@@ -347,7 +366,11 @@ export class DashboardPosts {
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
-  protected readonly postStatuses = POST_STATUSES;
+  protected readonly postStatusOptions = POST_STATUS_OPTIONS;
+  protected readonly postStatusLabel = getPostStatusLabel;
+  protected readonly postStatusClass = getPostStatusClass;
+  protected readonly platformTypeLabel = getPlatformTypeLabel;
+  protected readonly platformTypeName = getPlatformTypeName;
   protected readonly platformTypes = PLATFORM_TYPES;
   protected readonly sortByOptions = POST_SORT_BY_OPTIONS;
   protected readonly hashtagSegments = parseHashtagSegments;

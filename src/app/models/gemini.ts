@@ -6,16 +6,23 @@ export enum ConversationType {
   AskGemini = 'AskGemini',
 }
 
+export type UserPromptRequest = {
+  prompt: string;
+  postId: number;
+  conversationType: ConversationType;
+  includePostText?: boolean;
+};
+
 export type GeneratePostRequest = {
   prompt: string;
   postId: number;
+  includePostText?: boolean;
 };
 
 export type AskGeminiRequest = {
   prompt: string;
   postId: number;
-  includePostContent: boolean;
-  postContent?: string;
+  includePostText?: boolean;
 };
 
 export type GeminiChatRole = 'user' | 'assistant';
@@ -24,7 +31,7 @@ export type GeminiChatMessage = {
   id: number;
   role: GeminiChatRole;
   text: string;
-  attachedPostContent?: boolean;
+  attachedPostText?: boolean;
   isTyping?: boolean;
 };
 

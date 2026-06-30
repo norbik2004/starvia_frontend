@@ -1,7 +1,19 @@
 export type UserAccount = {
   userName: string;
   email: string;
+  profilePictureUrl: string | null;
 };
+
+function parseOptionalString(record: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
 
 export function parseUserAccount(value: unknown): UserAccount | null {
   if (!value || typeof value !== 'object') {
@@ -26,7 +38,19 @@ export function parseUserAccount(value: unknown): UserAccount | null {
     return null;
   }
 
-  return { userName, email };
+  const profilePictureUrl = parseOptionalString(
+    record,
+    'profilePictureUrl',
+    'ProfilePictureUrl',
+    'avatarUrl',
+    'AvatarUrl',
+    'profileImageUrl',
+    'ProfileImageUrl',
+    'pictureUrl',
+    'PictureUrl'
+  );
+
+  return { userName, email, profilePictureUrl };
 }
 
 export function getUserInitials(userName: string): string {

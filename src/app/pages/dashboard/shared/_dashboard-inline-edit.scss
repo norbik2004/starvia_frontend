@@ -49,6 +49,8 @@
   display: grid;
   gap: var(--space-xs);
   width: 100%;
+  max-width: none;
+  box-sizing: border-box;
   padding: var(--space-md);
   overflow: visible;
   border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, var(--mat-sys-primary) 8%);
@@ -56,6 +58,8 @@
   background: color-mix(in srgb, var(--mat-sys-surface) 96%, var(--mat-sys-surface-container-low));
 
   .field__input {
+    width: 100%;
+    box-sizing: border-box;
     min-height: 2.25rem;
     padding: 0.45rem 0.65rem;
   }

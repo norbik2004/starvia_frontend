@@ -1,4 +1,4 @@
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { Component, DestroyRef, ElementRef, HostListener, computed, inject, signal, viewChild } from '@angular/core';
@@ -13,8 +13,21 @@ import {
   normalizePostBody,
   parseHashtagSegments,
   POST_BODY_MAX_LENGTH,
+  POST_STATUS_OPTIONS,
   POST_TITLE_MAX_LENGTH,
+  PLATFORM_TYPES,
+  arePostTagsEqual,
+  getPlatformTypeLabel,
+  getPlatformTypeName,
+  getPostStatusClass,
+  getPostStatusLabel,
+  hasPostTag,
+  normalizePostTags,
+  normalizeUpdatePostBody,
+  type PlatformType,
   type PostItem,
+  type PostStatus,
+  type UpdatePostPayload,
 } from '../../../models/post';
 import { GeminiService } from '../../../services/gemini';
 import { AuthService } from '../../../services/auth';
@@ -32,8 +45,14 @@ import { createTypewriter } from '../shared/typewriter-text';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
 import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
+import { DashboardPlatformLogo, type PlatformLogoSize } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
 import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
+import {
+  postMetaChipAnimation,
+  postMetaFadeSlideAnimation,
+  postMetaPanelAnimation,
+} from '../shared/post-meta.animations';
 
 type EditableField = 'title' | 'body';
 
@@ -41,6 +60,7 @@ const SAVE_MESSAGE_DURATION_MS = 5000;
 const GEMINI_CHAT_CLOSE_MS = 200;
 const GEMINI_POPUP_CLOSE_MS = GEMINI_CHAT_CLOSE_MS;
 const EDIT_CLOSE_MS = 220;
+const STATUS_PULSE_MS = 320;
 
 type PostForm = FormGroup<{
   title: FormControl<string>;
@@ -49,7 +69,8 @@ type PostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-detail',
-  imports: [RouterLink, DatePipe, DisplayDatetimePipe, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective, DashboardDeleteButton, AutoExpandTextarea],
+  imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective, DashboardDeleteButton, DashboardPlatformLogo, AutoExpandTextarea],
+  animations: [postMetaChipAnimation, postMetaFadeSlideAnimation, postMetaPanelAnimation],
   styleUrl: './dashboard-post-detail.scss',
   template: `
     <section class="dashboard-content-page post-detail" aria-labelledby="post-detail-title">
@@ -65,7 +86,142 @@ type PostForm = FormGroup<{
 
           @if (post(); as item) {
             <div class="post-detail__header-tools">
-              <span class="post-detail__status-badge post-detail__status-badge--toolbar">{{ item.status }}</span>
+              <div class="post-detail__header-meta">
+                <div class="post-detail__platforms-anchor" #platformsAnchor>
+                  <button
+                    type="button"
+                    class="post-detail__platforms-trigger"
+                    [class.post-detail__platforms-trigger--open]="platformMenuOpen()"
+                    [class.post-detail__platforms-trigger--empty]="item.tags.length === 0"
+                    [class.post-detail__platforms-trigger--has-tags]="item.tags.length > 0"
+                    matTooltip="Edit platforms"
+                    matTooltipPosition="below"
+                    [matTooltipDisabled]="tooltipsDisabled()"
+                    aria-label="Edit platforms"
+                    [attr.aria-expanded]="platformMenuOpen()"
+                    aria-controls="post-detail-platforms-menu"
+                    [disabled]="isMetaSaving() || isActionLocked()"
+                    (click)="togglePlatformMenu($event)"
+                  >
+                    <span class="post-detail__platforms-trigger-content">
+                      @if (item.tags.length === 0) {
+                        <span class="post-detail__platforms-empty" @postMetaFadeSlide>
+                          <span class="material-icons post-detail__platforms-trigger-icon" aria-hidden="true">hub</span>
+                          <span class="post-detail__platforms-trigger-label">Platforms</span>
+                        </span>
+                      } @else {
+                        <span class="post-detail__platforms-trigger-logos" @postMetaFadeSlide aria-hidden="true">
+                          @for (tag of item.tags; track tag) {
+                            <span class="post-detail__platforms-trigger-logo" @postMetaChip>
+                              <app-dashboard-platform-logo
+                                [platformType]="platformTypeName(tag)"
+                                [size]="headerPlatformLogoSize()"
+                                [compact]="headerPlatformLogosCompact()"
+                              />
+                            </span>
+                          }
+                        </span>
+                      }
+                      <span class="material-icons post-detail__platforms-trigger-chevron" aria-hidden="true">expand_more</span>
+                    </span>
+                  </button>
+
+                  @if (platformMenuOpen()) {
+                    <div
+                      id="post-detail-platforms-menu"
+                      class="post-detail__platforms-menu"
+                      @postMetaPanel
+                      role="menu"
+                      aria-label="Platforms"
+                      (click)="$event.stopPropagation()"
+                    >
+                      @for (platform of platformTypes; track platform.value) {
+                        <button
+                          type="button"
+                          class="post-detail__platforms-menu-item"
+                          role="menuitemcheckbox"
+                          [class.post-detail__platforms-menu-item--active]="hasPostTag(item.tags, platform.value)"
+                          [attr.aria-checked]="hasPostTag(item.tags, platform.value)"
+                          [disabled]="isMetaSaving() || isActionLocked()"
+                          (click)="onTagToggle(platform.value)"
+                        >
+                          <app-dashboard-platform-logo [platformType]="platform.type" size="sm" />
+                          <span class="post-detail__platforms-menu-label">{{ platform.label }}</span>
+                          @if (hasPostTag(item.tags, platform.value)) {
+                            <span
+                              class="material-icons post-detail__platforms-menu-check"
+                              @postMetaChip
+                              aria-hidden="true"
+                            >check</span>
+                          }
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <span class="post-detail__header-meta-sep" aria-hidden="true">·</span>
+
+                <div class="post-detail__status-anchor" #statusAnchor>
+                  <button
+                    type="button"
+                    id="post-detail-status"
+                    class="post-detail__status-trigger"
+                    [class.post-detail__status-trigger--open]="statusMenuOpen()"
+                    [class.post-detail__status-trigger--pulse]="statusPulse()"
+                    [ngClass]="postStatusClass(item.status)"
+                    matTooltip="Edit status"
+                    matTooltipPosition="below"
+                    [matTooltipDisabled]="tooltipsDisabled()"
+                    aria-label="Edit status"
+                    [attr.aria-expanded]="statusMenuOpen()"
+                    aria-controls="post-detail-status-menu"
+                    [disabled]="isMetaSaving() || isActionLocked()"
+                    (click)="toggleStatusMenu($event)"
+                  >
+                    <span class="post-detail__status-trigger-content">
+                      <span class="post-detail__status-trigger-label">{{ postStatusLabel(item.status) }}</span>
+                      <span class="material-icons post-detail__status-trigger-chevron" aria-hidden="true">expand_more</span>
+                    </span>
+                  </button>
+
+                  @if (statusMenuOpen()) {
+                    <div
+                      id="post-detail-status-menu"
+                      class="post-detail__status-menu"
+                      @postMetaPanel
+                      role="menu"
+                      aria-label="Status"
+                      (click)="$event.stopPropagation()"
+                    >
+                      @for (status of postStatusOptions; track status.value) {
+                        <button
+                          type="button"
+                          class="post-detail__status-menu-item"
+                          role="menuitemradio"
+                          [class.post-detail__status-menu-item--active]="item.status === status.value"
+                          [ngClass]="postStatusClass(status.value)"
+                          [attr.aria-checked]="item.status === status.value"
+                          [disabled]="isMetaSaving() || isActionLocked()"
+                          (click)="onStatusSelect(status.value)"
+                        >
+                          <span class="post-detail__status-menu-label">{{ status.label }}</span>
+                          @if (item.status === status.value) {
+                            <span
+                              class="material-icons post-detail__status-menu-check"
+                              @postMetaChip
+                              aria-hidden="true"
+                            >check</span>
+                          }
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <span class="post-detail__header-meta-sep post-detail__header-date-sep" aria-hidden="true">·</span>
+
               <p class="post-detail__meta post-detail__top-date">
                 <time [attr.datetime]="item.createdAt" class="post-detail__meta-date post-detail__meta-date--full">
                   {{ item.createdAt | displayDatetime }}
@@ -74,7 +230,9 @@ type PostForm = FormGroup<{
                   {{ item.createdAt | date: 'mediumDate' }}
                 </time>
               </p>
+
               <app-dashboard-delete-button
+                class="post-detail__header-delete"
                 ariaLabel="Delete post"
                 tooltip="Delete post"
                 [active]="deleteConfirmOpen()"
@@ -90,8 +248,6 @@ type PostForm = FormGroup<{
         <p class="post-detail__save-status" aria-live="polite">{{ saveMessage() }}</p>
 
         @if (post(); as item) {
-          <span class="post-detail__status-badge post-detail__status-badge--title">{{ item.status }}</span>
-
           @if (editingField() === 'title') {
             <div
               class="dashboard-edit-panel"
@@ -241,6 +397,28 @@ type PostForm = FormGroup<{
                       }
 
                       <div class="gemini-popup__composer">
+                        @if (hasPostContentToAttach()) {
+                          <div class="gemini-chatbot__composer-toolbar gemini-popup__composer-toolbar">
+                            <label
+                              class="gemini-chatbot__attach"
+                              matTooltip="Includes post content so Starvia AI can refine the existing draft."
+                              matTooltipPosition="above"
+                              [matTooltipDisabled]="tooltipsDisabled()"
+                            >
+                              <input
+                                type="checkbox"
+                                class="gemini-chatbot__attach-input"
+                                [checked]="includePostTextInGenerate()"
+                                [disabled]="!canUseGemini()"
+                                (change)="onIncludePostTextInGenerateChange($event)"
+                              />
+                              <span class="gemini-chatbot__attach-chip">
+                                <span class="material-icons" aria-hidden="true">description</span>
+                                Include content
+                              </span>
+                            </label>
+                          </div>
+                        }
                         <div class="gemini-prompt-input-row">
                           <app-auto-expand-textarea
                             #geminiPromptInput
@@ -517,7 +695,7 @@ type PostForm = FormGroup<{
                   }
 
                   <div class="gemini-chatbot__message-body">
-                    @if (message.attachedPostContent) {
+                    @if (message.attachedPostText) {
                       <span class="gemini-chatbot__attachment">
                         <span class="material-icons" aria-hidden="true">description</span>
                         Content attached
@@ -698,9 +876,9 @@ type PostForm = FormGroup<{
                   <input
                     type="checkbox"
                     class="gemini-chatbot__attach-input"
-                    [checked]="includePostContentInChat()"
+                    [checked]="includePostTextInChat()"
                     [disabled]="!canUseGeminiChat() || !hasPostContentToAttach()"
-                    (change)="onIncludePostContentChange($event)"
+                    (change)="onIncludePostTextInChatChange($event)"
                   />
                   <span class="gemini-chatbot__attach-chip">
                     <span class="material-icons" aria-hidden="true">description</span>
@@ -831,6 +1009,8 @@ export class DashboardPostDetail {
   private readonly bodyHighlight = viewChild<ElementRef<HTMLDivElement>>('bodyHighlight');
   private readonly emojiAnchor = viewChild<ElementRef<HTMLElement>>('emojiAnchor');
   private readonly geminiAnchor = viewChild<ElementRef<HTMLElement>>('geminiAnchor');
+  private readonly platformsAnchor = viewChild<ElementRef<HTMLElement>>('platformsAnchor');
+  private readonly statusAnchor = viewChild<ElementRef<HTMLElement>>('statusAnchor');
   private readonly geminiPromptInput = viewChild<AutoExpandTextarea>('geminiPromptInput');
   private readonly geminiChatPromptInput = viewChild<AutoExpandTextarea>('geminiChatPromptInput');
   private readonly geminiChatMessagesEl = viewChild<ElementRef<HTMLElement>>('geminiChatMessagesEl');
@@ -847,6 +1027,7 @@ export class DashboardPostDetail {
   private geminiChatCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private geminiPopupCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private editCloseTimeout: ReturnType<typeof setTimeout> | undefined;
+  private statusPulseTimeout: ReturnType<typeof setTimeout> | undefined;
   private geminiChatHistoryLoaded = false;
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
@@ -856,6 +1037,13 @@ export class DashboardPostDetail {
   protected readonly geminiPromptMaxLength = GEMINI_PROMPT_MAX_LENGTH;
   protected readonly geminiChatPromptMaxLength = GEMINI_CHAT_PROMPT_MAX_LENGTH;
   protected readonly chatMessageBlocks = parseChatMessageBlocks;
+  protected readonly postStatusOptions = POST_STATUS_OPTIONS;
+  protected readonly postStatusClass = getPostStatusClass;
+  protected readonly postStatusLabel = getPostStatusLabel;
+  protected readonly platformTypes = PLATFORM_TYPES;
+  protected readonly platformTypeLabel = getPlatformTypeLabel;
+  protected readonly platformTypeName = getPlatformTypeName;
+  protected readonly hasPostTag = hasPostTag;
   protected readonly form: PostForm = new FormGroup({
     title: new FormControl('', {
       nonNullable: true,
@@ -866,7 +1054,6 @@ export class DashboardPostDetail {
       validators: [Validators.maxLength(POST_BODY_MAX_LENGTH)],
     }),
   });
-
   protected readonly post = signal<PostItem | null>(null);
   protected readonly account = signal<UserAccount | null>(null);
   protected readonly editingField = signal<EditableField | null>(null);
@@ -874,11 +1061,17 @@ export class DashboardPostDetail {
   protected readonly editReadEnterField = signal<EditableField | null>(null);
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
+  protected readonly isMetaSaving = signal(false);
   protected readonly isDeleting = signal(false);
   protected readonly deleteConfirmOpen = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly saveMessage = signal<string | null>(null);
   protected readonly emojiPickerOpen = signal(false);
+  protected readonly platformMenuOpen = signal(false);
+  protected readonly statusMenuOpen = signal(false);
+  protected readonly statusPulse = signal(false);
+  protected readonly headerPlatformLogoSize = signal<PlatformLogoSize>('sm');
+  protected readonly headerPlatformLogosCompact = signal(false);
   protected readonly emojiPage = signal(0);
   private readonly emojiColumns = 8;
   private readonly emojiRows = 2;
@@ -906,7 +1099,8 @@ export class DashboardPostDetail {
   protected readonly isAskGeminiLoading = signal(false);
   protected readonly isAskGeminiHistoryLoading = signal(false);
   protected readonly isAskGeminiTyping = signal(false);
-  protected readonly includePostContentInChat = signal(false);
+  protected readonly includePostTextInChat = signal(false);
+  protected readonly includePostTextInGenerate = signal(false);
   protected readonly bodyHighlightText = signal('');
   protected readonly tooltipsDisabled = signal(this.isMobileViewport());
   protected readonly postsReturnQueryParams = signal(
@@ -921,6 +1115,7 @@ export class DashboardPostDetail {
       this.clearGeminiChatCloseTimeout();
       this.clearGeminiPopupCloseTimeout();
       this.clearEditCloseTimeout();
+      this.clearStatusPulseTimeout();
       this.disconnectBodyInputObserver();
       document.body.classList.remove('post-gemini-popup-open');
     });
@@ -928,7 +1123,10 @@ export class DashboardPostDetail {
     if (typeof window !== 'undefined') {
       const mobileQuery = window.matchMedia('(max-width: 48rem)');
       const syncTooltips = (): void => {
-        this.tooltipsDisabled.set(mobileQuery.matches);
+        const isMobile = mobileQuery.matches;
+        this.tooltipsDisabled.set(isMobile);
+        this.headerPlatformLogoSize.set(isMobile ? 'xs' : 'sm');
+        this.headerPlatformLogosCompact.set(isMobile);
       };
       syncTooltips();
       mobileQuery.addEventListener('change', syncTooltips);
@@ -984,6 +1182,12 @@ export class DashboardPostDetail {
       return;
     }
 
+    if (this.platformMenuOpen() || this.statusMenuOpen()) {
+      this.platformMenuOpen.set(false);
+      this.statusMenuOpen.set(false);
+      return;
+    }
+
     if (
       this.editingField() !== null &&
       !this.editClosing() &&
@@ -1006,6 +1210,20 @@ export class DashboardPostDetail {
       }
     }
 
+    if (this.platformMenuOpen()) {
+      const platformsAnchor = this.platformsAnchor()?.nativeElement;
+      if (!platformsAnchor?.contains(target)) {
+        this.platformMenuOpen.set(false);
+      }
+    }
+
+    if (this.statusMenuOpen()) {
+      const statusAnchor = this.statusAnchor()?.nativeElement;
+      if (!statusAnchor?.contains(target)) {
+        this.statusMenuOpen.set(false);
+      }
+    }
+
     if (!this.emojiPickerOpen()) {
       return;
     }
@@ -1025,6 +1243,7 @@ export class DashboardPostDetail {
       this.editingField() !== null ||
       this.geminiDraftActive() ||
       this.isSaving() ||
+      this.isMetaSaving() ||
       this.isDeleting() ||
       this.deleteConfirmOpen()
     );
@@ -1037,6 +1256,7 @@ export class DashboardPostDetail {
       !this.isGenerating() &&
       !this.isTyping() &&
       !this.isSaving() &&
+      !this.isMetaSaving() &&
       !this.isDeleting() &&
       !this.deleteConfirmOpen()
     );
@@ -1063,6 +1283,43 @@ export class DashboardPostDetail {
     return this.currentPostBodyForContext().trim().length > 0;
   }
 
+  protected togglePlatformMenu(event: Event): void {
+    event.stopPropagation();
+
+    if (this.isMetaSaving() || this.isActionLocked()) {
+      return;
+    }
+
+    this.statusMenuOpen.set(false);
+    this.platformMenuOpen.update((open) => !open);
+  }
+
+  protected toggleStatusMenu(event: Event): void {
+    event.stopPropagation();
+
+    if (this.isMetaSaving() || this.isActionLocked()) {
+      return;
+    }
+
+    this.platformMenuOpen.set(false);
+    this.statusMenuOpen.update((open) => !open);
+  }
+
+  protected onStatusSelect(status: PostStatus): void {
+    const item = this.post();
+
+    if (!item || status === item.status || this.isActionLocked() || this.isMetaSaving()) {
+      return;
+    }
+
+    this.statusMenuOpen.set(false);
+
+    const previousStatus = item.status;
+    this.triggerStatusPulse();
+    this.post.set({ ...item, status });
+    this.savePostMetadata({ status }, { status: previousStatus });
+  }
+
   protected toggleGeminiPopup(event: Event): void {
     event.stopPropagation();
 
@@ -1081,6 +1338,8 @@ export class DashboardPostDetail {
     }
 
     this.emojiPickerOpen.set(false);
+    this.platformMenuOpen.set(false);
+    this.statusMenuOpen.set(false);
     this.clearSaveMessage();
     this.geminiError.set(null);
     this.setGeminiPopupOpen(true);
@@ -1122,6 +1381,8 @@ export class DashboardPostDetail {
       return;
     }
 
+    const includePostText = this.includePostTextInGenerate() && this.hasPostContentToAttach();
+
     this.closeGeminiPopup();
     this.geminiError.set(null);
     this.beginGeminiDraft();
@@ -1131,6 +1392,7 @@ export class DashboardPostDetail {
       .generatePost({
         prompt,
         postId: item.id,
+        includePostText,
       })
       .pipe(finalize(() => this.isGenerating.set(false)))
       .subscribe({
@@ -1232,9 +1494,14 @@ export class DashboardPostDetail {
     this.geminiChatError.set(null);
   }
 
-  protected onIncludePostContentChange(event: Event): void {
+  protected onIncludePostTextInChatChange(event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    this.includePostContentInChat.set(checked && this.hasPostContentToAttach());
+    this.includePostTextInChat.set(checked && this.hasPostContentToAttach());
+  }
+
+  protected onIncludePostTextInGenerateChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.includePostTextInGenerate.set(checked && this.hasPostContentToAttach());
   }
 
   protected onGeminiChatScroll(event: Event): void {
@@ -1247,7 +1514,7 @@ export class DashboardPostDetail {
   protected sendGeminiChatMessage(): void {
     const item = this.post();
     const prompt = this.geminiChatPrompt().trim();
-    const includePostContent = this.includePostContentInChat() && this.hasPostContentToAttach();
+    const includePostText = this.includePostTextInChat() && this.hasPostContentToAttach();
 
     if (!item || !prompt || !this.canSendGeminiChat()) {
       return;
@@ -1263,7 +1530,7 @@ export class DashboardPostDetail {
         id: ++this.geminiChatMessageId,
         role: 'user',
         text: prompt,
-        attachedPostContent: includePostContent,
+        attachedPostText: includePostText,
       },
     ]);
     this.scrollGeminiChatToBottom(true);
@@ -1274,8 +1541,7 @@ export class DashboardPostDetail {
       .askGemini({
         prompt,
         postId: item.id,
-        includePostContent,
-        postContent: includePostContent ? this.currentPostBodyForContext() : undefined,
+        includePostText: includePostText || undefined,
       })
       .pipe(finalize(() => this.isAskGeminiLoading.set(false)))
       .subscribe({
@@ -1450,6 +1716,29 @@ export class DashboardPostDetail {
     this.closeEdit(true);
   }
 
+  protected onTagToggle(tag: PlatformType): void {
+    const item = this.post();
+
+    if (!item || this.isActionLocked() || this.isMetaSaving()) {
+      return;
+    }
+
+    const nextTags = hasPostTag(item.tags, tag)
+      ? item.tags.filter((value) => value !== tag)
+      : normalizePostTags([...item.tags, tag]);
+
+    if (arePostTagsEqual(nextTags, item.tags)) {
+      return;
+    }
+
+    const previousTags = [...item.tags];
+    this.post.set({ ...item, tags: nextTags });
+    this.savePostMetadata(
+      { tags: nextTags.length > 0 ? nextTags : null },
+      { tags: previousTags }
+    );
+  }
+
   protected saveField(field: EditableField): void {
     const item = this.post();
     const control = this.form.controls[field];
@@ -1469,7 +1758,7 @@ export class DashboardPostDetail {
     this.clearSaveMessage();
 
     this.postService
-      .updatePost(item.id, { title, body })
+      .updatePost(item.id, this.buildUpdatePayload({ title, body }))
       .pipe(finalize(() => this.isSaving.set(false)))
       .subscribe({
         next: (updated) => {
@@ -1560,7 +1849,11 @@ export class DashboardPostDetail {
     this.isAskGeminiLoading.set(false);
     this.isAskGeminiHistoryLoading.set(false);
     this.isAskGeminiTyping.set(false);
-    this.includePostContentInChat.set(false);
+    this.includePostTextInChat.set(false);
+    this.includePostTextInGenerate.set(false);
+    this.isMetaSaving.set(false);
+    this.platformMenuOpen.set(false);
+    this.statusMenuOpen.set(false);
     this.clearGeminiChatCloseTimeout();
     this.clearGeminiPopupCloseTimeout();
     this.geminiChatOpen.set(false);
@@ -1585,9 +1878,85 @@ export class DashboardPostDetail {
       ...item,
       title: title || null,
       body: body || null,
+      tags: normalizePostTags(item.tags),
+      status: item.status,
     });
     this.form.reset({ title, body });
     this.syncBodyHighlight(body);
+  }
+
+  private buildUpdatePayload(
+    overrides: Partial<Pick<UpdatePostPayload, 'title' | 'body' | 'status' | 'tags'>> = {}
+  ): UpdatePostPayload {
+    const item = this.post();
+    if (!item) {
+      throw new Error('Post is not loaded.');
+    }
+
+    const title =
+      overrides.title !== undefined
+        ? this.clampTitle(overrides.title)
+        : this.editingField() === 'title'
+          ? this.clampTitle(this.form.controls.title.value.trim())
+          : this.clampTitle(item.title);
+    const bodyValue =
+      overrides.body !== undefined
+        ? overrides.body
+        : this.editingField() === 'body' || this.geminiDraftActive()
+          ? this.form.controls.body.value.trim()
+          : item.body;
+    const tags =
+      overrides.tags !== undefined
+        ? overrides.tags
+        : item.tags.length > 0
+          ? normalizePostTags(item.tags)
+          : null;
+
+    return {
+      title,
+      body: normalizeUpdatePostBody(this.clampBody(bodyValue)),
+      status: overrides.status ?? item.status,
+      tags,
+    };
+  }
+
+  private savePostMetadata(
+    overrides: Partial<Pick<UpdatePostPayload, 'status' | 'tags'>>,
+    snapshot?: { status?: PostStatus; tags?: PlatformType[] }
+  ): void {
+    const item = this.post();
+    if (!item) {
+      return;
+    }
+
+    this.isMetaSaving.set(true);
+    this.errorMessage.set(null);
+    this.clearSaveMessage();
+
+    this.postService
+      .updatePost(item.id, this.buildUpdatePayload(overrides))
+      .pipe(finalize(() => this.isMetaSaving.set(false)))
+      .subscribe({
+        next: (updated) => {
+          this.setPost(updated);
+          this.showSaveMessage('Publishing details saved.');
+        },
+        error: (error) => {
+          if (snapshot) {
+            this.post.update((current) =>
+              current
+                ? {
+                    ...current,
+                    status: snapshot.status ?? current.status,
+                    tags: snapshot.tags ?? current.tags,
+                  }
+                : current
+            );
+          }
+
+          this.errorMessage.set(toApplicationError(error, 'Could not save post details.').description);
+        },
+      });
   }
 
   private focusField(field: EditableField): void {
@@ -1919,6 +2288,32 @@ export class DashboardPostDetail {
     if (this.editCloseTimeout !== undefined) {
       clearTimeout(this.editCloseTimeout);
       this.editCloseTimeout = undefined;
+    }
+  }
+
+  private triggerStatusPulse(): void {
+    if (
+      typeof globalThis !== 'undefined' &&
+      globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    ) {
+      return;
+    }
+
+    this.clearStatusPulseTimeout();
+    this.statusPulse.set(false);
+    queueMicrotask(() => {
+      this.statusPulse.set(true);
+      this.statusPulseTimeout = setTimeout(() => {
+        this.statusPulse.set(false);
+        this.statusPulseTimeout = undefined;
+      }, STATUS_PULSE_MS);
+    });
+  }
+
+  private clearStatusPulseTimeout(): void {
+    if (this.statusPulseTimeout !== undefined) {
+      clearTimeout(this.statusPulseTimeout);
+      this.statusPulseTimeout = undefined;
     }
   }
 
