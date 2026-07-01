@@ -1,3 +1,4 @@
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -84,7 +85,7 @@ type PostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-detail',
-  imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective, DashboardDeleteButton, DashboardPlatformLogo, DashboardImageLightbox, DashboardLinkedinPostPreview, AutoExpandTextarea],
+  imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, DragDropModule, PageLoading, PageRevealDirective, DashboardDeleteButton, DashboardPlatformLogo, DashboardImageLightbox, DashboardLinkedinPostPreview, AutoExpandTextarea],
   animations: [postMetaChipAnimation, postMetaFadeSlideAnimation, postMetaPanelAnimation],
   styleUrl: './dashboard-post-detail.scss',
   template: `
@@ -668,43 +669,84 @@ type PostForm = FormGroup<{
             <div class="post-detail__card-head post-detail__card-head--row">
               <div class="post-detail__card-head-copy">
                 <p id="post-detail-attachments" class="post-detail__card-label">Attachments</p>
-                <p class="post-detail__card-hint">Select images from your Media library</p>
+                <p class="post-detail__card-hint">Select images from Media. Drag to reorder.</p>
               </div>
               <div class="post-detail__card-actions">
                 <button
                   #attachmentsTriggerEl
                   type="button"
-                  class="btn btn--raised-secondary btn--compact"
+                  class="post-detail__attachments-add-btn"
                   [disabled]="isLoading() || isSaving() || isMetaSaving() || isDeleting() || isActionLocked()"
                   (click)="openAttachmentsPicker($event)"
                 >
-                  Add images
+                  <span class="post-detail__attachments-add-btn-icon" aria-hidden="true">
+                    <span class="material-icons">add_photo_alternate</span>
+                  </span>
+                  <span class="post-detail__attachments-add-btn-label">Add images</span>
                 </button>
               </div>
             </div>
 
             <div class="post-detail__card-body post-detail__attachments-body">
-              @if (item.attachments.length === 0) {
+              @if (attachmentOrderDraft().length === 0) {
                 <p class="post-detail__attachments-empty">No images attached yet.</p>
               } @else {
-                <div class="post-detail__attachments-grid" role="list" aria-label="Attached images">
-                  @for (att of item.attachments; track att.userUploadedFileId) {
-                    <div class="post-detail__attachment" role="listitem">
+                <div
+                  class="post-detail__attachments-grid"
+                  cdkDropList
+                  cdkDropListOrientation="mixed"
+                  role="list"
+                  aria-label="Attached images"
+                  (cdkDropListDropped)="dropAttachment($event)"
+                >
+                  @for (att of attachmentOrderDraft(); track att.id ?? att.userUploadedFileId; let index = $index) {
+                    <div
+                      class="post-detail__attachment"
+                      cdkDrag
+                      [cdkDragDisabled]="isAttachmentBusy() || isActionLocked() || attachmentOrderDraft().length < 2 || isSavingAttachmentOrder()"
+                      role="listitem"
+                    >
                       <button
                         type="button"
-                        class="post-detail__attachment-preview-btn"
-                        [attr.aria-label]="'Preview attachment ' + att.order"
-                        (click)="openAttachmentPreview(att)"
+                        class="post-detail__attachment-drag-handle"
+                        cdkDragHandle
+                        [disabled]="isAttachmentBusy() || isActionLocked() || attachmentOrderDraft().length < 2 || isSavingAttachmentOrder()"
+                        [attr.aria-label]="'Drag attachment ' + (index + 1)"
                       >
-                        @if (attachmentPreviewUrl(att.userUploadedFileId); as src) {
-                          <img class="post-detail__attachment-img" [src]="src" alt="" loading="lazy" />
-                        } @else {
-                          <span class="post-detail__attachment-placeholder" aria-hidden="true">
-                            <span class="material-icons">image</span>
-                          </span>
-                        }
+                        <span class="material-icons" aria-hidden="true">drag_indicator</span>
                       </button>
-                      <span class="post-detail__attachment-order" aria-label="Attachment order">{{ att.order }}</span>
+                      <div class="post-detail__attachment-preview-wrap">
+                        @if (att.id !== null) {
+                          <div class="post-detail__attachment-delete-overlay">
+                            <app-dashboard-delete-button
+                              size="sm"
+                              tone="dark"
+                              ariaLabel="Remove attachment"
+                              tooltip="Remove attachment"
+                              [active]="deleteConfirmAttachmentId() === att.id"
+                              [disabled]="isAttachmentBusy() || isActionLocked()"
+                              [ariaExpanded]="deleteConfirmAttachmentId() === att.id"
+                              ariaControls="dashboard-delete-sheet-title"
+                              (clicked)="requestDeleteAttachment(att, $event)"
+                            />
+                          </div>
+                        }
+                        <button
+                          type="button"
+                          class="post-detail__attachment-preview-btn"
+                          [attr.aria-label]="'Preview attachment ' + (index + 1)"
+                          (click)="openAttachmentPreview(att)"
+                        >
+                          @if (attachmentPreviewUrl(att.userUploadedFileId); as src) {
+                            <img class="post-detail__attachment-img" [src]="src" alt="" loading="lazy" />
+                          } @else {
+                            <span class="post-detail__attachment-placeholder" aria-hidden="true">
+                              <span class="material-icons">image</span>
+                            </span>
+                          }
+                        </button>
+                      </div>
+                      <span class="post-detail__attachment-order" aria-label="Attachment order">{{ index + 1 }}</span>
                     </div>
                   }
                 </div>
@@ -762,7 +804,7 @@ type PostForm = FormGroup<{
                     <div class="post-attachments-picker__slider" aria-label="Media picker slider">
                       <button
                         type="button"
-                        class="btn btn--raised-secondary btn--compact post-attachments-picker__nav"
+                        class="post-attachments-picker__btn post-attachments-picker__btn--secondary post-attachments-picker__nav"
                         [disabled]="attachmentsPickerLoading() || !attachmentsPickerCanPrev()"
                         aria-label="Previous media images"
                         (click)="attachmentsPickerPrev()"
@@ -811,7 +853,7 @@ type PostForm = FormGroup<{
 
                       <button
                         type="button"
-                        class="btn btn--raised-secondary btn--compact post-attachments-picker__nav"
+                        class="post-attachments-picker__btn post-attachments-picker__btn--secondary post-attachments-picker__nav"
                         [disabled]="attachmentsPickerLoading() || !attachmentsPickerCanNext()"
                         aria-label="Next media images"
                         (click)="attachmentsPickerNext()"
@@ -826,7 +868,7 @@ type PostForm = FormGroup<{
                     <div class="post-attachments-picker__actions">
                       <button
                         type="button"
-                        class="btn btn--raised-primary btn--compact"
+                        class="post-attachments-picker__btn post-attachments-picker__btn--primary"
                         [disabled]="isAttaching() || attachmentsPickerLoading() || selectedAttachmentIds().size === 0"
                         (click)="attachSelectedMedia()"
                       >
@@ -834,7 +876,7 @@ type PostForm = FormGroup<{
                       </button>
                       <button
                         type="button"
-                        class="btn btn--raised-secondary btn--compact"
+                        class="post-attachments-picker__btn post-attachments-picker__btn--secondary"
                         [disabled]="isAttaching()"
                         (click)="closeAttachmentsPicker()"
                       >
@@ -1364,11 +1406,15 @@ export class DashboardPostDetail {
   );
 
   // Attachments (select from Media)
+  protected readonly isDeletingAttachment = signal(false);
+  protected readonly deleteConfirmAttachmentId = signal<number | null>(null);
   protected readonly attachmentsPickerOpen = signal(false);
   protected readonly attachmentsPickerClosing = signal(false);
   protected readonly attachmentsPickerLoading = signal(false);
   protected readonly attachmentsPickerError = signal<string | null>(null);
   protected readonly isAttaching = signal(false);
+  protected readonly isSavingAttachmentOrder = signal(false);
+  protected readonly attachmentOrderDraft = signal<PostAttachmentItem[]>([]);
   protected readonly attachmentsMediaPage = signal<PagedUserUploadedFilesResponse | null>(null);
   protected readonly selectedAttachmentIds = signal<Set<string>>(new Set());
   protected readonly attachmentPreviewUrls = signal<Record<string, string>>({});
@@ -1420,12 +1466,7 @@ export class DashboardPostDetail {
   });
 
   protected readonly platformPreviewAttachmentSrcs = computed(() => {
-    const item = this.post();
-    if (!item) {
-      return [];
-    }
-
-    return item.attachments
+    return this.attachmentOrderDraft()
       .map((attachment) => this.attachmentPreviewUrls()[attachment.userUploadedFileId] ?? null)
       .filter((src): src is string => !!src);
   });
@@ -1596,8 +1637,14 @@ export class DashboardPostDetail {
       this.isSaving() ||
       this.isMetaSaving() ||
       this.isDeleting() ||
-      this.deleteConfirmOpen()
+      this.isDeletingAttachment() ||
+      this.deleteConfirmOpen() ||
+      this.deleteConfirmAttachmentId() !== null
     );
+  }
+
+  protected isAttachmentBusy(): boolean {
+    return this.isAttaching() || this.isDeletingAttachment() || this.isSavingAttachmentOrder();
   }
 
   protected canUseGemini(): boolean {
@@ -2280,6 +2327,8 @@ export class DashboardPostDetail {
     this.bodyBeforeGemini = '';
     this.wasEditingBodyBeforeGemini = false;
     this.isDeleting.set(false);
+    this.isSavingAttachmentOrder.set(false);
+    this.attachmentOrderDraft.set([]);
     this.clearSaveMessage();
     this.form.reset({ title: '', body: '' });
     this.bodyHighlightText.set('');
@@ -2298,6 +2347,62 @@ export class DashboardPostDetail {
     this.form.reset({ title, body });
     this.syncBodyHighlight(body);
     this.syncAttachmentPreviews(item.attachments ?? []);
+    this.attachmentOrderDraft.set([...(item.attachments ?? [])]);
+  }
+
+  protected dropAttachment(event: CdkDragDrop<PostAttachmentItem[]>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return;
+    }
+
+    const item = this.post();
+    if (!item || this.isSavingAttachmentOrder()) {
+      return;
+    }
+
+    const previousOrder = [...this.attachmentOrderDraft()];
+    const draft = [...previousOrder];
+    moveItemInArray(draft, event.previousIndex, event.currentIndex);
+    this.attachmentOrderDraft.set(draft);
+    this.persistAttachmentOrder(item.id, draft, previousOrder);
+  }
+
+  private persistAttachmentOrder(
+    postId: number,
+    draft: PostAttachmentItem[],
+    revertOnError: readonly PostAttachmentItem[]
+  ): void {
+    this.isSavingAttachmentOrder.set(true);
+    this.errorMessage.set(null);
+
+    const payload = {
+      postId,
+      attachments: draft.map((attachment, index) => ({
+        userUploadedFileId: attachment.userUploadedFileId,
+        order: index,
+      })),
+    };
+
+    this.postAttachmentService
+      .update(payload)
+      .pipe(finalize(() => this.isSavingAttachmentOrder.set(false)))
+      .subscribe({
+        next: () => {
+          this.postService.getPost(postId).subscribe({
+            next: (updated) => {
+              this.setPost(updated);
+            },
+            error: (error) => {
+              this.attachmentOrderDraft.set([...revertOnError]);
+              this.errorMessage.set(toApplicationError(error, 'Could not refresh post.').description);
+            },
+          });
+        },
+        error: (error) => {
+          this.attachmentOrderDraft.set([...revertOnError]);
+          this.errorMessage.set(toApplicationError(error, 'Could not save attachment order.').description);
+        },
+      });
   }
 
   @HostListener('window:resize')
@@ -2426,6 +2531,66 @@ export class DashboardPostDetail {
     });
   }
 
+  protected requestDeleteAttachment(attachment: PostAttachmentItem, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+
+    if (attachment.id === null || this.isAttachmentBusy() || this.isActionLocked()) {
+      return;
+    }
+
+    this.clearSaveMessage();
+    this.errorMessage.set(null);
+    this.deleteConfirmAttachmentId.set(attachment.id);
+
+    this.deleteConfirm
+      .open({
+        title: `Remove attachment ${attachment.order}?`,
+        description:
+          'This image will be removed from the post. The file will remain in your Media library.',
+        keepLabel: 'Keep attachment',
+        deleteLabel: 'Remove attachment',
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed) => {
+        this.deleteConfirmAttachmentId.set(null);
+        if (confirmed) {
+          this.performDeleteAttachment(attachment.id!);
+        }
+      });
+  }
+
+  private performDeleteAttachment(postAttachmentId: number): void {
+    const item = this.post();
+    if (!item || this.isDeletingAttachment()) {
+      return;
+    }
+
+    this.isDeletingAttachment.set(true);
+    this.errorMessage.set(null);
+    this.clearSaveMessage();
+
+    this.postAttachmentService
+      .delete(postAttachmentId)
+      .pipe(finalize(() => this.isDeletingAttachment.set(false)))
+      .subscribe({
+        next: () => {
+          this.postService.getPost(item.id).subscribe({
+            next: (updated) => {
+              this.setPost(updated);
+              this.showSaveMessage('Attachment removed.');
+            },
+            error: (error) => {
+              this.errorMessage.set(toApplicationError(error, 'Could not refresh post.').description);
+            },
+          });
+        },
+        error: (error) => {
+          this.errorMessage.set(toApplicationError(error, 'Could not remove attachment.').description);
+        },
+      });
+  }
+
   protected attachSelectedMedia(): void {
     const item = this.post();
     if (!item) {
@@ -2451,8 +2616,8 @@ export class DashboardPostDetail {
     );
     const payload = {
       postId: item.id,
-      attachemnts: selected.map((uploadedFileId, index) => ({
-        uploadedFileId,
+      attachments: selected.map((userUploadedFileId, index) => ({
+        userUploadedFileId,
         order: existingMaxOrder + index + 1,
       })),
     };

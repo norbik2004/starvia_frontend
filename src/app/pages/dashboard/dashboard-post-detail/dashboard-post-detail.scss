@@ -607,6 +607,120 @@
   justify-self: end;
 }
 
+@mixin post-detail-pill-btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.125rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    filter 0.2s ease;
+
+  .material-icons {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mat-sys-primary) 65%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    filter: none;
+  }
+}
+
+@mixin post-detail-pill-btn-secondary {
+  @include post-detail-pill-btn-base;
+
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 38%, var(--border-subtle));
+  color: var(--mat-sys-primary);
+  background: color-mix(in srgb, var(--mat-sys-surface) 96%, #fff);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 90%, transparent) inset,
+    0 1px 2px color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent),
+    0 4px 12px color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+
+  &:hover:not(:disabled) {
+    color: var(--mat-sys-on-primary);
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary);
+    box-shadow:
+      0 4px 14px color-mix(in srgb, var(--mat-sys-primary) 28%, transparent),
+      0 8px 22px color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+    transform: translateY(-1px);
+  }
+}
+
+@mixin post-detail-pill-btn-primary {
+  @include post-detail-pill-btn-base;
+
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
+  color: var(--mat-sys-on-primary);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--mat-sys-primary) 88%, #fff),
+    var(--mat-sys-primary)
+  );
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 28%, transparent) inset,
+    0 4px 14px color-mix(in srgb, var(--mat-sys-primary) 24%, transparent);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+    box-shadow:
+      0 1px 0 color-mix(in srgb, #fff 32%, transparent) inset,
+      0 8px 20px color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+  }
+}
+
+.post-detail__attachments-add-btn {
+  @include post-detail-pill-btn-secondary;
+}
+
+.post-detail__attachments-add-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  .material-icons {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+}
+
+.post-detail__attachments-add-btn-label {
+  white-space: nowrap;
+}
+
+.post-detail__card-actions .post-detail__attachments-add-btn {
+  grid-area: edit;
+  flex-shrink: 0;
+  align-self: center;
+  justify-self: end;
+  max-width: 100%;
+}
+
 
 @media (min-width: 48rem) {
   .post-detail__card-head--row {
@@ -630,6 +744,11 @@
   }
 
   .post-detail__card-actions .edit-icon {
+    align-self: center;
+    justify-self: auto;
+  }
+
+  .post-detail__card-actions .post-detail__attachments-add-btn {
     align-self: center;
     justify-self: auto;
   }
@@ -671,7 +790,7 @@
 
 .post-detail__attachments-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.25rem, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-sm);
 }
 
@@ -684,6 +803,72 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
   background: color-mix(in srgb, var(--mat-sys-surface-container-low) 75%, #fff);
+  cursor: default;
+
+  &.cdk-drag-preview {
+    box-shadow: var(--shadow-md);
+    opacity: 0.96;
+  }
+
+  &.cdk-drag-placeholder {
+    opacity: 0.35;
+  }
+
+  &.cdk-drag-animating {
+    transition: transform 220ms cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.post-detail__attachments-grid.cdk-drop-list-dragging .post-detail__attachment:not(.cdk-drag-placeholder) {
+  transition: transform 220ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.post-detail__attachment-drag-handle {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, #000 55%, transparent);
+  color: #fff;
+  cursor: grab;
+  transform: translateX(-50%);
+  touch-action: none;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):active {
+    cursor: grabbing;
+  }
+
+  .material-icons {
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+}
+
+.post-detail__attachment-preview-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.post-detail__attachment-delete-overlay {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .post-detail__attachment-preview-btn {
@@ -709,14 +894,17 @@
 }
 
 .post-attachments-picker__nav {
-  display: inline-flex;
-  align-items: center;
   gap: 0.2rem;
   white-space: nowrap;
+}
 
-  .material-icons {
-    font-size: 1.125rem;
-    line-height: 1;
+.post-attachments-picker__btn {
+  &--secondary {
+    @include post-detail-pill-btn-secondary;
+  }
+
+  &--primary {
+    @include post-detail-pill-btn-primary;
   }
 }
 
@@ -1013,9 +1201,8 @@
     grid-template-columns: 1fr;
   }
 
-  .post-attachments-picker__actions .btn {
+  .post-attachments-picker__btn {
     width: 100%;
-    justify-content: center;
   }
 }
 
@@ -1440,6 +1627,10 @@
     flex-wrap: wrap;
   }
 
+  .post-detail__attachments-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .post-detail__title {
     margin-top: 0;
     padding-top: 0;
@@ -1470,6 +1661,18 @@
     .edit-icon__glyph,
     .material-icons.edit-icon__glyph {
       font-size: 1.375rem;
+    }
+  }
+
+  .post-detail__attachments-add-btn,
+  .post-attachments-picker__btn {
+    min-height: 2rem;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8125rem;
+
+    .material-icons,
+    .post-detail__attachments-add-btn-icon .material-icons {
+      font-size: 1rem;
     }
   }
 

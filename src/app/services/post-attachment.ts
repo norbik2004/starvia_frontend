@@ -3,13 +3,10 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-export type CreatePostAttachmentsRequest = {
+export type PostAttachmentsRequest = {
   postId: number;
-  /**
-   * NOTE: backend payload uses the misspelled key `attachemnts` (per API example).
-   */
-  attachemnts: Array<{
-    uploadedFileId: string;
+  attachments: Array<{
+    userUploadedFileId: string;
     order: number;
   }>;
 };
@@ -19,10 +16,24 @@ export class PostAttachmentService {
   private readonly http = inject(HttpClient);
   private readonly url = new URL('PostAttachment', environment.backendUrl).toString();
 
-  create(payload: CreatePostAttachmentsRequest): Observable<string> {
+  create(payload: PostAttachmentsRequest): Observable<string> {
     return this.http.post(this.url, payload, {
       withCredentials: true,
       responseType: 'text',
+    });
+  }
+
+  update(payload: PostAttachmentsRequest): Observable<string> {
+    return this.http.put(this.url, payload, {
+      withCredentials: true,
+      responseType: 'text',
+    });
+  }
+
+  delete(postAttachmentId: number): Observable<void> {
+    return this.http.delete<void>(this.url, {
+      params: { postAttachmentId },
+      withCredentials: true,
     });
   }
 }

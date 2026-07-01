@@ -10,6 +10,7 @@ export type CreatePostPayload = {
 };
 
 export type PostAttachmentItem = {
+  id: number | null;
   postId: number;
   userUploadedFileId: string;
   order: number;
@@ -230,6 +231,7 @@ function parsePostAttachment(value: unknown): PostAttachmentItem | null {
   }
 
   const record = value as Record<string, unknown>;
+  const id = record['id'] ?? record['Id'] ?? record['postAttachmentId'] ?? record['PostAttachmentId'];
   const postId = record['postId'] ?? record['PostId'];
   const userUploadedFileId = record['userUploadedFileId'] ?? record['UserUploadedFileId'];
   const order = record['order'] ?? record['Order'];
@@ -245,6 +247,7 @@ function parsePostAttachment(value: unknown): PostAttachmentItem | null {
   }
 
   return {
+    id: typeof id === 'number' && Number.isFinite(id) ? id : null,
     postId,
     userUploadedFileId: userUploadedFileId.trim(),
     order,

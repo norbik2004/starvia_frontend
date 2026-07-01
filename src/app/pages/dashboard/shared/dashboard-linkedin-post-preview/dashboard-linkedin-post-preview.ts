@@ -35,13 +35,21 @@ const LINKEDIN_PREVIEW_REPOST_COUNT = 12;
               @if (showVerifiedBadge()) {
                 <span class="li-post__verified" aria-label="Verified" title="Verified">
                   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+                    <defs>
+                      <clipPath id="li-post-verified-shield-clip">
+                        <path
+                          d="M8.002 1.072a.75.75 0 0 0-.584 0l-5.5 2.25A.75.75 0 0 0 1.5 4.17v4.233c0 3.12 2.02 5.95 5.037 6.9a.75.75 0 0 0 .426 0c3.018-.95 5.037-3.78 5.037-6.9V4.17a.75.75 0 0 0-.418-.674l-5.5-2.25Z"
+                        />
+                      </clipPath>
+                    </defs>
                     <path
                       fill="#C37D16"
                       d="M8.002 1.072a.75.75 0 0 0-.584 0l-5.5 2.25A.75.75 0 0 0 1.5 4.17v4.233c0 3.12 2.02 5.95 5.037 6.9a.75.75 0 0 0 .426 0c3.018-.95 5.037-3.78 5.037-6.9V4.17a.75.75 0 0 0-.418-.674l-5.5-2.25Z"
                     />
                     <path
                       fill="#fff"
-                      d="M6.28 7.88 5.22 6.82a.75.75 0 1 1 1.06-1.06l.84.84 2.72-2.72a.75.75 0 1 1 1.06 1.06L6.28 7.88Z"
+                      clip-path="url(#li-post-verified-shield-clip)"
+                      d="M7.55 8.7 6.65 7.8a.55.55 0 1 1 .78-.78l.78.78 1.95-1.95a.55.55 0 1 1 .78.78L7.55 8.7Z"
                     />
                   </svg>
                 </span>
