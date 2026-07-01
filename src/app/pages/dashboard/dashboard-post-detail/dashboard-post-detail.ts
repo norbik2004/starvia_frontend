@@ -25,6 +25,7 @@ import {
   normalizePostTags,
   normalizeUpdatePostBody,
   type PlatformType,
+  type PostAttachmentItem,
   type PostItem,
   type PostStatus,
   type UpdatePostPayload,
@@ -34,18 +35,26 @@ import { AuthService } from '../../../services/auth';
 import { getUserInitials, type UserAccount } from '../../../models/user-account';
 import { parseChatMessageBlocks, mapConversationToChatMessages, GEMINI_PROMPT_MAX_LENGTH, GEMINI_CHAT_PROMPT_MAX_LENGTH, type GeminiChatMessage } from '../../../models/gemini';
 import { PostService } from '../../../services/post';
+import { PostAttachmentService } from '../../../services/post-attachment';
+import { UserUploadedFileService } from '../../../services/user-uploaded-file';
+import { UserPlatformService } from '../../../services/user-platform';
+import { LINKEDIN_PLATFORM_ID, type UserPlatform } from '../../../models/user-platform';
+import type { PagedUserUploadedFilesResponse, UserUploadedFileItem } from '../../../models/user-uploaded-file';
 import {
   DEFAULT_POSTS_LIST_QUERY,
   postsListQueryToParams,
   readPostsListQueryFromHistory,
 } from '../dashboard-posts/posts-list-query';
 
+import { toggleLinkedInBoldSelection } from '../../../models/linkedin-text-format';
 import { POST_BODY_EMOJIS } from '../shared/post-body-emojis';
 import { createTypewriter } from '../shared/typewriter-text';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
 import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
 import { DashboardPlatformLogo, type PlatformLogoSize } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
+import { DashboardImageLightbox } from '../shared/dashboard-image-lightbox/dashboard-image-lightbox';
+import { DashboardLinkedinPostPreview } from '../shared/dashboard-linkedin-post-preview/dashboard-linkedin-post-preview';
 import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
 import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
 import {
@@ -56,11 +65,17 @@ import {
 
 type EditableField = 'title' | 'body';
 
+type AttachmentLightboxPreview = {
+  title: string;
+  src: string | null;
+};
+
 const SAVE_MESSAGE_DURATION_MS = 5000;
 const GEMINI_CHAT_CLOSE_MS = 200;
 const GEMINI_POPUP_CLOSE_MS = GEMINI_CHAT_CLOSE_MS;
 const EDIT_CLOSE_MS = 220;
 const STATUS_PULSE_MS = 320;
+const ATTACHMENTS_PICKER_CLOSE_MS = 280;
 
 type PostForm = FormGroup<{
   title: FormControl<string>;
@@ -69,7 +84,7 @@ type PostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-detail',
-  imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective, DashboardDeleteButton, DashboardPlatformLogo, AutoExpandTextarea],
+  imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, PageLoading, PageRevealDirective, DashboardDeleteButton, DashboardPlatformLogo, DashboardImageLightbox, DashboardLinkedinPostPreview, AutoExpandTextarea],
   animations: [postMetaChipAnimation, postMetaFadeSlideAnimation, postMetaPanelAnimation],
   styleUrl: './dashboard-post-detail.scss',
   template: `
@@ -521,6 +536,10 @@ type PostForm = FormGroup<{
                     aria-describedby="post-body-hint post-body-error"
                     [readonly]="isGenerating() || isTyping()"
                     (input)="onBodyInput()"
+                    (keydown)="onBodyKeydown($event)"
+                    (select)="onBodySelectionChange()"
+                    (mouseup)="onBodySelectionChange()"
+                    (keyup)="onBodySelectionChange()"
                     (scroll)="syncBodyHighlightScroll()"
                   ></textarea>
                 </div>
@@ -543,7 +562,20 @@ type PostForm = FormGroup<{
                         {{ form.controls.body.value.length }}/{{ bodyMaxLength }} · Esc to cancel
                       }
                     </p>
-                    <div class="post-detail__emoji-anchor" #emojiAnchor>
+                    <div class="post-detail__body-format-actions">
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="post-detail__format-trigger"
+                        matTooltip="Bold selection (LinkedIn)"
+                        [matTooltipDisabled]="tooltipsDisabled()"
+                        aria-label="Bold selection for LinkedIn"
+                        [disabled]="isGenerating() || isTyping() || !bodyHasSelection()"
+                        (click)="toggleBodyBold()"
+                      >
+                        <span class="material-icons" aria-hidden="true">format_bold</span>
+                      </button>
+                      <div class="post-detail__emoji-anchor" #emojiAnchor>
                       <button
                         mat-icon-button
                         type="button"
@@ -600,6 +632,7 @@ type PostForm = FormGroup<{
                           </button>
                         </div>
                       }
+                      </div>
                     </div>
                   </div>
                   @if (form.controls.body.touched && form.controls.body.hasError('maxlength')) {
@@ -630,9 +663,223 @@ type PostForm = FormGroup<{
               </div>
             }
           </section>
+
+          <section class="post-detail__card post-detail__card--attachments" aria-labelledby="post-detail-attachments">
+            <div class="post-detail__card-head post-detail__card-head--row">
+              <div class="post-detail__card-head-copy">
+                <p id="post-detail-attachments" class="post-detail__card-label">Attachments</p>
+                <p class="post-detail__card-hint">Select images from your Media library</p>
+              </div>
+              <div class="post-detail__card-actions">
+                <button
+                  #attachmentsTriggerEl
+                  type="button"
+                  class="btn btn--raised-secondary btn--compact"
+                  [disabled]="isLoading() || isSaving() || isMetaSaving() || isDeleting() || isActionLocked()"
+                  (click)="openAttachmentsPicker($event)"
+                >
+                  Add images
+                </button>
+              </div>
+            </div>
+
+            <div class="post-detail__card-body post-detail__attachments-body">
+              @if (item.attachments.length === 0) {
+                <p class="post-detail__attachments-empty">No images attached yet.</p>
+              } @else {
+                <div class="post-detail__attachments-grid" role="list" aria-label="Attached images">
+                  @for (att of item.attachments; track att.userUploadedFileId) {
+                    <div class="post-detail__attachment" role="listitem">
+                      <button
+                        type="button"
+                        class="post-detail__attachment-preview-btn"
+                        [attr.aria-label]="'Preview attachment ' + att.order"
+                        (click)="openAttachmentPreview(att)"
+                      >
+                        @if (attachmentPreviewUrl(att.userUploadedFileId); as src) {
+                          <img class="post-detail__attachment-img" [src]="src" alt="" loading="lazy" />
+                        } @else {
+                          <span class="post-detail__attachment-placeholder" aria-hidden="true">
+                            <span class="material-icons">image</span>
+                          </span>
+                        }
+                      </button>
+                      <span class="post-detail__attachment-order" aria-label="Attachment order">{{ att.order }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (attachmentsPickerOpen()) {
+              <div
+                #attachmentsPickerEl
+                class="post-attachments-picker"
+                [class.post-attachments-picker--closing]="attachmentsPickerClosing()"
+                role="region"
+                aria-label="Attach images from Media"
+                (click)="$event.stopPropagation()"
+              >
+                <header class="post-attachments-picker__head">
+                  <div class="post-attachments-picker__head-copy">
+                    <span class="post-attachments-picker__badge" aria-hidden="true">
+                      <span class="material-icons">photo_library</span>
+                    </span>
+                    <div class="post-attachments-picker__head-text">
+                      <p class="post-attachments-picker__title">Media</p>
+                      <p class="post-attachments-picker__hint">
+                        Select images to attach
+                        @if (selectedAttachmentIds().size > 0) {
+                          <span class="post-attachments-picker__selected">
+                            · <strong>{{ selectedAttachmentIds().size }}</strong> selected
+                          </span>
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="post-attachments-picker__close"
+                    aria-label="Close picker"
+                    (click)="closeAttachmentsPicker()"
+                  >
+                    <span class="material-icons" aria-hidden="true">close</span>
+                  </button>
+                </header>
+
+                @if (attachmentsPickerError()) {
+                  <p class="field__error post-attachments-picker__error" role="alert">{{ attachmentsPickerError() }}</p>
+                }
+
+                @if (attachmentsPickerLoading() && !attachmentsMediaPage()) {
+                  <p class="post-attachments-picker__status">Loading media…</p>
+                }
+
+                @if (attachmentsMediaPage(); as page) {
+                  @if (page.items.length === 0) {
+                    <p class="post-attachments-picker__status">No images in Media yet.</p>
+                  } @else {
+                    <div class="post-attachments-picker__slider" aria-label="Media picker slider">
+                      <button
+                        type="button"
+                        class="btn btn--raised-secondary btn--compact post-attachments-picker__nav"
+                        [disabled]="attachmentsPickerLoading() || !attachmentsPickerCanPrev()"
+                        aria-label="Previous media images"
+                        (click)="attachmentsPickerPrev()"
+                      >
+                        <span class="material-icons" aria-hidden="true">chevron_left</span>
+                        Prev
+                      </button>
+
+                      <div
+                        #attachmentsPickerCarouselEl
+                        class="post-attachments-picker__viewport"
+                        role="list"
+                        aria-label="Media images"
+                        (scroll)="onAttachmentsPickerCarouselScroll()"
+                      >
+                        <div class="post-attachments-picker__track">
+                          @for (file of page.items; track file.id) {
+                            <button
+                              type="button"
+                              class="post-attachments-picker__item"
+                              role="listitem"
+                              [class.post-attachments-picker__item--selected]="isAttachmentSelected(file.id)"
+                              [attr.aria-pressed]="isAttachmentSelected(file.id)"
+                              [title]="file.fileName || 'Image'"
+                              (click)="toggleAttachmentSelection(file, $event)"
+                            >
+                              @if (attachmentPreviewUrl(file.id); as src) {
+                                <img
+                                  class="post-attachments-picker__img"
+                                  [src]="src"
+                                  [alt]="file.fileName || 'Image'"
+                                  loading="lazy"
+                                />
+                              } @else {
+                                <span class="post-attachments-picker__placeholder" aria-hidden="true">
+                                  <span class="material-icons">image</span>
+                                </span>
+                              }
+                              <span class="post-attachments-picker__check" aria-hidden="true">
+                                <span class="material-icons">check</span>
+                              </span>
+                            </button>
+                          }
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        class="btn btn--raised-secondary btn--compact post-attachments-picker__nav"
+                        [disabled]="attachmentsPickerLoading() || !attachmentsPickerCanNext()"
+                        aria-label="Next media images"
+                        (click)="attachmentsPickerNext()"
+                      >
+                        Next
+                        <span class="material-icons" aria-hidden="true">chevron_right</span>
+                      </button>
+                    </div>
+                  }
+
+                  <footer class="post-attachments-picker__foot">
+                    <div class="post-attachments-picker__actions">
+                      <button
+                        type="button"
+                        class="btn btn--raised-primary btn--compact"
+                        [disabled]="isAttaching() || attachmentsPickerLoading() || selectedAttachmentIds().size === 0"
+                        (click)="attachSelectedMedia()"
+                      >
+                        {{ isAttaching() ? 'Attaching…' : 'Attach selected' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn--raised-secondary btn--compact"
+                        [disabled]="isAttaching()"
+                        (click)="closeAttachmentsPicker()"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </footer>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="post-detail__card post-detail__card--previews" aria-labelledby="post-detail-previews">
+            <div class="post-detail__card-head">
+              <p id="post-detail-previews" class="post-detail__card-label">Platform preview</p>
+              <p class="post-detail__card-hint">See how your post will look when published</p>
+            </div>
+
+            <div class="post-detail__card-body post-detail__previews-body">
+              <div class="post-detail__preview-platform" aria-hidden="true">
+                <app-dashboard-platform-logo platformType="linkedin" size="sm" />
+                <span class="post-detail__preview-platform-label">LinkedIn</span>
+              </div>
+
+              <app-dashboard-linkedin-post-preview
+                [authorName]="linkedInPreviewAuthorName()"
+                [authorHeadline]="linkedInPreviewHeadline()"
+                [authorAvatarUrl]="linkedInPreviewAvatarUrl()"
+                [body]="platformPreviewBody()"
+                [attachmentSrcs]="platformPreviewAttachmentSrcs()"
+              />
+            </div>
+          </section>
         </div>
       }
     </section>
+
+    @if (attachmentLightbox(); as preview) {
+      <app-dashboard-image-lightbox
+        [title]="preview.title"
+        [previewSrc]="preview.src"
+        [showDescription]="false"
+        (closed)="attachmentLightbox.set(null)"
+      />
+    }
 
     @if (post()) {
       <div class="gemini-chatbot" [class.gemini-chatbot--open]="geminiChatOpen() || geminiChatClosing()">
@@ -1000,6 +1247,9 @@ export class DashboardPostDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly postService = inject(PostService);
+  private readonly postAttachmentService = inject(PostAttachmentService);
+  private readonly fileService = inject(UserUploadedFileService);
+  private readonly userPlatformService = inject(UserPlatformService);
   private readonly deleteConfirm = inject(DashboardDeleteConfirmService);
   private readonly geminiService = inject(GeminiService);
   private readonly authService = inject(AuthService);
@@ -1015,6 +1265,9 @@ export class DashboardPostDetail {
   private readonly geminiChatPromptInput = viewChild<AutoExpandTextarea>('geminiChatPromptInput');
   private readonly geminiChatMessagesEl = viewChild<ElementRef<HTMLElement>>('geminiChatMessagesEl');
   private readonly geminiChatScrollAnchor = viewChild<ElementRef<HTMLElement>>('geminiChatScrollAnchor');
+  private readonly attachmentsTriggerEl = viewChild<ElementRef<HTMLElement>>('attachmentsTriggerEl');
+  private readonly attachmentsPickerEl = viewChild<ElementRef<HTMLElement>>('attachmentsPickerEl');
+  private readonly attachmentsPickerCarouselEl = viewChild<ElementRef<HTMLElement>>('attachmentsPickerCarouselEl');
   private saveMessageTimeout: ReturnType<typeof setTimeout> | undefined;
   private stopTypewriter: (() => void) | undefined;
   private bodyInputObserver: ResizeObserver | undefined;
@@ -1026,6 +1279,7 @@ export class DashboardPostDetail {
   private geminiChatScrollRaf: number | null = null;
   private geminiChatCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private geminiPopupCloseTimeout: ReturnType<typeof setTimeout> | undefined;
+  private attachmentsPickerCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private editCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private statusPulseTimeout: ReturnType<typeof setTimeout> | undefined;
   private geminiChatHistoryLoaded = false;
@@ -1056,6 +1310,7 @@ export class DashboardPostDetail {
   });
   protected readonly post = signal<PostItem | null>(null);
   protected readonly account = signal<UserAccount | null>(null);
+  protected readonly linkedInAccount = signal<UserPlatform | null>(null);
   protected readonly editingField = signal<EditableField | null>(null);
   protected readonly editClosing = signal(false);
   protected readonly editReadEnterField = signal<EditableField | null>(null);
@@ -1102,10 +1357,78 @@ export class DashboardPostDetail {
   protected readonly includePostTextInChat = signal(false);
   protected readonly includePostTextInGenerate = signal(false);
   protected readonly bodyHighlightText = signal('');
+  protected readonly bodyHasSelection = signal(false);
   protected readonly tooltipsDisabled = signal(this.isMobileViewport());
   protected readonly postsReturnQueryParams = signal(
     postsListQueryToParams(readPostsListQueryFromHistory() ?? DEFAULT_POSTS_LIST_QUERY)
   );
+
+  // Attachments (select from Media)
+  protected readonly attachmentsPickerOpen = signal(false);
+  protected readonly attachmentsPickerClosing = signal(false);
+  protected readonly attachmentsPickerLoading = signal(false);
+  protected readonly attachmentsPickerError = signal<string | null>(null);
+  protected readonly isAttaching = signal(false);
+  protected readonly attachmentsMediaPage = signal<PagedUserUploadedFilesResponse | null>(null);
+  protected readonly selectedAttachmentIds = signal<Set<string>>(new Set());
+  protected readonly attachmentPreviewUrls = signal<Record<string, string>>({});
+  private readonly attachmentPreviewObjectUrls = new Set<string>();
+
+  protected readonly attachmentsPickerCanPrev = signal(false);
+  protected readonly attachmentsPickerCanNext = signal(false);
+  protected readonly attachmentLightbox = signal<AttachmentLightboxPreview | null>(null);
+
+  protected readonly linkedInPreviewAuthorName = computed(() => {
+    const linkedIn = this.linkedInAccount();
+    if (linkedIn?.accountUsername?.trim()) {
+      return linkedIn.accountUsername.trim();
+    }
+
+    return this.account()?.userName ?? 'Your name';
+  });
+
+  protected readonly linkedInPreviewHeadline = computed(() => {
+    const linkedIn = this.linkedInAccount();
+    if (linkedIn?.accountComment?.trim()) {
+      return linkedIn.accountComment.trim();
+    }
+
+    return 'Your professional headline';
+  });
+
+  protected readonly linkedInPreviewAvatarUrl = computed(() => {
+    const linkedIn = this.linkedInAccount();
+    if (linkedIn?.profilePictureLink) {
+      return linkedIn.profilePictureLink;
+    }
+
+    return this.account()?.profilePictureUrl ?? null;
+  });
+
+  protected readonly platformPreviewBody = computed(() => {
+    const item = this.post();
+    if (!item) {
+      return null;
+    }
+
+    if (this.editingField() === 'body' || this.geminiDraftActive()) {
+      const draft = this.form.controls.body.value.trim();
+      return draft || null;
+    }
+
+    return item.body;
+  });
+
+  protected readonly platformPreviewAttachmentSrcs = computed(() => {
+    const item = this.post();
+    if (!item) {
+      return [];
+    }
+
+    return item.attachments
+      .map((attachment) => this.attachmentPreviewUrls()[attachment.userUploadedFileId] ?? null)
+      .filter((src): src is string => !!src);
+  });
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -1114,10 +1437,12 @@ export class DashboardPostDetail {
       this.stopChatTypewriter();
       this.clearGeminiChatCloseTimeout();
       this.clearGeminiPopupCloseTimeout();
+      this.clearAttachmentsPickerCloseTimeout();
       this.clearEditCloseTimeout();
       this.clearStatusPulseTimeout();
       this.disconnectBodyInputObserver();
       document.body.classList.remove('post-gemini-popup-open');
+      this.revokeAttachmentPreviewUrls();
     });
 
     if (typeof window !== 'undefined') {
@@ -1137,6 +1462,15 @@ export class DashboardPostDetail {
       .getAccount()
       .pipe(catchError(() => of(null)), takeUntilDestroyed())
       .subscribe((account) => this.account.set(account));
+
+    this.userPlatformService
+      .getUserPlatforms()
+      .pipe(catchError(() => of([])), takeUntilDestroyed())
+      .subscribe((platforms) => {
+        const linkedIn =
+          platforms.find((platform) => platform.platformId === LINKEDIN_PLATFORM_ID) ?? null;
+        this.linkedInAccount.set(linkedIn);
+      });
 
     this.route.paramMap
       .pipe(
@@ -1188,6 +1522,15 @@ export class DashboardPostDetail {
       return;
     }
 
+    if (this.attachmentsPickerOpen()) {
+      this.closeAttachmentsPicker();
+      return;
+    }
+
+    if (this.attachmentLightbox()) {
+      return;
+    }
+
     if (
       this.editingField() !== null &&
       !this.editClosing() &&
@@ -1221,6 +1564,14 @@ export class DashboardPostDetail {
       const statusAnchor = this.statusAnchor()?.nativeElement;
       if (!statusAnchor?.contains(target)) {
         this.statusMenuOpen.set(false);
+      }
+    }
+
+    if (this.attachmentsPickerOpen()) {
+      const picker = this.attachmentsPickerEl()?.nativeElement;
+      const trigger = this.attachmentsTriggerEl()?.nativeElement;
+      if (!picker?.contains(target) && !trigger?.contains(target)) {
+        this.closeAttachmentsPicker();
       }
     }
 
@@ -1666,6 +2017,69 @@ export class DashboardPostDetail {
     });
   }
 
+  protected onBodySelectionChange(): void {
+    const textarea = this.bodyInput()?.nativeElement;
+    if (!textarea) {
+      this.bodyHasSelection.set(false);
+      return;
+    }
+
+    this.bodyHasSelection.set(textarea.selectionStart !== textarea.selectionEnd);
+  }
+
+  protected onBodyKeydown(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() !== 'b' || !(event.ctrlKey || event.metaKey)) {
+      return;
+    }
+
+    if (this.editingField() !== 'body' && !this.geminiDraftActive()) {
+      return;
+    }
+
+    if (this.isGenerating() || this.isTyping()) {
+      return;
+    }
+
+    event.preventDefault();
+    this.toggleBodyBold();
+  }
+
+  protected toggleBodyBold(): void {
+    if (this.editingField() !== 'body' && !this.geminiDraftActive()) {
+      return;
+    }
+
+    const control = this.form.controls.body;
+    const textarea = this.bodyInput()?.nativeElement;
+    if (!textarea) {
+      return;
+    }
+
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+    if (start === end) {
+      return;
+    }
+
+    const toggled = toggleLinkedInBoldSelection(control.value, start, end);
+    const next = this.clampBody(toggled.text);
+    if (next === control.value) {
+      return;
+    }
+
+    const selectionEnd = Math.min(toggled.selectionEnd, next.length);
+    control.setValue(next, { emitEvent: false });
+    control.markAsDirty();
+    this.syncBodyHighlight(next);
+
+    queueMicrotask(() => {
+      textarea.focus();
+      textarea.setSelectionRange(toggled.selectionStart, selectionEnd);
+      this.onBodySelectionChange();
+      this.resizeBodyInput();
+    });
+  }
+
   protected toggleEmojiPicker(event: Event): void {
     event.stopPropagation();
     this.emojiPickerOpen.update((open) => {
@@ -1883,6 +2297,265 @@ export class DashboardPostDetail {
     });
     this.form.reset({ title, body });
     this.syncBodyHighlight(body);
+    this.syncAttachmentPreviews(item.attachments ?? []);
+  }
+
+  @HostListener('window:resize')
+  protected onWindowResize(): void {
+    this.updateAttachmentsPickerScrollState();
+  }
+
+  protected onAttachmentsPickerCarouselScroll(): void {
+    this.updateAttachmentsPickerScrollState();
+  }
+
+  protected attachmentsPickerPrev(): void {
+    this.scrollAttachmentsPickerBy(-1);
+  }
+
+  protected attachmentsPickerNext(): void {
+    this.scrollAttachmentsPickerBy(1);
+  }
+
+  private scrollAttachmentsPickerBy(direction: -1 | 1): void {
+    const viewport = this.attachmentsPickerCarouselEl()?.nativeElement;
+    if (!viewport) {
+      return;
+    }
+
+    const amount = Math.max(1, Math.floor(viewport.clientWidth * 0.95));
+    viewport.scrollBy({ left: direction * amount, behavior: 'smooth' });
+    setTimeout(() => this.updateAttachmentsPickerScrollState(), 220);
+  }
+
+  private updateAttachmentsPickerScrollState(): void {
+    const viewport = this.attachmentsPickerCarouselEl()?.nativeElement;
+    if (!viewport) {
+      this.attachmentsPickerCanPrev.set(false);
+      this.attachmentsPickerCanNext.set(false);
+      return;
+    }
+
+    const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    const left = viewport.scrollLeft;
+    const epsilon = 2;
+    this.attachmentsPickerCanPrev.set(left > epsilon);
+    this.attachmentsPickerCanNext.set(left < maxScrollLeft - epsilon);
+  }
+
+  private scheduleAttachmentsPickerScrollSync(): void {
+    // Wait for Angular to render + layout to settle (fonts, images, etc.)
+    queueMicrotask(() => {
+      this.updateAttachmentsPickerScrollState();
+      requestAnimationFrame(() => this.updateAttachmentsPickerScrollState());
+      setTimeout(() => this.updateAttachmentsPickerScrollState(), 120);
+    });
+  }
+
+  protected openAttachmentsPicker(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+
+    if (this.isActionLocked()) {
+      return;
+    }
+
+    this.attachmentsPickerError.set(null);
+    this.attachmentsPickerOpen.set(true);
+    this.selectedAttachmentIds.set(new Set());
+    this.loadMediaForAttachments(1);
+    this.scheduleAttachmentsPickerScrollSync();
+  }
+
+  protected closeAttachmentsPicker(): void {
+    if (!this.attachmentsPickerOpen() || this.attachmentsPickerClosing()) {
+      return;
+    }
+
+    this.clearAttachmentsPickerCloseTimeout();
+    this.attachmentsPickerClosing.set(true);
+
+    this.attachmentsPickerCloseTimeout = setTimeout(() => {
+      this.attachmentsPickerOpen.set(false);
+      this.attachmentsPickerClosing.set(false);
+      this.attachmentsPickerError.set(null);
+      this.attachmentsMediaPage.set(null);
+      this.selectedAttachmentIds.set(new Set());
+      this.attachmentsPickerCanPrev.set(false);
+      this.attachmentsPickerCanNext.set(false);
+    }, ATTACHMENTS_PICKER_CLOSE_MS);
+  }
+
+  private clearAttachmentsPickerCloseTimeout(): void {
+    if (this.attachmentsPickerCloseTimeout) {
+      clearTimeout(this.attachmentsPickerCloseTimeout);
+      this.attachmentsPickerCloseTimeout = undefined;
+    }
+  }
+
+  protected toggleAttachmentSelection(file: UserUploadedFileItem, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+
+    const next = new Set(this.selectedAttachmentIds());
+    if (next.has(file.id)) {
+      next.delete(file.id);
+    } else {
+      next.add(file.id);
+    }
+    this.selectedAttachmentIds.set(next);
+    this.ensureAttachmentPreview(file);
+  }
+
+  protected isAttachmentSelected(fileId: string): boolean {
+    return this.selectedAttachmentIds().has(fileId);
+  }
+
+  protected attachmentPreviewUrl(fileId: string): string | null {
+    return this.attachmentPreviewUrls()[fileId] ?? null;
+  }
+
+  protected openAttachmentPreview(attachment: PostAttachmentItem): void {
+    if (this.isActionLocked()) {
+      return;
+    }
+
+    this.attachmentLightbox.set({
+      title: `Attachment ${attachment.order}`,
+      src: this.attachmentPreviewUrl(attachment.userUploadedFileId),
+    });
+  }
+
+  protected attachSelectedMedia(): void {
+    const item = this.post();
+    if (!item) {
+      return;
+    }
+
+    const selected = [...this.selectedAttachmentIds()];
+    if (selected.length === 0) {
+      this.closeAttachmentsPicker();
+      return;
+    }
+
+    if (this.isAttaching()) {
+      return;
+    }
+
+    this.isAttaching.set(true);
+    this.attachmentsPickerError.set(null);
+
+    const existingMaxOrder = (item.attachments ?? []).reduce(
+      (max, attachment) => Math.max(max, attachment.order),
+      0
+    );
+    const payload = {
+      postId: item.id,
+      attachemnts: selected.map((uploadedFileId, index) => ({
+        uploadedFileId,
+        order: existingMaxOrder + index + 1,
+      })),
+    };
+
+    this.postAttachmentService
+      .create(payload)
+      .pipe(finalize(() => this.isAttaching.set(false)))
+      .subscribe({
+        next: () => {
+          this.postService.getPost(item.id).subscribe({
+            next: (updated) => {
+              this.setPost(updated);
+              this.showSaveMessage('Attachments saved.');
+              this.closeAttachmentsPicker();
+            },
+            error: (error) => {
+              this.attachmentsPickerError.set(toApplicationError(error, 'Could not refresh post.').description);
+            },
+          });
+        },
+        error: (error) => {
+          this.attachmentsPickerError.set(toApplicationError(error, 'Could not attach images.').description);
+        },
+      });
+  }
+
+  private loadMediaForAttachments(pageNumber: number): void {
+    this.attachmentsPickerLoading.set(true);
+    this.attachmentsPickerError.set(null);
+    this.scheduleAttachmentsPickerScrollSync();
+
+    this.fileService
+      .getFiles(pageNumber, 60, { sortBy: 'CreatedAt', isAscending: false })
+      .pipe(finalize(() => this.attachmentsPickerLoading.set(false)))
+      .subscribe({
+        next: (page) => {
+          this.attachmentsMediaPage.set(page);
+          this.syncAttachmentPickerPreviews(page.items);
+          this.scheduleAttachmentsPickerScrollSync();
+        },
+        error: (error) => {
+          this.attachmentsMediaPage.set(null);
+          this.attachmentsPickerError.set(toApplicationError(error, 'Could not load media.').description);
+        },
+      });
+  }
+
+  private syncAttachmentPreviews(attachments: readonly { userUploadedFileId: string }[]): void {
+    const ids = [...new Set(attachments.map((a) => a.userUploadedFileId))];
+    for (const id of ids) {
+      if (this.attachmentPreviewUrls()[id]) {
+        continue;
+      }
+
+      this.fileService
+        .downloadFile(id)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (blob) => {
+            const objectUrl = URL.createObjectURL(blob);
+            this.attachmentPreviewObjectUrls.add(objectUrl);
+            this.attachmentPreviewUrls.update((current) => ({ ...current, [id]: objectUrl }));
+          },
+          error: () => {
+            // ignore
+          },
+        });
+    }
+  }
+
+  private syncAttachmentPickerPreviews(files: UserUploadedFileItem[]): void {
+    for (const file of files) {
+      this.ensureAttachmentPreview(file);
+    }
+    this.scheduleAttachmentsPickerScrollSync();
+  }
+
+  private ensureAttachmentPreview(file: UserUploadedFileItem): void {
+    if (this.attachmentPreviewUrls()[file.id]) {
+      return;
+    }
+
+    this.fileService
+      .downloadFile(file.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => {
+          const objectUrl = URL.createObjectURL(blob);
+          this.attachmentPreviewObjectUrls.add(objectUrl);
+          this.attachmentPreviewUrls.update((current) => ({ ...current, [file.id]: objectUrl }));
+        },
+        error: () => {
+          // placeholder stays
+        },
+      });
+  }
+
+  private revokeAttachmentPreviewUrls(): void {
+    for (const objectUrl of this.attachmentPreviewObjectUrls) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    this.attachmentPreviewObjectUrls.clear();
+    this.attachmentPreviewUrls.set({});
   }
 
   private buildUpdatePayload(

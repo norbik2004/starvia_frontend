@@ -1,12 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
   DestroyRef,
   ElementRef,
   HostListener,
   inject,
-  NgZone,
   signal,
   viewChild,
 } from '@angular/core';
@@ -36,9 +34,9 @@ import { PageRevealDirective } from '../../../directives/page-reveal';
 import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
 import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
 import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
+import { DashboardImageLightbox } from '../shared/dashboard-image-lightbox/dashboard-image-lightbox';
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
-const LIGHTBOX_CLOSE_MS = 280;
 const EDIT_CLOSE_MS = 220;
 
 type MediaForm = FormGroup<{
@@ -57,6 +55,7 @@ type MediaForm = FormGroup<{
     PageRevealDirective,
     DashboardDeleteButton,
     AutoExpandTextarea,
+    DashboardImageLightbox,
   ],
   styleUrl: './dashboard-media.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -317,119 +316,25 @@ type MediaForm = FormGroup<{
       }
 
       @if (lightboxFile(); as file) {
-        <div
-          class="dashboard-media__lightbox-layer dashboard-media__lightbox-layer--open"
-          [class.dashboard-media__lightbox-layer--closing]="lightboxClosing()"
-          role="presentation"
+        <app-dashboard-image-lightbox
+          [title]="file.fileName || 'Untitled'"
+          [previewSrc]="previewUrl(file.id)"
+          [description]="file.description"
+          (closed)="onLightboxClosed()"
         >
-          <button
-            type="button"
-            class="dashboard-media__lightbox-backdrop"
-            aria-label="Close preview"
-            (click)="closePreview()"
-          ></button>
-
-          <div
-            class="dashboard-media__lightbox"
-            role="dialog"
-            aria-modal="true"
-            [attr.aria-label]="file.fileName || 'Image preview'"
-          >
-            <header class="dashboard-media__lightbox-toolbar">
-              <p class="dashboard-media__lightbox-title dashboard-editable-text">
-                {{ file.fileName || 'Untitled' }}
-              </p>
-              <div class="dashboard-media__lightbox-tools">
-                <button
-                  type="button"
-                  class="dashboard-media__lightbox-tool"
-                  aria-label="Zoom out"
-                  matTooltip="Zoom out"
-                  matTooltipPosition="below"
-                  [disabled]="previewZoom() <= 1"
-                  (click)="zoomOut()"
-                >
-                  <span class="material-icons" aria-hidden="true">zoom_out</span>
-                </button>
-                <span class="dashboard-media__lightbox-zoom" aria-live="polite">{{ zoomPercent() }}%</span>
-                <button
-                  type="button"
-                  class="dashboard-media__lightbox-tool"
-                  aria-label="Zoom in"
-                  matTooltip="Zoom in"
-                  matTooltipPosition="below"
-                  [disabled]="previewZoom() >= maxPreviewZoom"
-                  (click)="zoomIn()"
-                >
-                  <span class="material-icons" aria-hidden="true">zoom_in</span>
-                </button>
-                <button
-                  type="button"
-                  class="dashboard-media__lightbox-tool"
-                  aria-label="Reset zoom"
-                  matTooltip="Reset zoom"
-                  matTooltipPosition="below"
-                  [disabled]="previewZoom() === 1 && previewPan().x === 0 && previewPan().y === 0"
-                  (click)="resetPreviewZoom()"
-                >
-                  <span class="material-icons" aria-hidden="true">fit_screen</span>
-                </button>
-              </div>
-              <app-dashboard-delete-button
-                size="sm"
-                tone="dark"
-                ariaLabel="Delete image"
-                tooltip="Delete image"
-                [active]="deleteConfirmFileId() === file.id"
-                [disabled]="isMediaBusy()"
-                [ariaExpanded]="deleteConfirmFileId() === file.id"
-                ariaControls="dashboard-delete-sheet-title"
-                (clicked)="requestDelete(file, $event)"
-              />
-              <button
-                type="button"
-                class="dashboard-media__lightbox-close"
-                aria-label="Close preview"
-                matTooltip="Close"
-                matTooltipPosition="below"
-                (click)="closePreview()"
-              >
-                <span class="material-icons" aria-hidden="true">close</span>
-              </button>
-            </header>
-
-            <div
-              class="dashboard-media__lightbox-stage"
-              [class.dashboard-media__lightbox-stage--panning]="isPreviewPanning()"
-              (wheel)="onPreviewWheel($event)"
-              (dblclick)="onPreviewDoubleClick($event)"
-            >
-              @if (previewUrl(file.id); as src) {
-                <img
-                  class="dashboard-media__lightbox-image"
-                  [class.dashboard-media__lightbox-image--draggable]="previewZoom() > 1"
-                  [src]="src"
-                  [alt]="file.fileName || 'Uploaded image'"
-                  [style.transform]="previewTransform()"
-                  (mousedown)="onPreviewPanStart($event)"
-                />
-              }
-            </div>
-
-            <footer class="dashboard-media__lightbox-footer">
-              <div class="dashboard-media__lightbox-description">
-                <p class="dashboard-media__lightbox-description-label">Description</p>
-                <p
-                  class="dashboard-media__lightbox-description-text"
-                  [class.dashboard-media__lightbox-description-text--empty]="!hasUserUploadedFileDescription(file.description)"
-                >
-                  {{ displayUserUploadedFileDescription(file.description) }}
-                </p>
-              </div>
-              <p class="dashboard-media__lightbox-hint">Scroll to zoom · Double-click to toggle · Drag when zoomed in</p>
-            </footer>
-          </div>
-        </div>
+          <app-dashboard-delete-button
+            lightboxToolbar
+            size="sm"
+            tone="dark"
+            ariaLabel="Delete image"
+            tooltip="Delete image"
+            [active]="deleteConfirmFileId() === file.id"
+            [disabled]="isMediaBusy()"
+            [ariaExpanded]="deleteConfirmFileId() === file.id"
+            ariaControls="dashboard-delete-sheet-title"
+            (clicked)="requestDelete(file, $event)"
+          />
+        </app-dashboard-image-lightbox>
       }
 
     </section>
@@ -439,7 +344,6 @@ export class DashboardMedia {
   private readonly fileService = inject(UserUploadedFileService);
   private readonly deleteConfirm = inject(DashboardDeleteConfirmService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly ngZone = inject(NgZone);
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>('renameInput');
   private readonly descriptionInput = viewChild<AutoExpandTextarea>('descriptionInput');
@@ -478,11 +382,7 @@ export class DashboardMedia {
   protected readonly result = signal<PagedUserUploadedFilesResponse | null>(null);
   protected readonly dragActive = signal(false);
   protected readonly lightboxFile = signal<UserUploadedFileItem | null>(null);
-  protected readonly lightboxClosing = signal(false);
   protected readonly previewUrls = signal<Record<string, string>>({});
-  protected readonly previewZoom = signal(1);
-  protected readonly previewPan = signal({ x: 0, y: 0 });
-  protected readonly isPreviewPanning = signal(false);
   protected readonly renamingFileId = signal<string | null>(null);
   protected readonly renameClosing = signal(false);
   protected readonly renameReadEnterFileId = signal<string | null>(null);
@@ -491,44 +391,16 @@ export class DashboardMedia {
   protected readonly descriptionError = signal<string | null>(null);
   protected readonly deleteConfirmFileId = signal<string | null>(null);
   protected readonly isDeleting = signal(false);
-  protected readonly zoomPercent = computed(() => Math.round(this.previewZoom() * 100));
-  protected readonly maxPreviewZoom = 4;
 
   private dragDepth = 0;
-  private lightboxCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private renameCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly previewObjectUrls = new Set<string>();
-  private panSession: { startX: number; startY: number; panX: number; panY: number } | null = null;
-  private panListening = false;
-
-  private readonly onPanMove = (event: MouseEvent): void => {
-    if (!this.panSession) {
-      return;
-    }
-
-    this.ngZone.run(() => {
-      this.previewPan.set({
-        x: this.panSession!.panX + (event.clientX - this.panSession!.startX),
-        y: this.panSession!.panY + (event.clientY - this.panSession!.startY),
-      });
-    });
-  };
-
-  private readonly onPanEnd = (): void => {
-    this.detachPanListeners();
-    this.ngZone.run(() => {
-      this.panSession = null;
-      this.isPreviewPanning.set(false);
-    });
-  };
 
   constructor() {
     this.loadFiles();
 
     this.destroyRef.onDestroy(() => {
-      this.clearLightboxCloseTimer();
       this.clearRenameCloseTimer();
-      this.detachPanListeners();
       this.revokePreviewUrls();
     });
   }
@@ -540,7 +412,9 @@ export class DashboardMedia {
       return;
     }
 
-    this.closePreview();
+    if (this.lightboxFile()) {
+      return;
+    }
   }
 
   protected isMediaBusy(): boolean {
@@ -773,90 +647,17 @@ export class DashboardMedia {
       return;
     }
 
-    this.clearLightboxCloseTimer();
-    this.lightboxClosing.set(false);
     this.cancelRename(undefined, false);
-    this.resetPreviewZoom();
     this.ensurePreview(file);
     this.lightboxFile.set(file);
   }
 
-  protected closePreview(): void {
-    if (!this.lightboxFile() || this.lightboxClosing()) {
-      return;
+  protected onLightboxClosed(): void {
+    this.cancelRename(undefined, false);
+    if (!this.isDeleting()) {
+      this.deleteConfirmFileId.set(null);
     }
-
-    this.lightboxClosing.set(true);
-    this.clearLightboxCloseTimer();
-    this.lightboxCloseTimer = setTimeout(() => {
-      this.lightboxCloseTimer = null;
-      this.cancelRename(undefined, false);
-      if (!this.isDeleting()) {
-        this.deleteConfirmFileId.set(null);
-      }
-      this.lightboxFile.set(null);
-      this.lightboxClosing.set(false);
-      this.resetPreviewZoom();
-    }, LIGHTBOX_CLOSE_MS);
-  }
-
-  private clearLightboxCloseTimer(): void {
-    if (this.lightboxCloseTimer !== null) {
-      clearTimeout(this.lightboxCloseTimer);
-      this.lightboxCloseTimer = null;
-    }
-  }
-
-  protected previewTransform(): string {
-    const pan = this.previewPan();
-    return `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${this.previewZoom()})`;
-  }
-
-  protected zoomIn(): void {
-    this.setPreviewZoom(this.previewZoom() + 0.25);
-  }
-
-  protected zoomOut(): void {
-    this.setPreviewZoom(this.previewZoom() - 0.25);
-  }
-
-  protected resetPreviewZoom(): void {
-    this.previewZoom.set(1);
-    this.previewPan.set({ x: 0, y: 0 });
-    this.panSession = null;
-    this.isPreviewPanning.set(false);
-  }
-
-  protected onPreviewWheel(event: WheelEvent): void {
-    event.preventDefault();
-    this.setPreviewZoom(this.previewZoom() + (event.deltaY < 0 ? 0.12 : -0.12));
-  }
-
-  protected onPreviewDoubleClick(event: MouseEvent): void {
-    event.preventDefault();
-    if (this.previewZoom() > 1.01) {
-      this.resetPreviewZoom();
-      return;
-    }
-
-    this.previewZoom.set(2);
-  }
-
-  protected onPreviewPanStart(event: MouseEvent): void {
-    if (this.previewZoom() <= 1 || event.button !== 0) {
-      return;
-    }
-
-    event.preventDefault();
-    const pan = this.previewPan();
-    this.panSession = {
-      startX: event.clientX,
-      startY: event.clientY,
-      panX: pan.x,
-      panY: pan.y,
-    };
-    this.isPreviewPanning.set(true);
-    this.attachPanListeners();
+    this.lightboxFile.set(null);
   }
 
   protected onPageSizeChange(pageSize = this.form.controls.pageSize.value): void {
@@ -896,38 +697,6 @@ export class DashboardMedia {
 
     this.form.patchValue({ pageNumber });
     this.loadFiles();
-  }
-
-  private attachPanListeners(): void {
-    if (this.panListening) {
-      return;
-    }
-
-    this.panListening = true;
-    this.ngZone.runOutsideAngular(() => {
-      document.addEventListener('mousemove', this.onPanMove);
-      document.addEventListener('mouseup', this.onPanEnd);
-    });
-  }
-
-  private detachPanListeners(): void {
-    if (!this.panListening) {
-      return;
-    }
-
-    this.panListening = false;
-    document.removeEventListener('mousemove', this.onPanMove);
-    document.removeEventListener('mouseup', this.onPanEnd);
-  }
-
-  private setPreviewZoom(value: number): void {
-    const next = Math.min(this.maxPreviewZoom, Math.max(1, value));
-    this.previewZoom.set(next);
-    if (next === 1) {
-      this.previewPan.set({ x: 0, y: 0 });
-      this.panSession = null;
-      this.isPreviewPanning.set(false);
-    }
   }
 
   private uploadSelectedFiles(files: File[]): void {
@@ -1066,7 +835,6 @@ export class DashboardMedia {
 
     if (this.lightboxFile()?.id === fileId) {
       this.lightboxFile.set(null);
-      this.resetPreviewZoom();
     }
 
     const page = this.result();

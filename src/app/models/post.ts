@@ -9,8 +9,14 @@ export type CreatePostPayload = {
   title: string;
 };
 
+export type PostAttachmentItem = {
+  postId: number;
+  userUploadedFileId: string;
+  order: number;
+};
+
 export const POST_TITLE_MAX_LENGTH = 75;
-export const POST_BODY_MAX_LENGTH = 1000;
+export const POST_BODY_MAX_LENGTH = 2000;
 
 export function normalizePostTitle(title: string | null | undefined): string {
   const unified = (title ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -218,6 +224,44 @@ function readNullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+function parsePostAttachment(value: unknown): PostAttachmentItem | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const postId = record['postId'] ?? record['PostId'];
+  const userUploadedFileId = record['userUploadedFileId'] ?? record['UserUploadedFileId'];
+  const order = record['order'] ?? record['Order'];
+
+  if (typeof postId !== 'number' || !Number.isFinite(postId)) {
+    return null;
+  }
+  if (typeof userUploadedFileId !== 'string' || !userUploadedFileId.trim()) {
+    return null;
+  }
+  if (typeof order !== 'number' || !Number.isFinite(order)) {
+    return null;
+  }
+
+  return {
+    postId,
+    userUploadedFileId: userUploadedFileId.trim(),
+    order,
+  };
+}
+
+export function parsePostAttachments(value: unknown): PostAttachmentItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(parsePostAttachment)
+    .filter((item): item is PostAttachmentItem => item !== null)
+    .sort((left, right) => left.order - right.order);
+}
+
 export function parsePostItem(value: unknown): PostItem | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -241,6 +285,7 @@ export function parsePostItem(value: unknown): PostItem | null {
     status: parsePostStatus(record['status'] ?? record['Status']),
     tags: parsePostTags(record['tags'] ?? record['Tags'] ?? record['tag'] ?? record['Tag']),
     createdAt: String(record['createdAt'] ?? record['CreatedAt'] ?? ''),
+    attachments: parsePostAttachments(record['attachments'] ?? record['Attachments']),
   };
 }
 
@@ -296,6 +341,7 @@ export type PostItem = {
   status: PostStatus;
   tags: PlatformType[];
   createdAt: string;
+  attachments: PostAttachmentItem[];
 };
 
 export type PagedPostsResponse = {
