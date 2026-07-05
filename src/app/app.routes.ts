@@ -7,6 +7,7 @@ import { DashboardOverview } from './pages/dashboard/dashboard-overview/dashboar
 import { DashboardPostCreate } from './pages/dashboard/dashboard-post-create/dashboard-post-create';
 import { DashboardPostDetail } from './pages/dashboard/dashboard-post-detail/dashboard-post-detail';
 import { DashboardMedia } from './pages/dashboard/dashboard-media/dashboard-media';
+import { DashboardMediaGenerate } from './pages/dashboard/dashboard-media-generate/dashboard-media-generate';
 import { DashboardPosts } from './pages/dashboard/dashboard-posts/dashboard-posts';
 import { DashboardPage } from './pages/dashboard/dashboard';
 import { HomePage } from './pages/home/home';
@@ -75,6 +76,10 @@ export const routes: Routes = [
       {
         path: 'posts',
         component: DashboardPosts,
+      },
+      {
+        path: 'media/generate',
+        component: DashboardMediaGenerate,
       },
       {
         path: 'media',

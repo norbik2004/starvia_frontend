@@ -1,0 +1,74 @@
+$dashboard-green: #2e7d32;
+$dashboard-prompt-limit-red: #c62828;
+
+.dashboard-gemini-prompt-composer {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.dashboard-gemini-prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.dashboard-gemini-prompt-meta {
+  margin: 0;
+  width: 100%;
+  text-align: right;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--mat-sys-on-surface-variant);
+
+  &--limit {
+    color: $dashboard-prompt-limit-red;
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+.dashboard-green-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.625rem;
+  padding: 0.55rem 1.15rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  cursor: pointer;
+  background: $dashboard-green;
+  box-shadow: 0 4px 14px color-mix(in srgb, $dashboard-green 24%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+
+  .material-icons {
+    font-size: 1.125rem;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px color-mix(in srgb, $dashboard-green 30%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, $dashboard-green 65%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &--full {
+    width: 100%;
+  }
+}

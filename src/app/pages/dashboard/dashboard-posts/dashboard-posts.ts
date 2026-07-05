@@ -3,10 +3,12 @@ import { Component, DestroyRef, HostListener, inject, signal } from '@angular/co
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { toApplicationError } from '../../../models/application-error';
 import { DisplayDatetimePipe } from '../../../pipes/display-datetime';
-import { PLATFORM_TYPES, POST_SORT_BY_OPTIONS, POST_STATUS_OPTIONS, getPlatformTypeLabel, getPlatformTypeName, getPostStatusLabel, getPostStatusClass, parseHashtagSegments, type PagedPostsResponse } from '../../../models/post';
+import { PLATFORM_TYPES, POST_SORT_BY_OPTIONS, POST_STATUS_OPTIONS, getPlatformTypeLabel, getPlatformTypeName, getPostStatusLabel, getPostStatusClass, parseHashtagSegments, type PagedPostsResponse, type PostAttachmentItem, type PostItem } from '../../../models/post';
 import { PostService } from '../../../services/post';
+import { UserUploadedFileService } from '../../../services/user-uploaded-file';
 import { DashboardPaginationPanel } from '../shared/dashboard-pagination-panel/dashboard-pagination-panel';
 import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { toPaginationPage } from '../shared/pagination';
@@ -28,6 +30,7 @@ import {
 import { postMetaChipAnimation, postMetaFadeSlideAnimation } from '../shared/post-meta.animations';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+const POST_CARD_VISIBLE_ATTACHMENTS = 4;
 
 type PostsForm = FormGroup<{
   pageNumber: FormControl<number>;
@@ -282,6 +285,7 @@ type PostsForm = FormGroup<{
               <li>
                 <a
                   class="post-card"
+                  [class.post-card--has-attachments]="post.attachments.length > 0"
                   [routerLink]="['/dashboard/posts', post.id]"
                   [state]="postsReturnState()"
                 >
@@ -304,20 +308,45 @@ type PostsForm = FormGroup<{
                       <span class="post-card__status" [ngClass]="postStatusClass(post.status)">{{ postStatusLabel(post.status) }}</span>
                     </div>
                   </div>
+                  <div
+                    class="post-card__content"
+                    [class.post-card__content--no-attachments]="post.attachments.length === 0"
+                  >
                   @if (post.body) {
                     <p class="post-card__body">
-                      @for (segment of hashtagSegments(post.body); track $index) {
-                        @if (segment.highlighted) {
-                          <span class="hashtag">{{ segment.text }}</span>
-                        } @else {
-                          {{ segment.text }}
+                      <span class="post-card__body-text">
+                        @for (segment of hashtagSegments(post.body); track $index) {
+                          @if (segment.highlighted) {
+                            <span class="hashtag">{{ segment.text }}</span>
+                          } @else {
+                            {{ segment.text }}
+                          }
                         }
-                      }
+                      </span>
                     </p>
                   }
                   @else {
                     <p class="post-card__body post-card__body--empty">No content yet.</p>
                   }
+                  @if (post.attachments.length > 0) {
+                    <div class="post-card__attachments" aria-label="Attached images">
+                      @for (att of visibleAttachments(post.attachments); track att.userUploadedFileId) {
+                        <span class="post-card__attachment-thumb" aria-hidden="true">
+                          @if (attachmentPreviewUrl(att.userUploadedFileId); as src) {
+                            <img class="post-card__attachment-img" [src]="src" alt="" loading="lazy" />
+                          } @else {
+                            <span class="post-card__attachment-placeholder">
+                              <span class="material-icons" aria-hidden="true">image</span>
+                            </span>
+                          }
+                        </span>
+                      }
+                      @if (hiddenAttachmentCount(post.attachments) > 0) {
+                        <span class="post-card__attachment-more">+{{ hiddenAttachmentCount(post.attachments) }}</span>
+                      }
+                    </div>
+                  }
+                  </div>
                   @if (post.promptText) {
                     <p class="post-card__prompt">
                       <span class="post-card__label">Prompt</span>
@@ -361,6 +390,7 @@ type PostsForm = FormGroup<{
 })
 export class DashboardPosts {
   private readonly postService = inject(PostService);
+  private readonly fileService = inject(UserUploadedFileService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -400,6 +430,8 @@ export class DashboardPosts {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly result = signal<PagedPostsResponse | null>(null);
   protected readonly filtersOpen = signal(false);
+  private readonly attachmentPreviewUrls = signal<Record<string, string>>({});
+  private readonly attachmentPreviewObjectUrls = new Set<string>();
 
   constructor() {
     this.route.queryParamMap.pipe(take(1)).subscribe((params) => {
@@ -410,6 +442,7 @@ export class DashboardPosts {
 
     this.destroyRef.onDestroy(() => {
       document.body.classList.remove('posts-filters-open');
+      this.revokeAttachmentPreviewUrls();
     });
   }
 
@@ -482,6 +515,7 @@ export class DashboardPosts {
       .subscribe({
         next: (response) => {
           this.result.set(response);
+          this.syncAttachmentPreviews(response.items);
           this.form.patchValue({ pageNumber: response.pageIndex }, { emitEvent: false });
           this.syncQueryParams();
         },
@@ -526,6 +560,50 @@ export class DashboardPosts {
       return;
     }
     this.goToPage(page.pageIndex + 1);
+  }
+
+  protected visibleAttachments(attachments: readonly PostAttachmentItem[]): PostAttachmentItem[] {
+    return attachments.slice(0, POST_CARD_VISIBLE_ATTACHMENTS);
+  }
+
+  protected hiddenAttachmentCount(attachments: readonly PostAttachmentItem[]): number {
+    return Math.max(0, attachments.length - POST_CARD_VISIBLE_ATTACHMENTS);
+  }
+
+  protected attachmentPreviewUrl(fileId: string): string | null {
+    return this.attachmentPreviewUrls()[fileId] ?? null;
+  }
+
+  private syncAttachmentPreviews(posts: readonly PostItem[]): void {
+    const ids = [...new Set(posts.flatMap((post) => post.attachments.map((attachment) => attachment.userUploadedFileId)))];
+
+    for (const id of ids) {
+      if (this.attachmentPreviewUrls()[id]) {
+        continue;
+      }
+
+      this.fileService
+        .downloadFile(id)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (blob) => {
+            const objectUrl = URL.createObjectURL(blob);
+            this.attachmentPreviewObjectUrls.add(objectUrl);
+            this.attachmentPreviewUrls.update((current) => ({ ...current, [id]: objectUrl }));
+          },
+          error: () => {
+            // placeholder stays
+          },
+        });
+    }
+  }
+
+  private revokeAttachmentPreviewUrls(): void {
+    for (const objectUrl of this.attachmentPreviewObjectUrls) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    this.attachmentPreviewObjectUrls.clear();
+    this.attachmentPreviewUrls.set({});
   }
 
   private currentListQuery(): PostsListQuery {

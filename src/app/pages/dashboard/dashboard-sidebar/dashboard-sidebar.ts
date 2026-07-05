@@ -16,32 +16,31 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
 
 
 
-type DashboardNavItem = {
-
+type DashboardNavChild = {
   label: string;
-
   route: string;
-
   exact?: boolean;
-
 };
 
-
+type DashboardNavItem = {
+  label: string;
+  route?: string;
+  exact?: boolean;
+  children?: readonly DashboardNavChild[];
+};
 
 const NAV_ITEMS: readonly DashboardNavItem[] = [
-
   { label: 'Overview', route: '/dashboard', exact: true },
-  
   { label: 'Social accounts', route: '/dashboard/social-accounts' },
-
-  { label: 'Media', route: '/dashboard/media' },
-
+  {
+    label: 'Media',
+    children: [
+      { label: 'Library', route: '/dashboard/media', exact: true },
+      { label: 'Generate', route: '/dashboard/media/generate' },
+    ],
+  },
   { label: 'Posts', route: '/dashboard/posts' },
-
   { label: 'Prompts', route: '/dashboard/prompts' },
-
-  
-
 ] as const;
 
 
@@ -178,27 +177,76 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
             <ul class="dashboard-sidebar__list">
 
-              @for (item of navItems; track item.route) {
+              @for (item of navItems; track item.label) {
 
-                <li>
+                <li
+                  class="dashboard-sidebar__item"
+                  [class.dashboard-sidebar__item--expandable]="item.children"
+                  [class.is-expanded]="item.children && isNavExpanded(item)"
+                  [class.is-section-active]="isNavGroupActive(item)"
+                >
 
-                  <a
+                  @if (item.children) {
 
-                    [routerLink]="item.route"
+                    <button
+                      type="button"
+                      class="dashboard-sidebar__link dashboard-sidebar__link--parent"
+                      [class.is-active]="isNavGroupActive(item)"
+                      [attr.aria-expanded]="isNavExpanded(item)"
+                      [attr.aria-controls]="'nav-group-' + navGroupId(item)"
+                      (click)="toggleNavGroup(item)"
+                    >
+                      <span class="dashboard-sidebar__link-label">{{ item.label }}</span>
+                      <span class="material-icons dashboard-sidebar__chevron" aria-hidden="true">expand_more</span>
+                    </button>
 
-                    routerLinkActive="is-active"
+                    <div
+                      class="dashboard-sidebar__sublist-panel"
+                      [class.is-open]="isNavExpanded(item)"
+                      [id]="'nav-group-' + navGroupId(item)"
+                      [attr.aria-hidden]="!isNavExpanded(item)"
+                    >
+                      <div class="dashboard-sidebar__sublist-inner">
+                        <ul class="dashboard-sidebar__sublist">
+                        @for (child of item.children; track child.route) {
+                          <li>
+                            <a
+                              [routerLink]="child.route"
+                              routerLinkActive="is-active"
+                              [routerLinkActiveOptions]="{ exact: child.exact ?? false }"
+                              class="dashboard-sidebar__link dashboard-sidebar__link--child"
+                              [class.dashboard-sidebar__link--generate]="child.route === '/dashboard/media/generate'"
+                              (click)="closeMenu()"
+                            >
+                              {{ child.label }}
+                            </a>
+                          </li>
+                        }
+                        </ul>
+                      </div>
+                    </div>
 
-                    [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+                  } @else {
 
-                    class="dashboard-sidebar__link"
+                    <a
 
-                    (click)="closeMenu()"
+                      [routerLink]="item.route"
 
-                  >
+                      routerLinkActive="is-active"
 
-                    {{ item.label }}
+                      [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
 
-                  </a>
+                      class="dashboard-sidebar__link"
+
+                      (click)="closeMenu()"
+
+                    >
+
+                      {{ item.label }}
+
+                    </a>
+
+                  }
 
                 </li>
 
@@ -325,6 +373,10 @@ export class DashboardSidebar implements OnDestroy {
 
   protected readonly menuOpen = signal(false);
 
+  protected readonly currentUrl = signal(this.router.url);
+
+  private readonly expandedNavLabels = signal<ReadonlySet<string>>(this.readExpandedNavLabels());
+
 
 
   constructor() {
@@ -351,7 +403,11 @@ export class DashboardSidebar implements OnDestroy {
 
       )
 
-      .subscribe(() => this.closeMenu());
+      .subscribe(() => {
+        this.currentUrl.set(this.router.url);
+        this.expandedNavLabels.set(this.readExpandedNavLabels());
+        this.closeMenu();
+      });
 
 
 
@@ -384,6 +440,68 @@ export class DashboardSidebar implements OnDestroy {
 
     this.setMenuOpen(false);
 
+  }
+
+  protected isNavGroupActive(item: DashboardNavItem): boolean {
+    if (!item.children?.length) {
+      return false;
+    }
+
+    const url = this.normalizeNavUrl(this.currentUrl());
+    return item.children.some((child) => this.isNavRouteActive(child.route, child.exact ?? false, url));
+  }
+
+  protected isNavExpanded(item: DashboardNavItem): boolean {
+    if (this.isNavGroupActive(item)) {
+      return true;
+    }
+
+    return this.expandedNavLabels().has(item.label);
+  }
+
+  protected toggleNavGroup(item: DashboardNavItem): void {
+    if (!item.children?.length || this.isNavGroupActive(item)) {
+      return;
+    }
+
+    const next = new Set(this.expandedNavLabels());
+    if (next.has(item.label)) {
+      next.delete(item.label);
+    } else {
+      next.add(item.label);
+    }
+
+    this.expandedNavLabels.set(next);
+  }
+
+  protected navGroupId(item: DashboardNavItem): string {
+    return item.label.trim().toLowerCase().replace(/\s+/g, '-');
+  }
+
+  private readExpandedNavLabels(): ReadonlySet<string> {
+    const url = this.normalizeNavUrl(this.currentUrl());
+    const expanded = new Set<string>();
+
+    for (const item of NAV_ITEMS) {
+      if (item.children?.some((child) => this.isNavRouteActive(child.route, child.exact ?? false, url))) {
+        expanded.add(item.label);
+      }
+    }
+
+    return expanded;
+  }
+
+  private normalizeNavUrl(url: string): string {
+    const path = url.split('?')[0].split('#')[0];
+    return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
+  }
+
+  private isNavRouteActive(route: string, exact: boolean, url = this.normalizeNavUrl(this.currentUrl())): boolean {
+    if (exact) {
+      return url === route;
+    }
+
+    return url === route || url.startsWith(`${route}/`);
   }
 
 

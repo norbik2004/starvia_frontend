@@ -66,8 +66,8 @@ type MediaForm = FormGroup<{
         <header class="dashboard-media__header">
           <div class="dashboard-media__header-row">
             <div class="dashboard-media__header-copy">
-              <p class="section-eyebrow dashboard-media__eyebrow">Library</p>
-              <h1 id="dashboard-media-title" class="dashboard-media__title">Media</h1>
+              <p class="section-eyebrow dashboard-media__eyebrow">Media</p>
+              <h1 id="dashboard-media-title" class="dashboard-media__title">Library</h1>
             </div>
           </div>
         </header>

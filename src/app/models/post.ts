@@ -225,14 +225,14 @@ function readNullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-function parsePostAttachment(value: unknown): PostAttachmentItem | null {
+function parsePostAttachment(value: unknown, fallbackPostId?: number): PostAttachmentItem | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
 
   const record = value as Record<string, unknown>;
   const id = record['id'] ?? record['Id'] ?? record['postAttachmentId'] ?? record['PostAttachmentId'];
-  const postId = record['postId'] ?? record['PostId'];
+  const postId = record['postId'] ?? record['PostId'] ?? fallbackPostId;
   const userUploadedFileId = record['userUploadedFileId'] ?? record['UserUploadedFileId'];
   const order = record['order'] ?? record['Order'];
 
@@ -254,13 +254,13 @@ function parsePostAttachment(value: unknown): PostAttachmentItem | null {
   };
 }
 
-export function parsePostAttachments(value: unknown): PostAttachmentItem[] {
+export function parsePostAttachments(value: unknown, fallbackPostId?: number): PostAttachmentItem[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
-    .map(parsePostAttachment)
+    .map((item) => parsePostAttachment(item, fallbackPostId))
     .filter((item): item is PostAttachmentItem => item !== null)
     .sort((left, right) => left.order - right.order);
 }
@@ -288,7 +288,7 @@ export function parsePostItem(value: unknown): PostItem | null {
     status: parsePostStatus(record['status'] ?? record['Status']),
     tags: parsePostTags(record['tags'] ?? record['Tags'] ?? record['tag'] ?? record['Tag']),
     createdAt: String(record['createdAt'] ?? record['CreatedAt'] ?? ''),
-    attachments: parsePostAttachments(record['attachments'] ?? record['Attachments']),
+    attachments: parsePostAttachments(record['attachments'] ?? record['Attachments'], id),
   };
 }
 
