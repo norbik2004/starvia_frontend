@@ -198,6 +198,20 @@
   }
 }
 
+.hero-panel-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--media-aspect-hero);
+  min-height: clamp(14rem, 50vw, 20rem);
+  object-fit: cover;
+  object-position: center;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 18%, var(--border-muted));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent) inset,
+    0 24px 48px color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+}
+
 .media-frame--hero .media-slot {
   aspect-ratio: var(--media-aspect-hero);
   min-height: clamp(14rem, 50vw, 20rem);
