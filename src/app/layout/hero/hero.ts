@@ -73,6 +73,16 @@ import { SectionStarsLayer } from '../shared/section-stars-layer';
             <figcaption class="sr-only">{{ panelCaption }}</figcaption>
             @if (customPanel) {
               <ng-content select="[hero-panel]" />
+            } @else if (panelImage) {
+              <img
+                class="hero-panel-image"
+                [src]="panelImage"
+                [alt]="panelImageAlt"
+                width="1536"
+                height="1024"
+                decoding="async"
+                fetchpriority="high"
+              />
             } @else {
               <div class="media-slot" aria-hidden="true">
                 <span class="media-slot__icon" aria-hidden="true">{{ panelIcon }}</span>
@@ -107,6 +117,8 @@ export class Hero implements AfterViewInit, OnDestroy {
   @Input() fillViewport = false;
   @Input() customPanel = false;
   @Input() panelCaption = 'Starvia product preview';
+  @Input() panelImage: string | null = '/starvia-hero.png';
+  @Input() panelImageAlt = 'Starvia content planner with AI writing assist and scheduling';
   @Input() panelIcon = '▣';
   @Input() panelLabel = 'Product preview';
   @Input() panelHint = 'App screenshot or hero illustration';
