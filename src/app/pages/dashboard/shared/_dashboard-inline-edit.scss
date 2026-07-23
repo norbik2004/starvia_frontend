@@ -60,16 +60,6 @@
     padding: 0.45rem 0.65rem;
   }
 
-  .btn--compact {
-    min-width: 4.75rem;
-    min-height: 0;
-    padding: 0.35rem 1rem;
-    border-radius: var(--radius-md);
-    font-size: var(--text-body-sm);
-    font-weight: var(--font-weight-semibold);
-    line-height: 1.2;
-  }
-
   &--compact {
     padding: var(--space-sm);
   }
@@ -127,27 +117,50 @@
 
 .dashboard-edit-foot {
   display: grid;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   overflow: visible;
 }
 
 .dashboard-edit-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-xs);
+  gap: 0.75rem;
+  min-height: 1.25rem;
 }
 
 .dashboard-edit-hint {
+  flex: 0 0 auto;
   margin: 0;
   color: var(--mat-sys-on-surface-variant);
   font-size: var(--text-eyebrow);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.dashboard-edit-meta__error {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+
+  .field__error {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-eyebrow);
+    line-height: 1.25;
+  }
+}
+
+.dashboard-edit-meta .post-detail__body-format-actions {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .dashboard-inline-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: 0.625rem;
 
   > * {
     animation: dashboard-edit-in 180ms ease-out both;
@@ -184,11 +197,14 @@
       line-height: 1.25;
     }
 
-    .btn--compact {
-      min-height: 2.75rem;
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-    }
+  }
+
+  .dashboard-edit-meta {
+    align-items: flex-start;
+  }
+
+  .dashboard-edit-meta__error .field__error {
+    white-space: normal;
   }
 
   .dashboard-inline-actions {
@@ -198,6 +214,7 @@
     > .btn {
       width: 100%;
       justify-content: center;
+      min-height: 2.75rem;
     }
   }
 }

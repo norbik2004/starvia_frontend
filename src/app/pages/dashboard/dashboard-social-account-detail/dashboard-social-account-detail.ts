@@ -173,7 +173,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                         <div class="dashboard-inline-actions">
                           <button
                             type="button"
-                            class="btn btn--raised-primary btn--compact"
+                            class="btn btn--primary btn--compact"
                             [disabled]="isSaving() || form.controls.accountUsername.invalid"
                             (click)="saveField('accountUsername')"
                           >
@@ -181,7 +181,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                           </button>
                           <button
                             type="button"
-                            class="btn btn--raised-secondary btn--compact"
+                            class="btn btn--secondary btn--compact"
                             [disabled]="isSaving()"
                             (click)="cancelEdit()"
                           >
@@ -252,7 +252,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                         <div class="dashboard-inline-actions">
                           <button
                             type="button"
-                            class="btn btn--raised-primary btn--compact"
+                            class="btn btn--primary btn--compact"
                             [disabled]="isSaving() || form.controls.accountComment.invalid"
                             (click)="saveField('accountComment')"
                           >
@@ -260,7 +260,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                           </button>
                           <button
                             type="button"
-                            class="btn btn--raised-secondary btn--compact"
+                            class="btn btn--secondary btn--compact"
                             [disabled]="isSaving()"
                             (click)="cancelEdit()"
                           >

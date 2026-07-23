@@ -1,15 +1,15 @@
 import { Component } from '@angular/core';
 
 const FOOTER_LINKS = [
-  { href: '#features', label: 'Features' },
-  { href: '#about', label: 'About' },
-  { href: '#contact', label: 'Contact' },
+  { href: '#features', label: 'Funkcje' },
+  { href: '#about', label: 'O nas' },
+  { href: '#contact', label: 'Kontakt' },
 ] as const;
 
 const FOOTER_HIGHLIGHTS = [
-  'AI-assisted drafts',
-  'Approval workflows',
-  'Multi-channel scheduling',
+  'Szkice z pomocą AI',
+  'Proces akceptacji',
+  'Harmonogram wielu kanałów',
 ] as const;
 
 @Component({
@@ -20,7 +20,7 @@ const FOOTER_HIGHLIGHTS = [
       <div class="footer-shell">
         <div class="footer-grid">
           <section class="footer-brand" aria-labelledby="footer-brand-title">
-            <a href="#top" class="brand" aria-label="Go to top">
+            <a href="#top" class="brand" aria-label="Przejdź do góry">
               <span class="brand__icon-wrap">
                 <img
                   class="brand__icon"
@@ -35,11 +35,11 @@ const FOOTER_HIGHLIGHTS = [
             </a>
 
             <p class="footer-copy">
-              Plan, draft, approve, and publish social content from one calm workspace built for
-              modern marketing teams.
+              Planuj, twórz, akceptuj i publikuj treści social w jednym spokojnym miejscu
+              stworzonym dla nowoczesnych zespołów marketingowych.
             </p>
 
-            <ul class="highlight-list" aria-label="Starvia highlights">
+            <ul class="highlight-list" aria-label="Najważniejsze możliwości Starvia">
               @for (highlight of highlights; track highlight) {
                 <li class="highlight-chip">{{ highlight }}</li>
               }
@@ -47,36 +47,36 @@ const FOOTER_HIGHLIGHTS = [
           </section>
 
           <nav class="footer-column" aria-labelledby="footer-nav-title">
-            <p id="footer-nav-title" class="footer-heading">Navigate</p>
+            <p id="footer-nav-title" class="footer-heading">Nawigacja</p>
             @for (link of links; track link.href) {
               <a class="footer-link" [href]="link.href">{{ link.label }}</a>
             }
           </nav>
 
           <section class="footer-column" aria-labelledby="footer-contact-title">
-            <p id="footer-contact-title" class="footer-heading">Contact</p>
+            <p id="footer-contact-title" class="footer-heading">Kontakt</p>
             <a class="footer-link" href="mailto:hello@starvia.pl">hello@starvia.pl</a>
-            <p class="footer-meta">Reply time: within one business day</p>
+            <p class="footer-meta">Czas odpowiedzi: do jednego dnia roboczego</p>
             <a
               class="footer-link footer-link--strong"
-              href="mailto:hello@starvia.pl?subject=Starvia%20demo%20request"
+              href="mailto:hello@starvia.pl?subject=Pro%C5%9Bba%20o%20demo%20Starvia"
             >
-              Book a demo
+              Umów demo
             </a>
           </section>
 
           <section class="footer-column footer-column--cta" aria-labelledby="footer-cta-title">
-            <p id="footer-cta-title" class="footer-heading">Why teams choose Starvia</p>
+            <p id="footer-cta-title" class="footer-heading">Dlaczego zespoły wybierają Starvia</p>
             <p class="footer-meta">
-              Keep strategy, approvals, and publishing in one place so campaigns move faster with
-              less back-and-forth.
+              Strategia, akceptacje i publikacja w jednym miejscu — kampanie idą szybciej, z mniejszą
+              liczbą ustaleń w tę i z powrotem.
             </p>
           </section>
         </div>
 
         <div class="footer-bottom">
-          <p>&copy; {{ currentYear }} Starvia. Built for modern social teams.</p>
-          <p>Remote-first support for creators, marketers, and growing brands.</p>
+          <p>&copy; {{ currentYear }} Starvia. Stworzona dla nowoczesnych zespołów social.</p>
+          <p>Wsparcie dla twórców, marketerów i rosnących marek.</p>
         </div>
       </div>
     </footer>

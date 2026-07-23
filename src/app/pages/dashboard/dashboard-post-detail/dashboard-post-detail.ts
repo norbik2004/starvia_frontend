@@ -21,6 +21,7 @@ import {
   getPlatformTypeLabel,
   getPlatformTypeName,
   getPostStatusClass,
+  getPostStatusIcon,
   getPostStatusLabel,
   hasPostTag,
   normalizePostTags,
@@ -195,6 +196,7 @@ type PostForm = FormGroup<{
                     (click)="toggleStatusMenu($event)"
                   >
                     <span class="post-detail__status-trigger-content">
+                      <span class="material-icons post-detail__status-trigger-icon" aria-hidden="true">{{ postStatusIcon(item.status) }}</span>
                       <span class="post-detail__status-trigger-label">{{ postStatusLabel(item.status) }}</span>
                       <span class="material-icons post-detail__status-trigger-chevron" aria-hidden="true">expand_more</span>
                     </span>
@@ -220,6 +222,7 @@ type PostForm = FormGroup<{
                           [disabled]="isMetaSaving() || isActionLocked()"
                           (click)="onStatusSelect(status.value)"
                         >
+                          <span class="material-icons post-detail__status-menu-icon" aria-hidden="true">{{ status.icon }}</span>
                           <span class="post-detail__status-menu-label">{{ status.label }}</span>
                           @if (item.status === status.value) {
                             <span
@@ -281,17 +284,20 @@ type PostForm = FormGroup<{
                 (input)="onTitleInput()"
               ></textarea>
               <div class="dashboard-edit-foot">
-                <p id="post-title-hint" class="dashboard-edit-hint">
-                  {{ form.controls.title.value.length }}/{{ titleMaxLength }} · Esc to cancel
-                </p>
-                @if (form.controls.title.touched && form.controls.title.hasError('required')) {
-                  <p id="post-title-error" class="field__error" role="alert">Title is required.</p>
-                }
-                @if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
-                  <p id="post-title-error" class="field__error" role="alert">
-                    Title cannot exceed {{ titleMaxLength }} characters.
+                <div class="dashboard-edit-meta">
+                  <p id="post-title-hint" class="dashboard-edit-hint">
+                    {{ form.controls.title.value.length }}/{{ titleMaxLength }} · Esc to cancel
                   </p>
-                }
+                  <div class="dashboard-edit-meta__error" aria-live="polite">
+                    @if (form.controls.title.touched && form.controls.title.hasError('required')) {
+                      <p id="post-title-error" class="field__error" role="alert">Title is required.</p>
+                    } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
+                      <p id="post-title-error" class="field__error" role="alert">
+                        Title cannot exceed {{ titleMaxLength }} characters.
+                      </p>
+                    }
+                  </div>
+                </div>
                 <ng-container
                   *ngTemplateOutlet="editActions; context: { $implicit: 'title', control: form.controls.title }"
                 />
@@ -564,6 +570,15 @@ type PostForm = FormGroup<{
                         {{ form.controls.body.value.length }}/{{ bodyMaxLength }} · Esc to cancel
                       }
                     </p>
+                    <div class="dashboard-edit-meta__error" aria-live="polite">
+                      @if (form.controls.body.touched && form.controls.body.hasError('maxlength')) {
+                        <p id="post-body-error" class="field__error" role="alert">
+                          Content cannot exceed {{ bodyMaxLength }} characters.
+                        </p>
+                      } @else if (geminiDraftActive() && geminiError()) {
+                        <p class="field__error gemini-field-error" role="alert">{{ geminiError() }}</p>
+                      }
+                    </div>
                     <div class="post-detail__body-format-actions">
                       <button
                         mat-icon-button
@@ -637,14 +652,6 @@ type PostForm = FormGroup<{
                       </div>
                     </div>
                   </div>
-                  @if (form.controls.body.touched && form.controls.body.hasError('maxlength')) {
-                    <p id="post-body-error" class="field__error" role="alert">
-                      Content cannot exceed {{ bodyMaxLength }} characters.
-                    </p>
-                  }
-                  @if (geminiDraftActive() && geminiError()) {
-                    <p class="field__error gemini-field-error" role="alert">{{ geminiError() }}</p>
-                  }
                   <ng-container
                     *ngTemplateOutlet="editActions; context: { $implicit: 'body', control: form.controls.body }"
                   />
@@ -1268,7 +1275,7 @@ type PostForm = FormGroup<{
       <div class="dashboard-inline-actions">
         <button
           type="button"
-          class="btn btn--raised-primary btn--compact"
+          class="btn btn--primary btn--raised-primary btn--compact"
           [disabled]="isSaving() || control.invalid || isGenerating() || isTyping()"
           (click)="saveField(field)"
         >
@@ -1276,7 +1283,7 @@ type PostForm = FormGroup<{
         </button>
         <button
           type="button"
-          class="btn btn--raised-secondary btn--compact"
+          class="btn btn--secondary btn--raised-secondary btn--compact"
           [disabled]="isSaving() || isGenerating() || isTyping()"
           (click)="cancelEdit()"
         >
@@ -1336,6 +1343,7 @@ export class DashboardPostDetail {
   protected readonly chatMessageBlocks = parseChatMessageBlocks;
   protected readonly postStatusOptions = POST_STATUS_OPTIONS;
   protected readonly postStatusClass = getPostStatusClass;
+  protected readonly postStatusIcon = getPostStatusIcon;
   protected readonly postStatusLabel = getPostStatusLabel;
   protected readonly platformTypes = PLATFORM_TYPES;
   protected readonly platformTypeLabel = getPlatformTypeLabel;

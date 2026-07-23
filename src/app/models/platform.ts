@@ -6,6 +6,7 @@ export type Platform = {
 export type PlatformCategory = {
   key: string;
   label: string;
+  icon: string;
   matcher: (platform: Platform) => boolean;
 };
 
@@ -15,11 +16,13 @@ export const PLATFORM_CATEGORIES: readonly PlatformCategory[] = [
   {
     key: 'professional',
     label: 'Professional networks',
+    icon: 'work',
     matcher: (platform) => platform.type.toLowerCase() === 'linkedin',
   },
   {
     key: 'social',
     label: 'Social networks',
+    icon: 'people',
     matcher: (platform) => ['facebook', 'instagram'].includes(platform.type.toLowerCase()),
   },
 ] as const;

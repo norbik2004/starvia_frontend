@@ -72,10 +72,10 @@ export function parseHashtagSegments(text: string | null | undefined): HashtagTe
 }
 
 export const POST_STATUS_OPTIONS = [
-  { value: 'Draft', label: 'Draft' },
-  { value: 'InProgress', label: 'In progress' },
-  { value: 'Done', label: 'Done' },
-  { value: 'Archived', label: 'Archived' },
+  { value: 'Draft', label: 'Draft', icon: 'edit' },
+  { value: 'InProgress', label: 'In progress', icon: 'hourglass_empty' },
+  { value: 'Done', label: 'Done', icon: 'check' },
+  { value: 'Archived', label: 'Archived', icon: 'archive' },
 ] as const;
 export const POST_STATUSES = POST_STATUS_OPTIONS.map((option) => option.value);
 export type PostStatus = (typeof POST_STATUSES)[number];
@@ -107,6 +107,11 @@ const PLATFORM_BY_TYPE = new Map<string, PlatformType>(
 export function getPostStatusLabel(status: PostStatus | string | null | undefined): string {
   const normalized = parsePostStatus(status);
   return POST_STATUS_OPTIONS.find((option) => option.value === normalized)?.label ?? normalized;
+}
+
+export function getPostStatusIcon(status: PostStatus | string | null | undefined): string {
+  const normalized = parsePostStatus(status);
+  return POST_STATUS_OPTIONS.find((option) => option.value === normalized)?.icon ?? 'edit';
 }
 
 export function getPostStatusClass(status: PostStatus | string | null | undefined): string {
@@ -316,10 +321,10 @@ export function parsePagedPostsResponse(value: unknown): PagedPostsResponse | nu
 }
 
 export const POST_SORT_BY_OPTIONS = [
-  { value: 'Id', label: 'ID' },
-  { value: 'CreatedAt', label: 'Created at' },
-  { value: 'Status', label: 'Status' },
-  { value: 'UpdatedAt', label: 'Updated at' },
+  { value: 'Id', label: 'ID', icon: 'tag' },
+  { value: 'CreatedAt', label: 'Created at', icon: 'event' },
+  { value: 'Status', label: 'Status', icon: 'label' },
+  { value: 'UpdatedAt', label: 'Updated at', icon: 'history' },
 ] as const;
 export type PostSortBy = (typeof POST_SORT_BY_OPTIONS)[number]['value'];
 

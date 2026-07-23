@@ -18,7 +18,7 @@ import type { DashboardDeleteConfirmData } from './dashboard-delete-confirm-data
     >
       <div class="dashboard-delete-sheet-content__lead">
         <div class="dashboard-delete-sheet-content__badge" aria-hidden="true">
-          <span class="material-icons">delete_outline</span>
+          <span class="material-icons">delete</span>
         </div>
 
         <div class="dashboard-delete-sheet-content__copy">
@@ -38,6 +38,7 @@ import type { DashboardDeleteConfirmData } from './dashboard-delete-confirm-data
           class="dashboard-delete-sheet-btn dashboard-delete-sheet-btn--keep"
           (click)="dismiss(false)"
         >
+          <span class="material-icons" aria-hidden="true">close</span>
           {{ data.keepLabel }}
         </button>
         <button
@@ -45,6 +46,7 @@ import type { DashboardDeleteConfirmData } from './dashboard-delete-confirm-data
           class="dashboard-delete-sheet-btn dashboard-delete-sheet-btn--delete"
           (click)="dismiss(true)"
         >
+          <span class="material-icons" aria-hidden="true">delete</span>
           {{ data.deleteLabel }}
         </button>
       </div>

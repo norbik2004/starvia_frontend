@@ -10,9 +10,9 @@ type HeaderLink = {
 };
 
 const LINKS: readonly HeaderLink[] = [
-  { id: 'features', label: 'Features' },
-  { id: 'about', label: 'About' },
-  { id: 'contact', label: 'Contact' },
+  { id: 'features', label: 'Funkcje' },
+  { id: 'about', label: 'O nas' },
+  { id: 'contact', label: 'Kontakt' },
 ] as const;
 
 const SCROLL_ON_THRESHOLD_PX = 24;
@@ -33,7 +33,7 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
           <div class="header-shell">
             <div class="header-bar">
               @if (brandMode === 'route') {
-                <a [routerLink]="brandRoute" class="brand" aria-label="Go to Starvia home" (click)="closeMenu()">
+                <a [routerLink]="brandRoute" class="brand" aria-label="Starvia — strona główna" (click)="closeMenu()">
                   <span class="brand__icon-wrap">
                     <img
                       class="brand__icon"
@@ -44,10 +44,10 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
                       decoding="async"
                     />
                   </span>
-                  <span class="brand__name">Starvia</span>
+                  <span class="brand__name" aria-hidden="true">Starvia</span>
                 </a>
               } @else {
-                <a href="#top" class="brand" (click)="go($event, 'top')">
+                <a href="#top" class="brand" aria-label="Starvia — strona główna" (click)="go($event, 'top')">
                   <span class="brand__icon-wrap">
                     <img
                       class="brand__icon"
@@ -58,7 +58,7 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
                       decoding="async"
                     />
                   </span>
-                  <span class="brand__name">Starvia</span>
+                  <span class="brand__name" aria-hidden="true">Starvia</span>
                 </a>
               }
 
@@ -99,9 +99,9 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
           </a>
         }
         @if (session.loggedIn()) {
-          <a [routerLink]="'/dashboard'" class="btn btn--raised-secondary" (click)="closeMenu()">Dashboard</a>
+          <a [routerLink]="'/dashboard'" class="btn btn--secondary btn--raised-secondary" (click)="closeMenu()">Panel</a>
         } @else {
-          <a [routerLink]="actionRoute" class="btn btn--raised-secondary" (click)="closeMenu()">
+          <a [routerLink]="actionRoute" class="btn btn--secondary btn--raised-secondary" (click)="closeMenu()">
             {{ actionLabel }}
           </a>
         }
@@ -114,7 +114,7 @@ export class Header implements OnDestroy {
   protected readonly session = inject(SessionService);
 
   @Input() links: readonly HeaderLink[] = LINKS;
-  @Input() actionLabel = 'Log in';
+  @Input() actionLabel = 'Zaloguj się';
   @Input() actionRoute = '/login';
   @Input() navLabel = 'Sections';
   @Input() brandMode: 'scroll' | 'route' = 'scroll';

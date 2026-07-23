@@ -178,6 +178,7 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
                 [attr.aria-labelledby]="'platform-category-' + group.category.key"
               >
                 <h3 class="social-accounts__section-title" [id]="'platform-category-' + group.category.key">
+                  <span class="material-icons social-accounts__section-icon" aria-hidden="true">{{ group.category.icon }}</span>
                   {{ group.category.label }}
                 </h3>
 

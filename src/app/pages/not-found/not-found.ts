@@ -44,8 +44,8 @@ import { PageRevealDirective } from '../../directives/page-reveal';
         <h1 class="not-found__title">Page not found</h1>
         <p class="not-found__message">The page you are looking for does not exist.</p>
         <div class="not-found__actions">
-          <a routerLink="/" class="btn btn--raised-primary">Back to home</a>
-          <a routerLink="/login" class="btn btn--raised-secondary">Log in</a>
+          <a routerLink="/" class="btn btn--primary">Back to home</a>
+          <a routerLink="/login" class="btn btn--secondary">Log in</a>
         </div>
       </div>
     </main>

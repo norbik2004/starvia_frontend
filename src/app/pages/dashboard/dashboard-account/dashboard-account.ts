@@ -108,7 +108,7 @@ const READ_ENTER_MS = 260;
                         <div class="dashboard-inline-actions">
                           <button
                             type="button"
-                            class="btn btn--raised-primary btn--compact"
+                            class="btn btn--primary btn--compact"
                             [disabled]="isSavingUsername() || usernameControl.invalid"
                             (click)="saveUsername()"
                           >
@@ -116,7 +116,7 @@ const READ_ENTER_MS = 260;
                           </button>
                           <button
                             type="button"
-                            class="btn btn--raised-secondary btn--compact"
+                            class="btn btn--secondary btn--compact"
                             [disabled]="isSavingUsername()"
                             (click)="cancelUsernameEdit()"
                           >

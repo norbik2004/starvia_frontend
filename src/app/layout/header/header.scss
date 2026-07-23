@@ -123,6 +123,37 @@
 
 @include brand.block(64rem);
 
+.brand {
+  transition: gap 0.28s ease;
+}
+
+.brand__name {
+  display: inline-block;
+  max-width: 8rem;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    max-width 0.32s ease,
+    opacity 0.24s ease,
+    transform 0.28s ease;
+}
+
+.site-header.is-at-top {
+  .brand {
+    gap: 0;
+  }
+
+  .brand__name {
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-0.35rem);
+    pointer-events: none;
+  }
+}
+
 .menu-toggle {
   display: none;
   @include drawer.menu-toggle;

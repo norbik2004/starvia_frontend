@@ -43,9 +43,9 @@ type CreatePostForm = FormGroup<{
       }
 
       <form class="post-detail__sections" [formGroup]="form" (ngSubmit)="submit()">
-        <section class="post-detail__content" aria-labelledby="post-create-title-label">
+        <section class="post-detail__content post-detail__three-quarters" aria-labelledby="post-create-title-label">
           <p id="post-create-title-label" class="section-eyebrow post-detail__content-label">Title</p>
-          <div class="dashboard-edit-panel post-detail__three-quarters">
+          <div class="dashboard-edit-panel">
             <textarea
               #titleInput
               id="create-post-title"
@@ -58,24 +58,27 @@ type CreatePostForm = FormGroup<{
               (input)="onTitleInput()"
             ></textarea>
             <div class="dashboard-edit-foot">
-              <p id="create-post-title-hint" class="dashboard-edit-hint">
-                {{ form.controls.title.value.length }}/{{ titleMaxLength }}
-              </p>
-              @if (form.controls.title.touched && form.controls.title.hasError('required')) {
-                <p id="create-post-title-error" class="field__error" role="alert">Title is required.</p>
-              }
-              @if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
-                <p id="create-post-title-error" class="field__error" role="alert">
-                  Title cannot exceed {{ titleMaxLength }} characters.
+              <div class="dashboard-edit-meta">
+                <p id="create-post-title-hint" class="dashboard-edit-hint">
+                  {{ form.controls.title.value.length }}/{{ titleMaxLength }}
                 </p>
-              }
+                <div class="dashboard-edit-meta__error" aria-live="polite">
+                  @if (form.controls.title.touched && form.controls.title.hasError('required')) {
+                    <p id="create-post-title-error" class="field__error" role="alert">Title is required.</p>
+                  } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
+                    <p id="create-post-title-error" class="field__error" role="alert">
+                      Title cannot exceed {{ titleMaxLength }} characters.
+                    </p>
+                  }
+                </div>
+              </div>
               <div class="dashboard-inline-actions">
-                <button type="submit" class="btn btn--raised-primary btn--compact" [disabled]="isCreating() || form.invalid">
+                <button type="submit" class="btn btn--primary btn--raised-primary btn--compact" [disabled]="isCreating() || form.invalid">
                   {{ isCreating() ? 'Creating…' : 'Create post' }}
                 </button>
                 <button
                   type="button"
-                  class="btn btn--raised-secondary btn--compact"
+                  class="btn btn--secondary btn--raised-secondary btn--compact"
                   [disabled]="isCreating()"
                   (click)="cancel()"
                 >

@@ -19,12 +19,15 @@ import { SectionStarsLayer } from '../shared/section-stars-layer';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.hero-host--fill]': 'fillViewport',
+    '[class.hero-host--marketing]': 'isMarketing',
   },
   template: `
     <section
       id="top"
       class="page-section hero"
       [class.hero--fill-viewport]="fillViewport"
+      [class.hero--marketing]="isMarketing"
+      [class.hero--with-panel]="showPanel"
       (mousemove)="starsInteraction.onPointerMove($event)"
       (mouseleave)="starsInteraction.onPointerLeave()"
     >
@@ -37,60 +40,75 @@ import { SectionStarsLayer } from '../shared/section-stars-layer';
       </div>
 
       <div class="hero-inner">
-        <div class="hero-layout">
+        <div class="hero-layout" [class.hero-layout--centered]="isMarketing">
           <div class="hero-copy">
-            <p class="hero-eyebrow">
-              <span class="hero-eyebrow__dot" aria-hidden="true"></span>
-              {{ eyebrow }}
-            </p>
+            @if (eyebrow) {
+              <p class="hero-eyebrow">
+                @if (!isMarketing) {
+                  <span class="hero-eyebrow__dot" aria-hidden="true"></span>
+                }
+                {{ eyebrow }}
+              </p>
+            }
             <h1 class="hero-title t-display">
               @if (heading) {
                 {{ heading }}
+              } @else if (isMarketing) {
+                {{ title }}
               } @else {
-                Create posts that <span class="hero-title__accent">connect</span> with {{ title }}
+                Twórz posty, które <span class="hero-title__accent">łączą</span> z {{ title }}
               }
             </h1>
             <p class="hero-lead t-body">{{ description }}</p>
+            @if (isMarketing && kicker) {
+              <p class="hero-kicker">{{ kicker }}</p>
+            }
             @if (showActions) {
               <div class="hero-actions">
                 @if (primaryActionRoute; as route) {
-                  <a [routerLink]="route" class="btn btn--raised-primary">{{ primaryActionLabel }}</a>
+                  <a [routerLink]="route" class="btn btn--primary btn--hero-primary">{{ primaryActionLabel }}</a>
                 } @else {
-                  <a [href]="primaryActionHref" class="btn btn--raised-primary">{{ primaryActionLabel }}</a>
+                  <a [href]="primaryActionHref" class="btn btn--primary btn--hero-primary">{{ primaryActionLabel }}</a>
                 }
 
                 @if (secondaryActionRoute; as route) {
-                  <a [routerLink]="route" class="btn btn--raised-secondary">{{ secondaryActionLabel }}</a>
+                  <a [routerLink]="route" class="btn btn--secondary btn--hero-secondary">{{ secondaryActionLabel }}</a>
                 } @else if (secondaryActionHref; as href) {
-                  <a [href]="href" class="btn btn--raised-secondary">{{ secondaryActionLabel }}</a>
+                  <a [href]="href" class="btn btn--secondary btn--hero-secondary">{{ secondaryActionLabel }}</a>
                 }
               </div>
             }
             <ng-content select="[hero-copy-extra]" />
           </div>
 
-          <figure class="media-frame media-frame--hero">
-            <figcaption class="sr-only">{{ panelCaption }}</figcaption>
-            @if (customPanel) {
-              <ng-content select="[hero-panel]" />
-            } @else if (panelImage) {
-              <img
-                class="hero-panel-image"
-                [src]="panelImage"
-                [alt]="panelImageAlt"
-                width="1536"
-                height="1024"
-                decoding="async"
-                fetchpriority="high"
-              />
-            } @else {
-              <div class="media-slot" aria-hidden="true">
-                <span class="media-slot__icon" aria-hidden="true">{{ panelIcon }}</span>
-                <p class="media-slot__label">{{ panelLabel }}</p>
-                <p class="media-slot__hint">{{ panelHint }}</p>
-              </div>
-            }
-          </figure>
+          @if (showPanel) {
+            <figure
+              class="media-frame media-frame--hero"
+              [class.media-frame--hero-visual]="isMarketing"
+              [class.media-frame--hero-placeholder]="isMarketing && !panelImage && !customPanel"
+            >
+              <figcaption class="sr-only">{{ panelCaption }}</figcaption>
+              @if (customPanel) {
+                <ng-content select="[hero-panel]" />
+              } @else if (panelImage) {
+                <img
+                  class="hero-panel-image"
+                  [src]="panelImage"
+                  [alt]="panelImageAlt"
+                  width="1536"
+                  height="1024"
+                  decoding="async"
+                  fetchpriority="high"
+                />
+              } @else {
+                <div class="media-slot hero-media-placeholder" aria-hidden="true">
+                  <span class="media-slot__icon" aria-hidden="true">{{ panelIcon }}</span>
+                  <p class="media-slot__label">{{ panelLabel }}</p>
+                  <p class="media-slot__hint">{{ panelHint }}</p>
+                </div>
+              }
+            </figure>
+          }
         </div>
       </div>
     </section>
@@ -103,25 +121,36 @@ export class Hero implements AfterViewInit, OnDestroy {
   protected readonly starsInteraction = createSectionStarsInteraction(this.stars);
 
   @Input() title = 'Starvia';
-  @Input() eyebrow = 'Social content, elevated';
+  @Input() eyebrow: string | null = null;
   @Input() heading: string | null = null;
   @Input() description =
-    'Plan, write, and publish engaging social content in one place with AI that sparks ideas, sharpens your message, and saves your team hours every week.';
+    'Planuj, pisz i publikuj treści, które przyciągają uwagę. Wszystko w jednym spokojnym miejscu — bez chaosu narzędzi.';
+  @Input() kicker: string | null =
+    'Dla twórców, marketerów i zespołów, które publikują regularnie.';
   @Input() showActions = true;
-  @Input() primaryActionLabel = 'Explore features';
+  @Input() primaryActionLabel = 'Zacznij za darmo';
   @Input() primaryActionHref = '#features';
-  @Input() primaryActionRoute: string | null = null;
-  @Input() secondaryActionLabel = 'Log in';
-  @Input() secondaryActionRoute: string | null = '/login';
-  @Input() secondaryActionHref: string | null = null;
+  @Input() primaryActionRoute: string | null = '/register';
+  @Input() secondaryActionLabel = 'Zobacz funkcje';
+  @Input() secondaryActionRoute: string | null = null;
+  @Input() secondaryActionHref: string | null = '#features';
   @Input() fillViewport = false;
   @Input() customPanel = false;
-  @Input() panelCaption = 'Starvia product preview';
-  @Input() panelImage: string | null = '/starvia-hero.png';
-  @Input() panelImageAlt = 'Starvia content planner with AI writing assist and scheduling';
+  @Input() panelCaption = 'Podgląd produktu Starvia';
+  /** Ustaw ścieżkę do własnej grafiki hero, np. `/starvia-hero.png`. */
+  @Input() panelImage: string | null = null;
+  @Input() panelImageAlt = 'Podgląd sekcji Posty w Starvia';
   @Input() panelIcon = '▣';
-  @Input() panelLabel = 'Product preview';
-  @Input() panelHint = 'App screenshot or hero illustration';
+  @Input() panelLabel = 'Miejsce na grafikę';
+  @Input() panelHint = 'Wstaw tu własny podgląd produktu (np. /starvia-hero.png)';
+
+  protected get isMarketing(): boolean {
+    return !this.fillViewport && !this.customPanel;
+  }
+
+  protected get showPanel(): boolean {
+    return this.customPanel || this.isMarketing;
+  }
 
   ngAfterViewInit(): void {
     const section = this.host.nativeElement.querySelector('section');

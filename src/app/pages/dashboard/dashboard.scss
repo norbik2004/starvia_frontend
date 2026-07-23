@@ -8,7 +8,7 @@
 
 .dashboard-layout {
   display: grid;
-  grid-template-columns: minmax(14rem, 1fr) minmax(0, 4fr);
+  grid-template-columns: 15.25rem minmax(0, 1fr);
   align-items: stretch;
   min-height: 100dvh;
 }

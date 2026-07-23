@@ -81,7 +81,7 @@ function writeResendCooldown(email: string): void {
           <div class="email-confirmed__actions" aria-label="Email confirmation help actions">
             <button
               type="button"
-              class="btn btn--raised-primary"
+              class="btn btn--primary"
               (click)="resendEmail()"
               [disabled]="!email() || isResending() || resendCooldownLeftSeconds() > 0"
             >
@@ -91,7 +91,7 @@ function writeResendCooldown(email: string): void {
                 {{ isResending() ? 'Sending...' : 'Resend email' }}
               }
             </button>
-            <a href="mailto:support@starvia.app" class="btn btn--raised-secondary">Contact</a>
+            <a href="mailto:support@starvia.app" class="btn btn--secondary">Contact</a>
           </div>
 
           @if (resendResult() === 'success') {

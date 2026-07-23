@@ -135,8 +135,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
+  gap: 0.3rem;
   min-width: 0;
+}
+
+.post-detail__status-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9375rem;
+  line-height: 1;
+  opacity: 1;
 }
 
 .post-detail__status-trigger-label {
@@ -227,6 +236,22 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.post-detail__status-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  font-size: 1.0625rem;
+  line-height: 1;
+  opacity: 0.95;
+}
+
+.post-detail__status-menu-item--active .post-detail__status-menu-icon {
+  opacity: 1;
 }
 
 .post-detail__status-menu-check {
@@ -1237,10 +1262,15 @@
   }
 }
 
+.post-detail__three-quarters {
+  width: 75%;
+  max-width: 75%;
+}
+
 .dashboard-edit-panel {
   &.post-detail__three-quarters {
-    width: 100%;
-    max-width: 100%;
+    width: 75%;
+    max-width: 75%;
   }
 
   .field__input.field__input--body-overlay {
@@ -1647,6 +1677,11 @@
 
   .post-detail__content {
     gap: var(--space-xs);
+  }
+
+  .post-detail__three-quarters {
+    width: 100%;
+    max-width: 100%;
   }
 
   .post-detail__card-head--row {

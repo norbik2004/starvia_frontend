@@ -72,9 +72,14 @@ type GenerateMediaForm = FormGroup<{
                     [attr.aria-pressed]="selectedFormatKey() === format.key"
                     (click)="selectFormat(format.key)"
                   >
-                    <span class="dashboard-media-generate__format-label">{{ format.label }}</span>
-                    <span class="dashboard-media-generate__format-size">{{ formatDimensionsLabel(format) }}</span>
-                    <p class="dashboard-media-generate__format-description">{{ format.description }}</p>
+                    <span class="dashboard-media-generate__format-icon-wrap" aria-hidden="true">
+                      <span class="material-icons">{{ format.icon }}</span>
+                    </span>
+                    <span class="dashboard-media-generate__format-copy">
+                      <span class="dashboard-media-generate__format-label">{{ format.label }}</span>
+                      <span class="dashboard-media-generate__format-size">{{ formatDimensionsLabel(format) }}</span>
+                      <p class="dashboard-media-generate__format-description">{{ format.description }}</p>
+                    </span>
                   </button>
                 </li>
               }

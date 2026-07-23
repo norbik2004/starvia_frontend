@@ -80,7 +80,7 @@ type LoginForm = FormGroup<{
           </div>
 
           <div class="auth-actions">
-            <button type="submit" class="btn btn--raised-primary submit-btn" [disabled]="isSubmitting()">
+            <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
               {{ isSubmitting() ? 'Logging in...' : 'Log in' }}
             </button>
           </div>

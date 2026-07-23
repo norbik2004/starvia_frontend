@@ -49,7 +49,7 @@ import { lockAuthPageBody } from '../shared/auth-page-body-lock';
           Your password has been changed successfully. Redirecting to your account in
           <span class="reset-password-success__countdown">{{ secondsLeft() }}s</span>.
         </p>
-        <a routerLink="/dashboard/account" class="btn btn--raised-primary">Go to account now</a>
+        <a routerLink="/dashboard/account" class="btn btn--primary">Go to account now</a>
       </div>
     </main>
   `,

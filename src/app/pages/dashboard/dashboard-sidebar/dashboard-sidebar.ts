@@ -19,28 +19,31 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
 type DashboardNavChild = {
   label: string;
   route: string;
+  icon: string;
   exact?: boolean;
 };
 
 type DashboardNavItem = {
   label: string;
+  icon: string;
   route?: string;
   exact?: boolean;
   children?: readonly DashboardNavChild[];
 };
 
 const NAV_ITEMS: readonly DashboardNavItem[] = [
-  { label: 'Overview', route: '/dashboard', exact: true },
-  { label: 'Social accounts', route: '/dashboard/social-accounts' },
+  { label: 'Overview', icon: 'dashboard', route: '/dashboard', exact: true },
+  { label: 'Social accounts', icon: 'link', route: '/dashboard/social-accounts' },
   {
     label: 'Media',
+    icon: 'image',
     children: [
-      { label: 'Library', route: '/dashboard/media', exact: true },
-      { label: 'Generate', route: '/dashboard/media/generate' },
+      { label: 'Library', icon: 'photo', route: '/dashboard/media', exact: true },
+      { label: 'Generate', icon: 'brush', route: '/dashboard/media/generate' },
     ],
   },
-  { label: 'Posts', route: '/dashboard/posts' },
-  { label: 'Prompts', route: '/dashboard/prompts' },
+  { label: 'Posts', icon: 'notes', route: '/dashboard/posts' },
+  { label: 'Prompts', icon: 'chat', route: '/dashboard/prompts' },
 ] as const;
 
 
@@ -196,6 +199,7 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
                       [attr.aria-controls]="'nav-group-' + navGroupId(item)"
                       (click)="toggleNavGroup(item)"
                     >
+                      <span class="material-icons dashboard-sidebar__nav-icon" aria-hidden="true">{{ item.icon }}</span>
                       <span class="dashboard-sidebar__link-label">{{ item.label }}</span>
                       <span class="material-icons dashboard-sidebar__chevron" aria-hidden="true">expand_more</span>
                     </button>
@@ -218,7 +222,8 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
                               [class.dashboard-sidebar__link--generate]="child.route === '/dashboard/media/generate'"
                               (click)="closeMenu()"
                             >
-                              {{ child.label }}
+                              <span class="material-icons dashboard-sidebar__nav-icon" aria-hidden="true">{{ child.icon }}</span>
+                              <span class="dashboard-sidebar__link-label">{{ child.label }}</span>
                             </a>
                           </li>
                         }
@@ -242,7 +247,8 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
                     >
 
-                      {{ item.label }}
+                      <span class="material-icons dashboard-sidebar__nav-icon" aria-hidden="true">{{ item.icon }}</span>
+                      <span class="dashboard-sidebar__link-label">{{ item.label }}</span>
 
                     </a>
 
@@ -320,6 +326,7 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
               class="dashboard-sidebar__action"
               (click)="closeMenu()"
             >
+              <span class="material-icons dashboard-sidebar__action-icon" aria-hidden="true">person</span>
               Account
             </a>
 
@@ -335,6 +342,7 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
             >
 
+              <span class="material-icons dashboard-sidebar__action-icon" aria-hidden="true">logout</span>
               {{ isLoggingOut() ? 'Logging out…' : 'Log out' }}
 
             </button>

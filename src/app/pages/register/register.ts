@@ -119,7 +119,7 @@ const passwordsMatchValidator: ValidatorFn = (
             </div>
           </div>
 
-          <button type="submit" class="btn btn--raised-primary submit-btn" [disabled]="isSubmitting()">
+          <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
             {{ isSubmitting() ? 'Creating account...' : 'Create account' }}
           </button>
 

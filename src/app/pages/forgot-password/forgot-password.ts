@@ -48,7 +48,7 @@ type ForgotPasswordForm = FormGroup<{
               <p class="forgot-password-form__hint">
                 If you don't see it, check spam or promotions and wait a minute before trying again.
               </p>
-              <a routerLink="/login" class="btn btn--raised-primary submit-btn">Back to login</a>
+              <a routerLink="/login" class="btn btn--primary submit-btn">Back to login</a>
             </div>
           } @else {
             <form class="forgot-password-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
@@ -73,7 +73,7 @@ type ForgotPasswordForm = FormGroup<{
                 </div>
               </div>
 
-              <button type="submit" class="btn btn--raised-primary submit-btn" [disabled]="isSubmitting()">
+              <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
                 {{ isSubmitting() ? 'Sending...' : 'Send email' }}
               </button>
 
