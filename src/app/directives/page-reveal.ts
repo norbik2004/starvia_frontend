@@ -1,23 +1,33 @@
-import { AfterViewInit, DestroyRef, Directive, inject, input, signal } from '@angular/core';
+import { AfterViewInit, DestroyRef, Directive, ElementRef, inject, input, signal } from '@angular/core';
 
 @Directive({
   selector: '[appPageReveal]',
   host: {
-    '[class.page-reveal]': '!revealList()',
-    '[class.page-reveal-list]': 'revealList()',
-    '[class.page-reveal--ready]': 'ready() && !revealList()',
-    '[class.page-reveal-list--ready]': 'ready() && revealList()',
+    '[class.page-reveal]': 'revealEnabled() && !revealList()',
+    '[class.page-reveal-list]': 'revealEnabled() && revealList()',
+    '[class.page-reveal--ready]': 'revealEnabled() && ready() && !revealList()',
+    '[class.page-reveal-list--ready]': 'revealEnabled() && ready() && revealList()',
   },
 })
 export class PageRevealDirective implements AfterViewInit {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject(ElementRef<HTMLElement>);
 
   readonly revealList = input(false, { alias: 'appPageRevealList' });
   readonly delayMs = input(0, { alias: 'appPageRevealDelay' });
 
+  protected readonly revealEnabled = signal(false);
   protected readonly ready = signal(false);
 
   ngAfterViewInit(): void {
+    const hostEl = this.host.nativeElement;
+
+    if (hostEl.closest('.dashboard-layout') !== null) {
+      hostEl.classList.add(this.revealList() ? 'dashboard-page-reveal-list' : 'dashboard-page-reveal');
+      return;
+    }
+
+    this.revealEnabled.set(true);
     this.scheduleReveal();
   }
 

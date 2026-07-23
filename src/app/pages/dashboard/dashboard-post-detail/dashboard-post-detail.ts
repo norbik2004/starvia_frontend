@@ -60,7 +60,6 @@ import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/aut
 import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
 import {
   postMetaChipAnimation,
-  postMetaFadeSlideAnimation,
   postMetaPanelAnimation,
 } from '../shared/post-meta.animations';
 
@@ -86,11 +85,11 @@ type PostForm = FormGroup<{
 @Component({
   selector: 'app-dashboard-post-detail',
   imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, DragDropModule, PageLoading, PageRevealDirective, DashboardDeleteButton, DashboardPlatformLogo, DashboardImageLightbox, DashboardLinkedinPostPreview, AutoExpandTextarea],
-  animations: [postMetaChipAnimation, postMetaFadeSlideAnimation, postMetaPanelAnimation],
+  animations: [postMetaChipAnimation, postMetaPanelAnimation],
   styleUrl: './dashboard-post-detail.scss',
   template: `
     <section class="dashboard-content-page post-detail" aria-labelledby="post-detail-title">
-      <header class="post-detail__header">
+      <header class="post-detail__header" appPageReveal>
         <div class="post-detail__header-row">
           <a
             [routerLink]="['/dashboard/posts']"
@@ -121,14 +120,14 @@ type PostForm = FormGroup<{
                   >
                     <span class="post-detail__platforms-trigger-content">
                       @if (item.tags.length === 0) {
-                        <span class="post-detail__platforms-empty" @postMetaFadeSlide>
+                        <span class="post-detail__platforms-empty">
                           <span class="material-icons post-detail__platforms-trigger-icon" aria-hidden="true">hub</span>
                           <span class="post-detail__platforms-trigger-label">Platforms</span>
                         </span>
                       } @else {
-                        <span class="post-detail__platforms-trigger-logos" @postMetaFadeSlide aria-hidden="true">
+                        <span class="post-detail__platforms-trigger-logos" aria-hidden="true">
                           @for (tag of item.tags; track tag) {
-                            <span class="post-detail__platforms-trigger-logo" @postMetaChip>
+                            <span class="post-detail__platforms-trigger-logo">
                               <app-dashboard-platform-logo
                                 [platformType]="platformTypeName(tag)"
                                 [size]="headerPlatformLogoSize()"
@@ -310,6 +309,8 @@ type PostForm = FormGroup<{
               />
             </h1>
           }
+        } @else if (isLoading()) {
+          <h1 id="post-detail-title" class="sr-only">Loading post</h1>
         } @else {
           <h1 id="post-detail-title" class="post-detail__title">Post</h1>
         }

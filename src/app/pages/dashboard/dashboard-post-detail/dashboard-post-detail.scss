@@ -26,6 +26,7 @@
 
 .post-detail__header {
   @include shell.page-header;
+  @include shell.page-enter-children;
 
   width: 100%;
   gap: var(--space-md);
@@ -35,6 +36,8 @@
   display: grid;
   gap: var(--space-lg);
   width: 100%;
+
+  @include shell.page-enter-children;
 }
 
 .post-detail__content {
@@ -1209,19 +1212,16 @@
 @keyframes post-attachments-picker-in {
   from {
     opacity: 0;
-    transform: translateY(-0.5rem);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes post-attachments-picker-collapse {
   from {
     opacity: 1;
-    transform: translateY(0);
     max-height: 28rem;
     padding-top: var(--space-md);
     padding-bottom: var(--space-md);
@@ -1229,8 +1229,7 @@
   }
 
   to {
-    opacity: 0.15;
-    transform: translateY(-0.25rem);
+    opacity: 0;
     max-height: 0;
     padding-top: 0;
     padding-bottom: 0;

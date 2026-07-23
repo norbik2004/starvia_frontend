@@ -1,3 +1,5 @@
+@use '../dashboard-content-shell' as shell;
+
 :host {
   display: block;
   min-width: 0;
@@ -5,6 +7,8 @@
 
 .dashboard-panel {
   width: min(100%, 48rem);
+
+  @include shell.page-enter-children;
 }
 
 .dashboard-panel__title {

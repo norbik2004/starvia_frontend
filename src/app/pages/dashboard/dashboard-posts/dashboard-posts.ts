@@ -27,8 +27,6 @@ import {
   type SortOrder,
   type StatusFilter,
 } from './posts-list-query';
-import { postMetaChipAnimation, postMetaFadeSlideAnimation } from '../shared/post-meta.animations';
-
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 const POST_CARD_VISIBLE_ATTACHMENTS = 4;
 
@@ -49,7 +47,6 @@ type PostsForm = FormGroup<{
 @Component({
   selector: 'app-dashboard-posts',
   imports: [NgClass, ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardPaginationPanel, DashboardPlatformLogo, PageLoading, PageRevealDirective],
-  animations: [postMetaChipAnimation, postMetaFadeSlideAnimation],
   styleUrl: './dashboard-posts.scss',
   template: `
     <section class="dashboard-content-page dashboard-posts" aria-labelledby="dashboard-posts-title">
@@ -286,6 +283,7 @@ type PostsForm = FormGroup<{
                 <a
                   class="post-card"
                   [class.post-card--has-attachments]="post.attachments.length > 0"
+                  [class.post-card--minimal]="!post.body && post.attachments.length === 0 && !post.promptText"
                   [routerLink]="['/dashboard/posts', post.id]"
                   [state]="postsReturnState()"
                 >
@@ -293,9 +291,9 @@ type PostsForm = FormGroup<{
                     <h2 class="post-card__title">{{ post.title || 'Untitled' }}</h2>
                     <div class="post-card__badges">
                       @if (post.tags.length > 0) {
-                        <div class="post-card__platforms" @postMetaFadeSlide aria-label="Platforms">
+                        <div class="post-card__platforms" aria-label="Platforms">
                           @for (tag of post.tags; track tag) {
-                            <span class="post-card__platform-logo" @postMetaChip [attr.aria-label]="platformTypeLabel(tag)">
+                            <span class="post-card__platform-logo" [attr.aria-label]="platformTypeLabel(tag)">
                               <app-dashboard-platform-logo
                                 [platformType]="platformTypeName(tag)"
                                 size="xs"
