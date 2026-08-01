@@ -10,8 +10,6 @@ import {
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { Header } from '../../layout/header/header';
-import { Hero } from '../../layout/hero/hero';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
 import { PageRevealDirective } from '../../directives/page-reveal';
@@ -38,112 +36,126 @@ const passwordsMatchValidator: ValidatorFn = (
 
 @Component({
   selector: 'app-register-page',
-  imports: [ReactiveFormsModule, RouterLink, Header, Hero, PageRevealDirective],
+  imports: [ReactiveFormsModule, RouterLink, PageRevealDirective],
   styleUrl: './register.scss',
   template: `
-    <div appPageReveal>
-      <app-header
-      [links]="[]"
-      actionLabel="Back home"
-      actionRoute="/"
-      navLabel="Register navigation"
-      brandMode="route"
-      brandRoute="/"
-    />
+    <div class="auth-shell" appPageReveal>
+      <section class="auth-panel" aria-label="Rejestracja">
+        <header class="auth-panel__top">
+          <a routerLink="/" class="brand" aria-label="Starvia — strona główna">
+            <span class="brand__icon-wrap">
+              <img
+                class="brand__icon"
+                src="/starvia-logo.png"
+                alt=""
+                width="44"
+                height="44"
+                decoding="async"
+              />
+            </span>
+            <span class="brand__name" aria-hidden="true">Starvia</span>
+          </a>
+          <a routerLink="/login" class="auth-panel__switch">
+            <svg class="auth-panel__switch-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none">
+              <circle cx="12" cy="8" r="3.25" stroke="currentColor" stroke-width="1.75" />
+              <path
+                d="M5.5 19.25c1.6-3.1 3.9-4.5 6.5-4.5s4.9 1.4 6.5 4.5"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+            Zaloguj się
+          </a>
+        </header>
 
-    <app-hero
-      eyebrow="Start creating"
-      heading="Create your Starvia account"
-      description="Set up your workspace and start planning, drafting, and publishing in one calm flow."
-      [showActions]="false"
-      [fillViewport]="true"
-      [customPanel]="true"
-      panelCaption="Register form"
-    >
-      <div hero-panel class="media-slot register-panel">
-        <form class="register-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <div class="register-form__intro">
-            <p class="register-form__eyebrow">Account setup</p>
-          </div>
+        <div class="auth-panel__body">
+          <form class="auth-form register-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            <h2 class="auth-form__title">Załóż konto</h2>
 
-          <div class="field">
-            <label class="field__label" for="email">Email</label>
-            <input
-              id="email"
-              class="field__input"
-              type="email"
-              formControlName="email"
-              autocomplete="email"
-              placeholder="you@company.com"
-            />
-            <div class="field__message" aria-live="polite">
-              @if (email.invalid && (email.touched || email.dirty)) {
-                <p class="field__error">Enter a valid email address.</p>
+            <div class="field">
+              <label class="field__label" for="email">Email</label>
+              <input
+                id="email"
+                class="field__input"
+                type="email"
+                formControlName="email"
+                autocomplete="email"
+                placeholder="jan@firma.pl"
+              />
+              <div class="field__message" aria-live="polite">
+                @if (email.invalid && (email.touched || email.dirty)) {
+                  <p class="field__error">Podaj poprawny adres email.</p>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="password">Hasło</label>
+              <input
+                id="password"
+                class="field__input"
+                type="password"
+                formControlName="password"
+                autocomplete="new-password"
+                placeholder="Utwórz hasło"
+              />
+              <div class="field__message" aria-live="polite">
+                @if (password.invalid && (password.touched || password.dirty)) {
+                  <p class="field__error">Hasło musi mieć co najmniej 8 znaków.</p>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="repeat-password">Powtórz hasło</label>
+              <input
+                id="repeat-password"
+                class="field__input"
+                type="password"
+                formControlName="repeatPassword"
+                autocomplete="new-password"
+                placeholder="Powtórz hasło"
+              />
+              <div class="field__message" aria-live="polite">
+                @if (repeatPassword.invalid && (repeatPassword.touched || repeatPassword.dirty)) {
+                  <p class="field__error">Powtórz hasło.</p>
+                } @else if (form.hasError('passwordMismatch') && (repeatPassword.touched || repeatPassword.dirty)) {
+                  <p class="field__error">Hasła nie są takie same.</p>
+                }
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
+              <span class="material-icons submit-btn__icon" aria-hidden="true">person_add</span>
+              {{ isSubmitting() ? 'Tworzenie konta...' : 'Utwórz konto' }}
+            </button>
+
+            <div class="form-status-slot" aria-live="polite">
+              @if (registerError(); as error) {
+                <p class="form-status form-status--error" role="alert">
+                  {{ error.description }}
+                </p>
               }
             </div>
+          </form>
+        </div>
+
+        <footer class="auth-panel__foot">
+          <p class="auth-panel__foot-copy">© {{ currentYear }} Starvia</p>
+          <div class="auth-panel__foot-links">
+            <a routerLink="/" class="auth-panel__foot-link">Wróć na stronę główną</a>
           </div>
-
-          <div class="field">
-            <label class="field__label" for="password">Password</label>
-            <input
-              id="password"
-              class="field__input"
-              type="password"
-              formControlName="password"
-              autocomplete="new-password"
-              placeholder="Create a password"
-            />
-            <div class="field__message" aria-live="polite">
-              @if (password.invalid && (password.touched || password.dirty)) {
-                <p class="field__error">Password must be at least 8 characters long.</p>
-              }
-            </div>
-          </div>
-
-          <div class="field">
-            <label class="field__label" for="repeat-password">Repeat password</label>
-            <input
-              id="repeat-password"
-              class="field__input"
-              type="password"
-              formControlName="repeatPassword"
-              autocomplete="new-password"
-              placeholder="Repeat your password"
-            />
-            <div class="field__message" aria-live="polite">
-              @if (repeatPassword.invalid && (repeatPassword.touched || repeatPassword.dirty)) {
-                <p class="field__error">Please repeat your password.</p>
-              } @else if (form.hasError('passwordMismatch') && (repeatPassword.touched || repeatPassword.dirty)) {
-                <p class="field__error">Passwords do not match.</p>
-              }
-            </div>
-          </div>
-
-          <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
-            {{ isSubmitting() ? 'Creating account...' : 'Create account' }}
-          </button>
-
-          <p class="auth-switch">
-            Already have an account?
-            <a routerLink="/login" class="auth-switch__link">Log in</a>
-          </p>
-
-          <div class="form-status-slot" aria-live="polite">
-            @if (registerError(); as error) {
-              <p class="form-status form-status--error" role="alert">
-                {{ error.description }}
-              </p>
-            }
-          </div>
-        </form>
-      </div>
-    </app-hero>
+        </footer>
+      </section>
     </div>
   `,
 })
 export class RegisterPage {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+
+  protected readonly currentYear = new Date().getFullYear();
 
   constructor() {
     lockAuthPageBody();
@@ -206,7 +218,7 @@ export class RegisterPage {
           this.registerError.set(
             toApplicationError(
               error,
-              'Unable to create your account. Check your details, then try again.'
+              'Nie udało się utworzyć konta. Sprawdź dane i spróbuj ponownie.'
             )
           );
         },

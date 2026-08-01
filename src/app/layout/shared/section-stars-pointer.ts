@@ -1,10 +1,10 @@
 import { signal } from '@angular/core';
-import { getNearStarIds, type SectionStar } from './section-stars';
+import { getNearStarIds, nearStarSetsEqual, type SectionStar } from './section-stars';
 
 const HOVER_CAPABLE =
   typeof matchMedia !== 'undefined' && matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-const POINTER_MOVE_EPSILON_SQ = 16;
+const POINTER_MOVE_EPSILON_SQ = 100;
 const SCROLL_IDLE_MS = 140;
 const SECTION_STARS_PAUSED_CLASS = 'section-stars-paused';
 
@@ -127,18 +127,8 @@ export function createSectionStarsInteraction(
     }
 
     const nextNear = getNearStarIds(getStars(), rect, event.clientX, event.clientY);
-    const currentNear = nearStarIds();
-
-    if (nextNear.size !== currentNear.size) {
+    if (!nearStarSetsEqual(nextNear, nearStarIds())) {
       nearStarIds.set(nextNear);
-      return;
-    }
-
-    for (const id of nextNear) {
-      if (!currentNear.has(id)) {
-        nearStarIds.set(nextNear);
-        return;
-      }
     }
   }
 

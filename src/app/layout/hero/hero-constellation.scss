@@ -1,0 +1,168 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hc {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  isolation: isolate;
+  touch-action: none;
+  cursor: default;
+  overflow: visible;
+  background: transparent;
+}
+
+.hc__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: visible;
+  /* Fade only extreme corners — keep orbit emoji zone fully opaque */
+  -webkit-mask-image: radial-gradient(
+    ellipse 110% 110% at 50% 50%,
+    #000 75%,
+    rgb(0 0 0 / 0.85) 90%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 110% 110% at 50% 50%,
+    #000 75%,
+    rgb(0 0 0 / 0.85) 90%,
+    transparent 100%
+  );
+}
+
+.hc__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+  Classic CSS speech-bubble template
+  (border-triangle tip) — positioned in JS to follow emoji
+*/
+.hc__speech {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: min(16.5rem, 72%);
+  padding: 0.7rem 0.9rem 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgb(148 163 184 / 0.85);
+  background: rgb(255 255 255 / 0.96);
+  color: #0f172a;
+  font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+  box-shadow:
+    0 12px 28px rgb(15 23 42 / 0.1),
+    0 1px 0 rgb(255 255 255 / 0.8) inset;
+}
+
+.hc__speech-title {
+  margin: 0 0 0.28rem;
+  font-size: clamp(0.8125rem, 1.5vw, 0.9375rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.hc__speech-body {
+  margin: 0;
+  font-size: clamp(0.75rem, 1.35vw, 0.8125rem);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: #475569;
+  white-space: normal;
+}
+
+.hc__speech::after,
+.hc__speech::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+/* Tip on bottom → points down to emoji */
+.hc__speech[data-side='top']::before {
+  top: 100%;
+  left: 50%;
+  margin-left: -8px;
+  border-width: 8px 8px 0;
+  border-color: rgb(148 163 184 / 0.85) transparent transparent;
+}
+
+.hc__speech[data-side='top']::after {
+  top: 100%;
+  left: 50%;
+  margin-left: -7px;
+  margin-top: -1px;
+  border-width: 7px 7px 0;
+  border-color: rgb(255 255 255 / 0.96) transparent transparent;
+}
+
+/* Tip on top → points up to emoji */
+.hc__speech[data-side='bottom']::before {
+  bottom: 100%;
+  left: 50%;
+  margin-left: -8px;
+  border-width: 0 8px 8px;
+  border-color: transparent transparent rgb(148 163 184 / 0.85);
+}
+
+.hc__speech[data-side='bottom']::after {
+  bottom: 100%;
+  left: 50%;
+  margin-left: -7px;
+  margin-bottom: -1px;
+  border-width: 0 7px 7px;
+  border-color: transparent transparent rgb(255 255 255 / 0.96);
+}
+
+/* Tip on right → points right to emoji */
+.hc__speech[data-side='left']::before {
+  top: 50%;
+  left: 100%;
+  margin-top: -8px;
+  border-width: 8px 0 8px 8px;
+  border-color: transparent transparent transparent rgb(148 163 184 / 0.85);
+}
+
+.hc__speech[data-side='left']::after {
+  top: 50%;
+  left: 100%;
+  margin-top: -7px;
+  margin-left: -1px;
+  border-width: 7px 0 7px 7px;
+  border-color: transparent transparent transparent rgb(255 255 255 / 0.96);
+}
+
+/* Tip on left → points left to emoji */
+.hc__speech[data-side='right']::before {
+  top: 50%;
+  right: 100%;
+  margin-top: -8px;
+  border-width: 8px 8px 8px 0;
+  border-color: transparent rgb(148 163 184 / 0.85) transparent transparent;
+}
+
+.hc__speech[data-side='right']::after {
+  top: 50%;
+  right: 100%;
+  margin-top: -7px;
+  margin-right: -1px;
+  border-width: 7px 7px 7px 0;
+  border-color: transparent rgb(255 255 255 / 0.96) transparent transparent;
+}

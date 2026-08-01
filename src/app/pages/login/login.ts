@@ -2,8 +2,6 @@ import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { Header } from '../../layout/header/header';
-import { Hero } from '../../layout/hero/hero';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
 import { SessionService } from '../../services/session';
@@ -17,92 +15,103 @@ type LoginForm = FormGroup<{
 
 @Component({
   selector: 'app-login-page',
-  imports: [ReactiveFormsModule, RouterLink, Header, Hero, PageRevealDirective],
+  imports: [ReactiveFormsModule, RouterLink, PageRevealDirective],
   styleUrl: './login.scss',
   template: `
-    <div appPageReveal>
-      <app-header
-      [links]="[]"
-      actionLabel="Back home"
-      actionRoute="/"
-      navLabel="Login navigation"
-      brandMode="route"
-      brandRoute="/"
-    />
+    <div class="auth-shell" appPageReveal>
+      <section class="auth-panel" aria-label="Logowanie">
+        <header class="auth-panel__top">
+          <a routerLink="/" class="brand" aria-label="Starvia — strona główna">
+            <span class="brand__icon-wrap">
+              <img
+                class="brand__icon"
+                src="/starvia-logo.png"
+                alt=""
+                width="44"
+                height="44"
+                decoding="async"
+              />
+            </span>
+            <span class="brand__name" aria-hidden="true">Starvia</span>
+          </a>
+          <a routerLink="/register" class="auth-panel__switch">
+            <svg class="auth-panel__switch-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none">
+              <circle cx="12" cy="8" r="3.25" stroke="currentColor" stroke-width="1.75" />
+              <path
+                d="M5.5 19.25c1.6-3.1 3.9-4.5 6.5-4.5s4.9 1.4 6.5 4.5"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+            Zarejestruj się
+          </a>
+        </header>
 
-    <app-hero
-      eyebrow="Welcome back"
-      heading="Log in to your publishing hub"
-      description="Jump back into drafts, approvals, and campaigns without losing momentum."
-      [showActions]="false"
-      [fillViewport]="true"
-      [customPanel]="true"
-      panelCaption="Login form"
-    >
-      <div hero-panel class="media-slot login-panel">
-        <form class="login-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <div class="login-form__intro">
-            <p class="login-form__eyebrow">Account access</p>
-          </div>
+        <div class="auth-panel__body">
+          <form class="auth-form login-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            <h2 class="auth-form__title">Zaloguj się</h2>
 
-          <div class="field">
-            <label class="field__label" for="email">Email</label>
-            <input
-              id="email"
-              class="field__input"
-              type="email"
-              formControlName="email"
-              autocomplete="email"
-              placeholder="you@company.com"
-            />
-            <div class="field__message" aria-live="polite">
-              @if (email.invalid && (email.touched || email.dirty)) {
-                <p class="field__error">Enter a valid email address.</p>
-              }
+            <div class="field">
+              <label class="field__label" for="email">Email</label>
+              <input
+                id="email"
+                class="field__input"
+                type="email"
+                formControlName="email"
+                autocomplete="email"
+                placeholder="jan@firma.pl"
+              />
+              <div class="field__message" aria-live="polite">
+                @if (email.invalid && (email.touched || email.dirty)) {
+                  <p class="field__error">Podaj poprawny adres email.</p>
+                }
+              </div>
             </div>
-          </div>
 
-          <div class="field">
-            <label class="field__label" for="password">Password</label>
-            <input
-              id="password"
-              class="field__input"
-              type="password"
-              formControlName="password"
-              autocomplete="current-password"
-              placeholder="Enter your password"
-            />
-            <div class="field__message" aria-live="polite">
-              @if (password.invalid && (password.touched || password.dirty)) {
-                <p class="field__error">Password must be at least 8 characters long.</p>
-              }
+            <div class="field">
+              <label class="field__label" for="password">Hasło</label>
+              <input
+                id="password"
+                class="field__input"
+                type="password"
+                formControlName="password"
+                autocomplete="current-password"
+                placeholder="Wpisz hasło"
+              />
+              <div class="field__message" aria-live="polite">
+                @if (password.invalid && (password.touched || password.dirty)) {
+                  <p class="field__error">Hasło musi mieć co najmniej 8 znaków.</p>
+                }
+              </div>
             </div>
-          </div>
 
-          <div class="auth-actions">
+            <p class="auth-form__forgot">
+              <a routerLink="/forgot-password" class="auth-form__forgot-link">Nie pamiętasz hasła?</a>
+            </p>
+
             <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
-              {{ isSubmitting() ? 'Logging in...' : 'Log in' }}
+              <span class="material-icons submit-btn__icon" aria-hidden="true">login</span>
+              {{ isSubmitting() ? 'Logowanie...' : 'Zaloguj się' }}
             </button>
-          </div>
 
-          <p class="auth-switch">
-            <a routerLink="/forgot-password" class="auth-switch__link">Forgot password?</a>
-          </p>
+            <div class="form-status-slot" aria-live="polite">
+              @if (loginError(); as error) {
+                <p class="form-status form-status--error" role="alert">
+                  {{ error.description }}
+                </p>
+              }
+            </div>
+          </form>
+        </div>
 
-          <p class="auth-switch">
-            New to Starvia?
-            <a routerLink="/register" class="auth-switch__link">Create an account</a>
-          </p>
-          <div class="form-status-slot" aria-live="polite">
-            @if (loginError(); as error) {
-              <p class="form-status form-status--error" role="alert">
-                {{ error.description }}
-              </p>
-            }
+        <footer class="auth-panel__foot">
+          <p class="auth-panel__foot-copy">© {{ currentYear }} Starvia</p>
+          <div class="auth-panel__foot-links">
+            <a routerLink="/" class="auth-panel__foot-link">Wróć na stronę główną</a>
           </div>
-        </form>
-      </div>
-    </app-hero>
+        </footer>
+      </section>
     </div>
   `,
 })
@@ -110,6 +119,8 @@ export class LoginPage {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly session = inject(SessionService);
+
+  protected readonly currentYear = new Date().getFullYear();
 
   constructor() {
     lockAuthPageBody();
@@ -154,12 +165,11 @@ export class LoginPage {
       .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
         next: () => {
-          // Update the shared `/me` result once, then route.
           this.session.refresh().subscribe(() => void this.router.navigateByUrl('/dashboard'));
         },
         error: (error: unknown) => {
           this.loginError.set(
-            toApplicationError(error, 'Unable to log in. Check your email and password, then try again.')
+            toApplicationError(error, 'Nie udało się zalogować. Sprawdź email i hasło, potem spróbuj ponownie.')
           );
         },
       });

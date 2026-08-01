@@ -19,7 +19,7 @@ export type SectionStarsConfig = {
   opacityMax?: number;
 };
 
-export const SECTION_STAR_NEAR_RADIUS_PX = 168;
+export const SECTION_STAR_NEAR_RADIUS_PX = 112;
 
 const DEFAULT_CONFIG: SectionStarsConfig = {
   gridCols: 9,
@@ -31,14 +31,14 @@ const DEFAULT_CONFIG: SectionStarsConfig = {
 };
 
 const HERO_CONFIG: SectionStarsConfig = {
-  gridCols: 8,
+  gridCols: 7,
   gridRows: 10,
-  skipProbability: 0.74,
-  extraCount: 14,
-  minY: 70,
+  skipProbability: 0.8,
+  extraCount: 18,
+  minY: -18,
   maxY: 108,
-  sizeMin: 2.7,
-  sizeMax: 4.2,
+  sizeMin: 2.9,
+  sizeMax: 4.1,
 };
 
 const FEATURES_CONFIG: SectionStarsConfig = {
@@ -64,12 +64,12 @@ function createStar(
   const driftSign = () => (Math.random() > 0.5 ? 1 : -1);
   const size = Math.random() * (sizeMax - sizeMin) + sizeMin;
   const opacity = Math.random() * (opacityMax - opacityMin) + opacityMin;
-  const driftDuration = Math.random() * 5 + 3.5;
+  const driftDuration = Math.random() * 2.2 + 3.6;
   const driftDelay = Math.random() * -14;
   const driftX = driftSign() * (Math.random() * 14 + 10);
-  const driftY = driftSign() * (Math.random() * 14 + 10);
-  const twinkleDuration = Math.random() * 2 + 1.5;
-  const glyph = Math.random() > 0.05;
+  const driftY = driftSign() * (Math.random() * 16 + 12);
+  const twinkleDuration = Math.random() * 1.4 + 1.8;
+  const glyph = true;
 
   return {
     id,
@@ -200,7 +200,7 @@ export function getNearStarIds(
   return near;
 }
 
-function nearStarSetsEqual(
+export function nearStarSetsEqual(
   nextNear: ReadonlySet<number>,
   currentNear: ReadonlySet<number>
 ): boolean {

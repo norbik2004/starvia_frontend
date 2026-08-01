@@ -55,16 +55,16 @@
   opacity: var(--star-opacity, 0.65);
   scale: 1;
   animation:
-    section-star-drift var(--drift-duration, 6s) ease-in-out infinite,
-    section-star-twinkle var(--twinkle-duration, 3s) ease-in-out infinite;
+    section-star-drift var(--drift-duration, 4.8s) ease-in-out infinite,
+    section-star-twinkle var(--twinkle-duration, 2.4s) ease-in-out infinite;
   animation-delay: var(--drift-delay, 0s), calc(var(--drift-delay, 0s) * 0.5);
 }
 
 .section-star--near {
-  scale: 1.4;
+  scale: 1.25;
   animation:
-    section-star-drift var(--drift-duration, 6s) ease-in-out infinite,
-    section-star-blink 0.5s ease-in-out infinite;
+    section-star-drift var(--drift-duration, 4.8s) ease-in-out infinite,
+    section-star-blink 0.9s ease-in-out infinite;
   animation-delay: var(--drift-delay, 0s), 0s;
 }
 
