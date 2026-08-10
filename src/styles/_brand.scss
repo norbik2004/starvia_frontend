@@ -32,6 +32,7 @@
   width: $size;
   height: $size;
   object-fit: contain;
+  border-radius: 0.55rem;
 }
 
 @mixin name {

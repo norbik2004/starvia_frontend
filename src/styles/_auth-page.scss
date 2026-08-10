@@ -287,6 +287,54 @@ $auth-form-status-lines: 1;
     line-height: 1;
   }
 
+  .submit-btn__label {
+    display: inline-flex;
+    align-items: baseline;
+  }
+
+  .btn-loading-dots {
+    display: inline-flex;
+    width: 1.1em;
+    margin-left: 0.05em;
+    letter-spacing: 0.02em;
+  }
+
+  .btn-loading-dots > span {
+    display: inline-block;
+    animation: auth-btn-dot 1.15s ease-in-out infinite;
+    opacity: 0.2;
+  }
+
+  .btn-loading-dots > span:nth-child(2) {
+    animation-delay: 0.18s;
+  }
+
+  .btn-loading-dots > span:nth-child(3) {
+    animation-delay: 0.36s;
+  }
+
+  @keyframes auth-btn-dot {
+    0%,
+    70%,
+    100% {
+      opacity: 0.2;
+      transform: translateY(0);
+    }
+
+    35% {
+      opacity: 1;
+      transform: translateY(-0.08em);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-loading-dots > span {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   .auth-switch {
     margin: 0;
     color: var(--mat-sys-on-surface-variant);

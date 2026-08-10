@@ -27,17 +27,18 @@
 @include page-reveal-keyframes;
 
 // Header hosts fixed drawer backdrops; transform on the host breaks viewport coverage.
-.page-reveal > *:not(app-header) {
+// Hero owns its own entrance motion — exclude it from page-level reveal.
+.page-reveal > *:not(app-header):not(app-hero) {
   opacity: 0;
   transform: translateY(0.75rem);
 }
 
-.page-reveal--ready > *:not(app-header) {
+.page-reveal--ready > *:not(app-header):not(app-hero) {
   animation: page-reveal-in 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @for $i from 1 through 24 {
-  .page-reveal--ready > *:not(app-header):nth-child(#{$i}) {
+  .page-reveal--ready > *:not(app-header):not(app-hero):nth-child(#{$i}) {
     animation-delay: #{($i - 1) * 70ms};
   }
 }
@@ -58,7 +59,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page-reveal > *:not(app-header),
+  .page-reveal > *:not(app-header):not(app-hero),
+  .page-reveal > app-hero,
   .page-reveal-list > * {
     opacity: 1;
     transform: none;

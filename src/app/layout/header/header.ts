@@ -11,7 +11,8 @@ type HeaderLink = {
 
 const LINKS: readonly HeaderLink[] = [
   { id: 'features', label: 'Funkcje' },
-  { id: 'about', label: 'O nas' },
+  { id: 'channels', label: 'Kanały' },
+  { id: 'pricing', label: 'Pricing' },
   { id: 'contact', label: 'Kontakt' },
 ] as const;
 
@@ -99,7 +100,14 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
           </a>
         }
         @if (session.loggedIn()) {
-          <a [routerLink]="'/dashboard'" class="btn btn--secondary btn--raised-secondary" (click)="closeMenu()">Panel</a>
+          <a [routerLink]="'/dashboard'" class="btn btn--primary btn--raised-primary" (click)="closeMenu()">Panel</a>
+        } @else if (brandMode === 'scroll') {
+          <a [routerLink]="'/register'" class="btn btn--primary btn--raised-primary" (click)="closeMenu()">
+            Zacznij za darmo
+          </a>
+          <a [routerLink]="actionRoute" class="btn btn--secondary btn--raised-secondary nav-login" (click)="closeMenu()">
+            {{ actionLabel }}
+          </a>
         } @else {
           <a [routerLink]="actionRoute" class="btn btn--secondary btn--raised-secondary" (click)="closeMenu()">
             {{ actionLabel }}

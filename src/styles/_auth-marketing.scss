@@ -1,0 +1,251 @@
+// Shared marketing look for login / register (hero-adjacent, quiet canvas)
+
+@use './auth-page' as auth-page;
+
+@mixin marketing-auth-page($form-class) {
+  :host {
+    @include auth-page.page-host;
+    @include auth-page.auth-shell;
+
+    --mat-sys-primary: var(--sv-dark);
+    --mat-sys-on-primary: var(--sv-white);
+    --mat-sys-primary-container: var(--sv-accent);
+    --mat-sys-on-primary-container: var(--sv-ink);
+    --mat-sys-secondary: var(--sv-accent-dark);
+    --mat-sys-on-secondary: var(--sv-ink);
+    --mat-sys-tertiary: var(--sv-accent);
+    --mat-sys-on-tertiary: var(--sv-ink);
+    --mat-sys-outline: color-mix(in srgb, var(--sv-dark) 28%, transparent);
+    --mat-sys-outline-variant: color-mix(in srgb, var(--sv-dark) 14%, transparent);
+    --mat-focus-indicator-color: var(--sv-accent);
+
+    font-family: var(--font-primary);
+    color: var(--sv-ink);
+
+    .auth-shell {
+      position: relative;
+      background: var(--sv-canvas);
+    }
+
+    .auth-panel {
+      position: relative;
+      z-index: 1;
+      background: transparent;
+    }
+  }
+
+  .auth-atmosphere {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .auth-shell.page-reveal > .auth-atmosphere,
+  .auth-shell.page-reveal--ready > .auth-atmosphere {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .auth-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(56px);
+    opacity: 1;
+  }
+
+  .auth-orb--a {
+    width: min(40vw, 24rem);
+    height: min(40vw, 24rem);
+    top: -8%;
+    right: -6%;
+    background: color-mix(in srgb, var(--sv-accent) 28%, transparent);
+  }
+
+  .auth-orb--b {
+    width: min(36vw, 20rem);
+    height: min(36vw, 20rem);
+    bottom: -10%;
+    left: -8%;
+    background: color-mix(in srgb, var(--sv-accent) 20%, transparent);
+  }
+
+  .auth-panel__top .brand,
+  .auth-panel__top .brand:hover {
+    color: var(--sv-ink);
+  }
+
+  .auth-panel__top .brand:hover {
+    color: var(--sv-dark);
+  }
+
+  .auth-panel__top .brand__icon {
+    width: 2.65rem;
+    height: 2.65rem;
+    border-radius: 0.55rem;
+  }
+
+  .auth-panel__switch {
+    color: var(--sv-ink);
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-semibold);
+
+    &:hover {
+      color: var(--sv-dark);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--sv-accent);
+      outline-offset: 3px;
+    }
+  }
+
+  .auth-panel__foot {
+    color: var(--sv-ink-muted);
+  }
+
+  .auth-panel__foot-link {
+    color: var(--sv-ink-muted);
+    font-weight: var(--font-weight-medium);
+
+    &:hover {
+      color: var(--sv-ink);
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--sv-accent);
+      outline-offset: 3px;
+    }
+  }
+
+  .#{$form-class} {
+    @include auth-page.auth-form;
+
+    .auth-form__eyebrow {
+      margin: 0 0 0.35rem;
+      font-family: var(--font-accent);
+      font-size: 1.35rem;
+      font-weight: var(--font-weight-medium);
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: var(--sv-ink-muted);
+
+      &::after {
+        content: '';
+        display: block;
+        width: 1.75rem;
+        height: 0.18rem;
+        margin-top: 0.55rem;
+        border-radius: 999px;
+        background: var(--sv-accent);
+      }
+    }
+
+    .auth-form__title {
+      color: var(--sv-ink);
+      font-family: var(--font-primary);
+      letter-spacing: var(--tracking-tight);
+    }
+
+    .field__label {
+      color: var(--sv-ink);
+    }
+
+    .field__input {
+      border-color: color-mix(in srgb, var(--sv-dark) 16%, transparent);
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--sv-white) 82%, var(--sv-accent) 6%);
+      color: var(--sv-ink);
+      box-shadow: none;
+      caret-color: var(--sv-dark);
+
+      &::placeholder {
+        color: color-mix(in srgb, var(--sv-ink-muted) 80%, transparent);
+      }
+
+      &:hover {
+        border-color: color-mix(in srgb, var(--sv-dark) 30%, var(--sv-accent));
+        background: color-mix(in srgb, var(--sv-white) 88%, var(--sv-accent) 8%);
+      }
+
+      &:focus {
+        border-color: color-mix(in srgb, var(--sv-accent) 55%, var(--sv-dark));
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--sv-accent) 42%, transparent);
+        background: var(--sv-white);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--sv-accent);
+        outline-offset: 3px;
+      }
+
+      &:-webkit-autofill,
+      &:-webkit-autofill:hover,
+      &:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--sv-ink);
+        box-shadow: 0 0 0 1000px color-mix(in srgb, var(--sv-accent) 18%, var(--sv-white)) inset;
+        transition: background-color 99999s ease-out;
+      }
+    }
+
+    .auth-form__forgot-link {
+      color: var(--sv-ink);
+      font-weight: var(--font-weight-semibold);
+
+      &:hover {
+        color: var(--sv-dark);
+        text-decoration: underline;
+        text-decoration-color: var(--sv-accent);
+        text-underline-offset: 0.2em;
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--sv-accent);
+        outline-offset: 3px;
+      }
+    }
+
+    .submit-btn {
+      border-radius: var(--radius-cta) !important;
+      border-color: var(--sv-dark) !important;
+      background-color: var(--sv-dark) !important;
+      color: var(--sv-white) !important;
+      box-shadow: none !important;
+
+      &:hover:not(:disabled) {
+        border-color: var(--sv-accent) !important;
+        background-color: var(--sv-accent) !important;
+        color: var(--sv-ink) !important;
+        transform: translateY(-1px);
+        box-shadow: none !important;
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--sv-accent);
+        outline-offset: 3px;
+      }
+    }
+
+    .form-status {
+      color: var(--sv-ink);
+    }
+
+    .form-status--error {
+      color: #b42318;
+    }
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--sv-accent) 70%, transparent);
+    color: var(--sv-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .#{$form-class} .submit-btn:hover:not(:disabled) {
+      transform: none;
+    }
+  }
+}

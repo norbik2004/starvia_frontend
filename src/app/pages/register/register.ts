@@ -39,7 +39,12 @@ const passwordsMatchValidator: ValidatorFn = (
   imports: [ReactiveFormsModule, RouterLink, PageRevealDirective],
   styleUrl: './register.scss',
   template: `
-    <div class="auth-shell" appPageReveal>
+    <div class="auth-shell marketing-surface" appPageReveal>
+      <div class="auth-atmosphere" aria-hidden="true">
+        <span class="auth-orb auth-orb--a"></span>
+        <span class="auth-orb auth-orb--b"></span>
+      </div>
+
       <section class="auth-panel" aria-label="Rejestracja">
         <header class="auth-panel__top">
           <a routerLink="/" class="brand" aria-label="Starvia — strona główna">
@@ -71,6 +76,7 @@ const passwordsMatchValidator: ValidatorFn = (
 
         <div class="auth-panel__body">
           <form class="auth-form register-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            <p class="auth-form__eyebrow">Dołącz do Starvia</p>
             <h2 class="auth-form__title">Załóż konto</h2>
 
             <div class="field">
@@ -128,7 +134,13 @@ const passwordsMatchValidator: ValidatorFn = (
 
             <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
               <span class="material-icons submit-btn__icon" aria-hidden="true">person_add</span>
-              {{ isSubmitting() ? 'Tworzenie konta...' : 'Utwórz konto' }}
+              @if (isSubmitting()) {
+                <span class="submit-btn__label">
+                  Tworzenie konta<span class="btn-loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
+                </span>
+              } @else {
+                Utwórz konto
+              }
             </button>
 
             <div class="form-status-slot" aria-live="polite">
@@ -218,7 +230,8 @@ export class RegisterPage {
           this.registerError.set(
             toApplicationError(
               error,
-              'Nie udało się utworzyć konta. Sprawdź dane i spróbuj ponownie.'
+              'Nie udało się utworzyć konta. Sprawdź dane i spróbuj ponownie.',
+              'Wystąpił nieoczekiwany błąd. Spróbuj ponownie za chwilę.'
             )
           );
         },

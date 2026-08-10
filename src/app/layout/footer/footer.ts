@@ -2,14 +2,9 @@ import { Component } from '@angular/core';
 
 const FOOTER_LINKS = [
   { href: '#features', label: 'Funkcje' },
-  { href: '#about', label: 'O nas' },
+  { href: '#channels', label: 'Kanały' },
+  { href: '#pricing', label: 'Pricing' },
   { href: '#contact', label: 'Kontakt' },
-] as const;
-
-const FOOTER_HIGHLIGHTS = [
-  'Szkice z pomocą AI',
-  'Proces akceptacji',
-  'Harmonogram wielu kanałów',
 ] as const;
 
 @Component({
@@ -18,6 +13,12 @@ const FOOTER_HIGHLIGHTS = [
   template: `
     <footer class="site-footer">
       <div class="footer-shell">
+        <blockquote class="footer-quote">
+          <p class="footer-quote__mark" aria-hidden="true">”</p>
+          <p class="footer-quote__text">Content is king, but context is God.</p>
+          <cite class="footer-quote__cite">Gary Vaynerchuk</cite>
+        </blockquote>
+
         <div class="footer-grid">
           <section class="footer-brand" aria-labelledby="footer-brand-title">
             <a href="#top" class="brand" aria-label="Przejdź do góry">
@@ -35,15 +36,9 @@ const FOOTER_HIGHLIGHTS = [
             </a>
 
             <p class="footer-copy">
-              Planuj, twórz, akceptuj i publikuj treści social w jednym spokojnym miejscu
-              stworzonym dla nowoczesnych zespołów marketingowych.
+              Zarządzanie treścią, AI copy i obrazy marki, kalendarz publikacji — Facebook, Instagram i LinkedIn
+              w jednym miejscu.
             </p>
-
-            <ul class="highlight-list" aria-label="Najważniejsze możliwości Starvia">
-              @for (highlight of highlights; track highlight) {
-                <li class="highlight-chip">{{ highlight }}</li>
-              }
-            </ul>
           </section>
 
           <nav class="footer-column" aria-labelledby="footer-nav-title">
@@ -56,27 +51,18 @@ const FOOTER_HIGHLIGHTS = [
           <section class="footer-column" aria-labelledby="footer-contact-title">
             <p id="footer-contact-title" class="footer-heading">Kontakt</p>
             <a class="footer-link" href="mailto:hello@starvia.pl">hello@starvia.pl</a>
-            <p class="footer-meta">Czas odpowiedzi: do jednego dnia roboczego</p>
             <a
-              class="footer-link footer-link--strong"
+              class="footer-demo"
               href="mailto:hello@starvia.pl?subject=Pro%C5%9Bba%20o%20demo%20Starvia"
             >
               Umów demo
             </a>
           </section>
-
-          <section class="footer-column footer-column--cta" aria-labelledby="footer-cta-title">
-            <p id="footer-cta-title" class="footer-heading">Dlaczego zespoły wybierają Starvia</p>
-            <p class="footer-meta">
-              Strategia, akceptacje i publikacja w jednym miejscu — kampanie idą szybciej, z mniejszą
-              liczbą ustaleń w tę i z powrotem.
-            </p>
-          </section>
         </div>
 
         <div class="footer-bottom">
-          <p>&copy; {{ currentYear }} Starvia. Stworzona dla nowoczesnych zespołów social.</p>
-          <p>Wsparcie dla twórców, marketerów i rosnących marek.</p>
+          <p class="footer-bottom__copy">&copy; {{ currentYear }} Starvia</p>
+          <p class="footer-bottom__tag">Dla twórców, marketerów i zespołów social.</p>
         </div>
       </div>
     </footer>
@@ -84,6 +70,5 @@ const FOOTER_HIGHLIGHTS = [
 })
 export class Footer {
   protected readonly links = FOOTER_LINKS;
-  protected readonly highlights = FOOTER_HIGHLIGHTS;
   protected readonly currentYear = new Date().getFullYear();
 }

@@ -1,6 +1,22 @@
-// Design tokens — typography, spacing, layout (consumed via CSS variables on :root/html)
+// Design tokens — typography, spacing, layout + Starvia marketing palette
 
 html {
+  /* —— Brand / marketing (Tabela-inspired) —— */
+  --sv-canvas: #ecebe8;
+  --sv-canvas-soft: #f8f8f8;
+  --sv-canvas-muted: #e4e4e0;
+  --sv-ink: #29303d;
+  --sv-ink-muted: rgba(41, 48, 61, 0.55);
+  --sv-dark: #2d2d2d;
+  --sv-dark-soft: #434343;
+  --sv-accent: #e6fb2d;
+  --sv-accent-dark: #d9ee1c;
+  --sv-white: #ffffff;
+  --sv-stroke: #f5f5fa;
+
+  --font-primary: 'Red Hat Display', system-ui, sans-serif;
+  --font-accent: 'Caveat', cursive;
+
   /* —— Typography scale —— */
   --font-size-xs: clamp(0.8125rem, 0.35vw + 0.72rem, 0.9375rem);
   --font-size-sm: clamp(1rem, 0.3vw + 0.9rem, 1.0625rem);
@@ -8,10 +24,10 @@ html {
   --font-size-lg: clamp(1.125rem, 0.65vw + 0.95rem, 1.3125rem);
   --font-size-xl: clamp(1.1875rem, 1.5vw + 0.5rem, 1.375rem);
   --font-size-2xl: clamp(1.75rem, 2.8vw + 0.75rem, 2.5rem);
-  --font-size-display: clamp(2.25rem, 5.5vw + 0.75rem, 4rem);
+  --font-size-display: clamp(2.5rem, 6vw + 0.5rem, 4.5rem);
   --font-size-brand: clamp(1.75rem, 3vw, 2.875rem);
   --font-size-nav: clamp(1.0625rem, 1.5vw, 1.25rem);
-  --font-size-button: clamp(1rem, 0.25vw + 0.95rem, 1.0625rem);
+  --font-size-button: clamp(0.9375rem, 0.25vw + 0.9rem, 1rem);
 
   --font-weight-normal: 400;
   --font-weight-medium: 500;
@@ -19,13 +35,13 @@ html {
   --font-weight-bold: 700;
   --font-weight-extrabold: 800;
 
-  --leading-body: 1.65;
+  --leading-body: 1.6;
   --leading-snug: 1.25;
-  --leading-tight: 1.12;
+  --leading-tight: 1.08;
 
-  --tracking-tight: -0.025em;
-  --tracking-tighter: -0.035em;
-  --tracking-wide: 0.14em;
+  --tracking-tight: -0.03em;
+  --tracking-tighter: -0.04em;
+  --tracking-wide: 0.08em;
 
   /* Semantic aliases (use these in components) */
   --text-eyebrow: var(--font-size-xs);
@@ -47,7 +63,7 @@ html {
   --space-xl: 2rem;
   --space-2xl: clamp(2rem, 5vw, 3rem);
   --content-gap: clamp(1rem, 2.5vw, 1.75rem);
-  --section-gap: clamp(3rem, 7vw, 6rem);
+  --section-gap: clamp(3.5rem, 8vw, 7rem);
   --stack-sm: var(--space-sm);
   --stack-md: var(--space-md);
   --stack-lg: var(--space-lg);
@@ -68,8 +84,9 @@ html {
   --radius-sm: 0.625rem;
   --radius-md: 1rem;
   --radius-lg: 1.25rem;
+  --radius-cta: 1.875rem;
   --radius-pill: 999px;
-  --media-aspect-hero: 3 / 2;
+  --media-aspect-hero: 16 / 10;
   --media-aspect-feature: 16 / 10;
   --media-aspect-card: 3 / 2;
 }

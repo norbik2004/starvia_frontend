@@ -18,7 +18,12 @@ type LoginForm = FormGroup<{
   imports: [ReactiveFormsModule, RouterLink, PageRevealDirective],
   styleUrl: './login.scss',
   template: `
-    <div class="auth-shell" appPageReveal>
+    <div class="auth-shell marketing-surface" appPageReveal>
+      <div class="auth-atmosphere" aria-hidden="true">
+        <span class="auth-orb auth-orb--a"></span>
+        <span class="auth-orb auth-orb--b"></span>
+      </div>
+
       <section class="auth-panel" aria-label="Logowanie">
         <header class="auth-panel__top">
           <a routerLink="/" class="brand" aria-label="Starvia — strona główna">
@@ -50,6 +55,7 @@ type LoginForm = FormGroup<{
 
         <div class="auth-panel__body">
           <form class="auth-form login-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            <p class="auth-form__eyebrow">Witaj ponownie</p>
             <h2 class="auth-form__title">Zaloguj się</h2>
 
             <div class="field">
@@ -92,7 +98,13 @@ type LoginForm = FormGroup<{
 
             <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
               <span class="material-icons submit-btn__icon" aria-hidden="true">login</span>
-              {{ isSubmitting() ? 'Logowanie...' : 'Zaloguj się' }}
+              @if (isSubmitting()) {
+                <span class="submit-btn__label">
+                  Logowanie<span class="btn-loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
+                </span>
+              } @else {
+                Zaloguj się
+              }
             </button>
 
             <div class="form-status-slot" aria-live="polite">
@@ -169,7 +181,11 @@ export class LoginPage {
         },
         error: (error: unknown) => {
           this.loginError.set(
-            toApplicationError(error, 'Nie udało się zalogować. Sprawdź email i hasło, potem spróbuj ponownie.')
+            toApplicationError(
+              error,
+              'Nie udało się zalogować. Sprawdź email i hasło, potem spróbuj ponownie.',
+              'Wystąpił nieoczekiwany błąd. Spróbuj ponownie za chwilę.'
+            )
           );
         },
       });

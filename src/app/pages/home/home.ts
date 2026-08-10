@@ -1,29 +1,36 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PageRevealDirective } from '../../directives/page-reveal';
+import { ScrollRevealDirective } from '../../directives/scroll-reveal';
 import { Features } from '../../layout/features/features';
 import { Footer } from '../../layout/footer/footer';
 import { Header } from '../../layout/header/header';
 import { Hero } from '../../layout/hero/hero';
-import { createSectionStars } from '../../layout/shared/section-stars';
-import { createSectionStarsInteraction } from '../../layout/shared/section-stars-pointer';
-import { SectionStarsLayer } from '../../layout/shared/section-stars-layer';
 
-type ProofStat = {
-  value: string;
-  label: string;
-};
-
-type WorkflowCard = {
-  eyebrow: string;
+type Topic = {
   title: string;
   body: string;
+};
+
+type Channel = {
+  name: string;
+  tagline: string;
+  body: string;
+  points: string[];
+};
+
+type WorkflowStep = {
+  step: string;
+  title: string;
+  body: string;
+  time: string;
 };
 
 type PricingPlan = {
   name: string;
   badge: string;
   price: string;
+  period: string;
   note: string;
   description: string;
   ctaLabel: string;
@@ -35,162 +42,166 @@ type PricingPlan = {
 
 @Component({
   selector: 'app-home-page',
-  imports: [
-    Header,
-    Hero,
-    Features,
-    Footer,
-    PageRevealDirective,
-    RouterLink,
-    SectionStarsLayer,
-  ],
+  imports: [Header, Hero, Features, Footer, PageRevealDirective, ScrollRevealDirective, RouterLink],
   styleUrl: './home.scss',
   template: `
-    <div appPageReveal class="home">
+    <div appPageReveal class="home marketing-surface">
       <app-header />
       <app-hero
-        [title]="title"
-        eyebrow="Workflow AI dla zespołów contentowych"
-        headingTop="Tworz content."
-        headingBottom="Starvia spina reszte."
-        description="Planowanie, AI writing, review i publishing w jednym miejscu. Ty tworzysz — zespol dowozi, a Starvia pilnuje rytmu."
-        [kicker]="null"
-        primaryActionLabel="Start Free"
+        brandName="Starvia"
+        eyebrow="AI social workspace"
+        heading="Zarządzaj treścią. Twórz z AI. Publikuj regularnie."
+        description="Planowanie, generowanie copy i obrazów marki oraz publikacja na Facebooku, Instagramie i LinkedIn — w jednym miejscu."
+        primaryActionLabel="Zacznij za darmo"
         [primaryActionRoute]="'/register'"
-        secondaryActionLabel="Zobacz Pricing"
-        [secondaryActionHref]="'#pricing'"
+        secondaryActionLabel="Zobacz funkcje"
+        [secondaryActionHref]="'#features'"
+        panelImage="/marketing/hero-workspace.png"
+        panelCaption="Workspace"
       />
 
       <main>
-        <app-features />
-
-        <section id="proof" class="page-section proof-section">
-          <div class="section-inner">
-            <header class="section-header proof-section__header">
-              <p class="section-eyebrow">Momentum</p>
-              <h2 class="section-title">Starvia zamienia content ops w przewidywalny rytm pracy.</h2>
+        <section class="page-section topics-section" aria-labelledby="topics-title">
+          <div class="section-inner topics-section__inner">
+            <header class="section-header section-header--centered" appScrollReveal>
+              <p class="section-eyebrow">Główne tematy</p>
+              <h2 id="topics-title" class="section-title">Wszystko, czego potrzebuje content ops.</h2>
               <p class="section-lead">
-                Mniej przepisywania briefow. Mniej skakania miedzy narzedziami. Wiecej publikacji,
-                ktore wychodza na czas i trzymaja jeden standard marki.
+                Od zarządzania postami po AI i kalendarz — Starvia spina proces, zamiast dokładać kolejne narzędzie.
               </p>
             </header>
 
-            <div class="proof-grid">
-              @for (item of proofStats; track item.label) {
-                <article class="proof-card">
-                  <p class="proof-card__value">{{ item.value }}</p>
-                  <p class="proof-card__label">{{ item.label }}</p>
-                </article>
+            <ul class="topics-grid">
+              @for (topic of topics; track topic.title; let i = $index) {
+                <li class="topic-item" appScrollReveal [appScrollRevealDelay]="i * 80">
+                  <span class="topic-item__accent" aria-hidden="true"></span>
+                  <div class="topic-item__top">
+                    <span class="topic-item__index" aria-hidden="true">{{ pad(i + 1) }}</span>
+                    <span class="topic-item__mark" aria-hidden="true"></span>
+                  </div>
+                  <h3 class="topic-item__title">{{ topic.title }}</h3>
+                  <p class="topic-item__body">{{ topic.body }}</p>
+                </li>
               }
-            </div>
-
-            <div class="proof-story">
-              <article class="proof-story__panel">
-                <p class="proof-story__eyebrow">Co realnie sie zmienia</p>
-                <h3 class="proof-story__title">Zespol nie tylko tworzy content szybciej. Zaczyna go dowozic przewidywalnie.</h3>
-                <p class="proof-story__body">
-                  Kazdy etap ma wlasne miejsce, wiec brief, wersje robocze, feedback i publikacja
-                  nie rozjezdzaja sie miedzy dokumentami, czatem i roznymi aplikacjami.
-                </p>
-              </article>
-
-              <ul class="proof-list">
-                @for (item of proofBullets; track item) {
-                  <li class="proof-list__item">{{ item }}</li>
-                }
-              </ul>
-            </div>
+            </ul>
           </div>
         </section>
 
-        <section id="about" class="page-section narrative-section">
-          <div class="section-inner narrative-section__inner">
-            <div class="narrative-intro">
-              <p class="section-eyebrow">Dlaczego Starvia</p>
-              <h2 class="section-title">Nie kolejny edytor. Warstwa operacyjna dla calego procesu publikacji.</h2>
-            </div>
+        <app-features />
 
-            <div class="narrative-panels">
-              <article class="narrative-panel narrative-panel--muted">
-                <p class="narrative-panel__eyebrow">Przed Starvia</p>
-                <h3 class="narrative-panel__title">Publikacja opiera sie na recznym spinaniu procesu.</h3>
-                <ul class="narrative-list">
-                  <li>Pomysly gina miedzy notatkami, chatem i dokumentami.</li>
-                  <li>AI pomaga tylko fragmentarycznie, bez kontekstu kampanii i marki.</li>
-                  <li>Akceptacje, poprawki i publikacja zajmuja wiecej czasu niz samo tworzenie.</li>
-                </ul>
-              </article>
+        <section id="channels" class="page-section channels-section" aria-labelledby="channels-title">
+          <div class="channels-section__glow" aria-hidden="true"></div>
+          <div class="section-inner channels-section__inner">
+            <header class="section-header section-header--centered channels-section__header" appScrollReveal>
+              <p class="section-eyebrow">Konta social</p>
+              <h2 id="channels-title" class="section-title">Trzy kanały. Jedna kolejka publikacji.</h2>
+              <p class="section-lead">
+                Podłącz Facebook, Instagram i LinkedIn. Drafty, kalendarz i statusy żyją w jednym workspace —
+                bez skakania między aplikacjami.
+              </p>
+            </header>
 
-              <article class="narrative-panel narrative-panel--accent">
-                <p class="narrative-panel__eyebrow">Po wdrozeniu</p>
-                <h3 class="narrative-panel__title">Zespol pracuje na jednym flow od briefu do live.</h3>
-                <ul class="narrative-list">
-                  <li>Plan, drafty i kolejne wersje zyja w jednym, wspolnym workspace.</li>
-                  <li>AI generuje copy w rytmie Twojej marki, zamiast zaczynac od zera.</li>
-                  <li>Publikacja przestaje byc finalnym stresem, a staje sie przewidywalnym etapem.</li>
-                </ul>
-              </article>
+            <div class="channels-grid">
+              @for (channel of channels; track channel.name; let i = $index) {
+                <article class="channel-card" appScrollReveal [appScrollRevealDelay]="i * 90">
+                  <span class="channel-card__index" aria-hidden="true">{{ pad(i + 1) }}</span>
+                  <p class="channel-card__name">{{ channel.name }}</p>
+                  <p class="channel-card__tagline">{{ channel.tagline }}</p>
+                  <p class="channel-card__body">{{ channel.body }}</p>
+                  <ul class="channel-card__points">
+                    @for (point of channel.points; track point) {
+                      <li>{{ point }}</li>
+                    }
+                  </ul>
+                </article>
+              }
             </div>
           </div>
         </section>
 
         <section class="page-section workflow-section">
           <div class="section-inner workflow-section__inner">
-            <header class="section-header section-header--centered">
+            <header class="section-header section-header--centered" appScrollReveal>
               <p class="section-eyebrow">Workflow</p>
-              <h2 class="section-title">Kazda sekcja procesu ma swoje miejsce. I wszystkie sa polaczone.</h2>
+              <h2 class="section-title">Od briefu do live — wyraźnie szybciej niż ręcznie.</h2>
               <p class="section-lead">
-                Starvia porzadkuje rytm pracy contentowej tak, zeby zespol szybciej przechodzil od
-                pomyslu do publikacji i lepiej reagowal na to, co dziala.
+                Planuj, twórz z AI, dopracuj obraz i publikuj. Ten sam proces zajmuje ułamek czasu
+                w porównaniu do skakania między docsami, Canvą i panelami social.
               </p>
             </header>
 
-            <div class="workflow-grid">
-              @for (item of workflowCards; track item.title) {
-                <article class="workflow-card">
-                  <p class="workflow-card__eyebrow">{{ item.eyebrow }}</p>
-                  <h3 class="workflow-card__title">{{ item.title }}</h3>
-                  <p class="workflow-card__body">{{ item.body }}</p>
-                </article>
-              }
+            <div class="workflow-compare" appScrollReveal>
+              <article class="workflow-compare__card workflow-compare__card--manual">
+                <p class="workflow-compare__label">Ręcznie</p>
+                <p class="workflow-compare__time">~4 h</p>
+                <p class="workflow-compare__note">na tygodniowy zestaw 5–7 postów</p>
+                <ul class="workflow-compare__list">
+                  <li>Brief w notatkach i czacie</li>
+                  <li>Copy w osobnym edytorze</li>
+                  <li>Grafiki w innym toolu</li>
+                  <li>Publikacja kanał po kanale</li>
+                </ul>
+              </article>
+
+              <div class="workflow-compare__vs" aria-hidden="true">
+                <span>vs</span>
+              </div>
+
+              <article class="workflow-compare__card workflow-compare__card--starvia">
+                <p class="workflow-compare__label">Ze Starvia</p>
+                <p class="workflow-compare__time">~45 min</p>
+                <p class="workflow-compare__note">ten sam zakres — w jednym flow</p>
+                <ul class="workflow-compare__list">
+                  <li>Plan w kalendarzu</li>
+                  <li>AI draft + poprawki</li>
+                  <li>Obrazy w stylu marki</li>
+                  <li>Jedna kolejka publikacji</li>
+                </ul>
+              </article>
             </div>
 
-            <div class="workflow-cta">
-              <p class="workflow-cta__label">Chcesz zobaczyc, ktory plan pasuje do Twojego trybu pracy?</p>
-              <a href="#pricing" class="workflow-cta__link">Przejdz do Pricing</a>
-            </div>
+            <p class="workflow-compare__saving" appScrollReveal>
+              To ok. <strong>6× mniej czasu</strong> na typowy tydzień contentowy — bez utraty kontroli nad tonem marki.
+            </p>
+
+            <ol class="workflow-steps">
+              @for (item of workflowSteps; track item.step; let i = $index) {
+                <li class="workflow-step" appScrollReveal [appScrollRevealDelay]="i * 80">
+                  <span class="workflow-step__num" aria-hidden="true">{{ item.step }}</span>
+                  <h3 class="workflow-step__title">{{ item.title }}</h3>
+                  <p class="workflow-step__body">{{ item.body }}</p>
+                  <p class="workflow-step__time">{{ item.time }}</p>
+                </li>
+              }
+            </ol>
           </div>
         </section>
 
-        <section
-          id="pricing"
-          class="page-section pricing-section"
-          (mousemove)="pricingStarsInteraction.onPointerMove($event)"
-          (mouseleave)="pricingStarsInteraction.onPointerLeave()"
-        >
-          <app-section-stars-layer
-            class="pricing-stars"
-            [stars]="pricingStars"
-            [nearIds]="pricingStarsInteraction.nearStarIds()"
-          />
-
+        <section id="pricing" class="page-section pricing-section">
           <div class="section-inner pricing-section__inner">
-            <header class="section-header section-header--centered pricing-section__header">
+            <header class="section-header section-header--centered pricing-section__header" appScrollReveal>
               <p class="section-eyebrow">Pricing</p>
-              <h2 class="section-title">Zacznij za darmo. Wejdz w Premium, gdy proces robi sie zespolowy.</h2>
+              <h2 class="section-title">Prosty cennik. Free albo Premium.</h2>
               <p class="section-lead">
-                Model jest prosty: Free pomaga ruszyc i uporzadkowac workflow, a Premium odblokowuje
-                wspolprace, wieksza skale i mocniejszy operating layer dla contentu.
+                Zacznij za darmo. Przejdź na Premium, gdy chcesz pełniejszy AI, obrazy marki i mocniejszy rytm publikacji.
               </p>
             </header>
 
             <div class="pricing-grid">
-              @for (plan of pricingPlans; track plan.name) {
-                <article class="pricing-card" [class.pricing-card--featured]="plan.featured">
+              @for (plan of pricingPlans; track plan.name; let i = $index) {
+                <article
+                  class="pricing-card"
+                  [class.pricing-card--featured]="plan.featured"
+                  appScrollReveal
+                  [appScrollRevealDelay]="i * 100"
+                >
                   <div class="pricing-card__top">
                     <p class="pricing-card__badge">{{ plan.badge }}</p>
                     <h3 class="pricing-card__name">{{ plan.name }}</h3>
-                    <p class="pricing-card__price">{{ plan.price }}</p>
+                    <div class="pricing-card__price-row">
+                      <p class="pricing-card__price">{{ plan.price }}</p>
+                      <p class="pricing-card__period">{{ plan.period }}</p>
+                    </div>
                     <p class="pricing-card__note">{{ plan.note }}</p>
                     <p class="pricing-card__description">{{ plan.description }}</p>
                   </div>
@@ -202,40 +213,55 @@ type PricingPlan = {
                   </ul>
 
                   @if (plan.ctaRoute; as route) {
-                    <a [routerLink]="route" class="btn" [class.btn--primary]="plan.featured" [class.btn--secondary]="!plan.featured">
+                    <a
+                      [routerLink]="route"
+                      class="btn"
+                      [class.btn--primary]="plan.featured"
+                      [class.btn--secondary]="!plan.featured"
+                    >
                       {{ plan.ctaLabel }}
                     </a>
                   } @else if (plan.ctaHref; as href) {
-                    <a [href]="href" class="btn" [class.btn--primary]="plan.featured" [class.btn--secondary]="!plan.featured">
+                    <a
+                      [href]="href"
+                      class="btn"
+                      [class.btn--primary]="plan.featured"
+                      [class.btn--secondary]="!plan.featured"
+                    >
                       {{ plan.ctaLabel }}
                     </a>
                   }
                 </article>
               }
             </div>
-
-            <div class="pricing-footnote">
-              <p>
-                Free jest idealny na start. Premium jest dla zespolow, ktore chca wspolnego rytmu
-                pracy, szybszych review loopow i lepszej kontroli nad publikacja.
-              </p>
-            </div>
           </div>
         </section>
 
         <section id="contact" class="page-section cta-section">
           <div class="section-inner cta-section__inner">
-            <div class="cta-card">
-              <p class="section-eyebrow">Gotowe do startu</p>
-              <h2 class="section-title">Wybierz plan, uporzadkuj publishing ops i zacznij dowozic regularnie.</h2>
-              <p class="section-lead">
-                Zacznij od Free albo przejdz na Premium, jesli chcesz szybciej skalowac wspolprace,
-                akceptacje i produkcje tresci w zespole.
+            <div class="cta-band" appScrollReveal>
+              <p class="section-eyebrow cta-band__eyebrow">Gotowe do startu</p>
+              <h2 class="cta-band__title">Twój social media workflow — wreszcie w jednym miejscu.</h2>
+              <p class="cta-band__lead">
+                Zostaw chaotyczne zakładki i ręczne kopiowanie. W Starvia planujesz, piszesz z AI, dopinasz grafikę marki
+                i publikujesz na Facebooku, Instagramie i LinkedIn — w rytmie, który da się utrzymać.
               </p>
-              <div class="cta-card__actions">
-                <a routerLink="/register" class="btn btn--primary">Startuj z Free</a>
-                <a href="#pricing" class="btn btn--secondary">Porownaj plany</a>
+
+              <ul class="cta-band__points">
+                @for (point of ctaPoints; track point; let i = $index) {
+                  <li class="cta-band__point" appScrollReveal [appScrollRevealDelay]="80 + i * 70">
+                    {{ point }}
+                  </li>
+                }
+              </ul>
+
+              <div class="cta-band__actions" appScrollReveal [appScrollRevealDelay]="280">
+                <a routerLink="/register" class="btn btn--primary cta-band__primary">Zacznij za darmo</a>
+                <a href="#pricing" class="btn btn--secondary cta-band__secondary">Zobacz cennik</a>
               </div>
+              <p class="cta-band__assurance" appScrollReveal [appScrollRevealDelay]="340">
+                Free bez karty. Konto w kilka minut. Możesz wejść w Premium, gdy rośnie tempo.
+              </p>
             </div>
           </div>
         </section>
@@ -245,94 +271,126 @@ type PricingPlan = {
     </div>
   `,
 })
-export class HomePage implements AfterViewInit, OnDestroy {
-  private readonly host = inject(ElementRef<HTMLElement>);
+export class HomePage {
+  protected readonly ctaPoints = [
+    'Kalendarz i drafty zamiast rozproszonych notatek',
+    'AI copy i obrazy contentowe w tonie Twojej marki',
+    'Jedna kolejka publikacji na FB, IG i LinkedIn',
+  ];
 
-  protected readonly title = 'Starvia';
-  protected readonly pricingStars = createSectionStars({
-    gridCols: 8,
-    gridRows: 7,
-    skipProbability: 0.84,
-    extraCount: 10,
-    minY: 0,
-    maxY: 100,
-    sizeMin: 2.2,
-    sizeMax: 3.7,
-  });
-  protected readonly pricingStarsInteraction = createSectionStarsInteraction(this.pricingStars);
-  protected readonly proofStats: ProofStat[] = [
-    { value: '1 workspace', label: 'na plan, drafty, feedback i publikacje' },
-    { value: 'AI with context', label: 'tworzy copy w rytmie marki, nie w oderwaniu od kampanii' },
-    { value: 'Faster shipping', label: 'mniej tarcia miedzy pomyslem, akceptacja i live postem' },
-  ];
-  protected readonly proofBullets = [
-    'Jeden widok dla planowania, copy i publikacji',
-    'Mniej chaosu w review i mniej recznego przeklejania tresci',
-    'Lepsza regularnosc publikacji bez dokladania kolejnych narzedzi',
-  ];
-  protected readonly workflowCards: WorkflowCard[] = [
+  protected readonly topics: Topic[] = [
     {
-      eyebrow: 'Planowanie',
-      title: 'Buduj kalendarz tresci bez rozjazdu miedzy zespolami.',
-      body: 'Zbieraj pomysly, priorytety i kampanie w jednym widoku, zanim produkcja ruszy na dobre.',
+      title: 'Zarządzanie treścią',
+      body: 'Drafty, wersje i statusy postów w jednym workspace.',
     },
     {
-      eyebrow: 'AI writing',
-      title: 'Zamien brief w gotowy draft, hooki i warianty kanalowe.',
-      body: 'Tworz szybciej, ale bez utraty tonu marki. Starvia pomaga iterowac, a nie tylko generowac.',
+      title: 'AI generowanie treści',
+      body: 'Posty, hooki i warianty kanałowe w tonie marki.',
     },
     {
-      eyebrow: 'Review',
-      title: 'Zbieraj feedback i decyzje tam, gdzie faktycznie powstaje tresc.',
-      body: 'Mniej zgadywania, ktora wersja jest finalna. Kazda poprawka ma swoje miejsce i kontekst.',
+      title: 'AI support',
+      body: 'Asystent przy briefie, poprawkach i kolejnych iteracjach.',
     },
     {
-      eyebrow: 'Publishing',
-      title: 'Publikuj w rytmie kampanii zamiast walczyc z deadlineami.',
-      body: 'Planowanie i publikacja przestaja byc osobnymi swiatami, wiec zespol dowozi regularniej.',
+      title: 'Obrazy contentowe',
+      body: 'Spersonalizowane grafiki dopasowane do brandu.',
+    },
+    {
+      title: 'Kalendarz publikacji',
+      body: 'Planowanie i kolejka postów w rytmie kampanii.',
+    },
+    {
+      title: '3 konta social',
+      body: 'Facebook, Instagram i LinkedIn w jednej kolejce.',
     },
   ];
+
+  protected readonly channels: Channel[] = [
+    {
+      name: 'Facebook',
+      tagline: 'Fanpage i reach',
+      body: 'Planuj i publikuj posty fanpage’a bez wychodzenia ze Starvia — od draftu po zaplanowany termin.',
+      points: ['Harmonogram postów', 'Statusy w jednym widoku', 'Spójny voice marki'],
+    },
+    {
+      name: 'Instagram',
+      tagline: 'Feed i wizualia',
+      body: 'Przygotuj copy i grafiki pod feed w stylu marki. AI pomaga dopiąć treść i klimat visuali.',
+      points: ['Copy pod IG', 'Obrazy contentowe', 'Kolejka publikacji'],
+    },
+    {
+      name: 'LinkedIn',
+      tagline: 'B2B i ekspertiza',
+      body: 'Buduj obecność zawodową: drafty, ton ekspercki i rytm publikacji dopasowany do kampanii.',
+      points: ['Ton B2B', 'Serie treści', 'Plan tygodniowy'],
+    },
+  ];
+
+  protected readonly workflowSteps: WorkflowStep[] = [
+    {
+      step: '01',
+      title: 'Zaplanuj',
+      body: 'Ułóż kalendarz treści i priorytety kampanii w jednym widoku.',
+      time: '~8 min zamiast ~40 min',
+    },
+    {
+      step: '02',
+      title: 'Napisz z AI',
+      body: 'Wygeneruj copy i dopracuj je z AI supportem w tonie marki.',
+      time: '~12 min zamiast ~75 min',
+    },
+    {
+      step: '03',
+      title: 'Stwórz obraz',
+      body: 'Dodaj spersonalizowaną grafikę contentową bez osobnego pipeline’u.',
+      time: '~15 min zamiast ~90 min',
+    },
+    {
+      step: '04',
+      title: 'Opublikuj',
+      body: 'Wyślij lub zaplanuj na Facebooku, IG i LinkedIn z jednej kolejki.',
+      time: '~10 min zamiast ~45 min',
+    },
+  ];
+
   protected readonly pricingPlans: PricingPlan[] = [
     {
       name: 'Free',
-      badge: 'Dla startu',
-      price: '0 zl',
-      note: 'Na zawsze dla pojedynczego workflow startowego',
-      description: 'Najlepszy wybor, jesli chcesz wejsc w uporzadkowany publishing flow bez ryzyka.',
+      badge: 'Na start',
+      price: '0 zł',
+      period: '/ miesiąc',
+      note: 'Bez karty. Na zawsze.',
+      description: 'Wejdź w zarządzanie treścią, AI i kalendarz — idealne na pierwsze publikacje.',
       ctaLabel: 'Zacznij za darmo',
       ctaRoute: '/register',
       featured: false,
       features: [
-        'Podstawowy workflow planowania i draftow',
-        'AI support do pierwszych wersji tresci',
-        'Jedno miejsce na publikacje i iteracje',
+        'Zarządzanie draftami i podstawowy kalendarz',
+        'AI generowanie treści + AI support',
+        '1 workspace i start z FB / IG / LinkedIn',
+        'Podstawowa kolejka publikacji',
       ],
     },
     {
       name: 'Premium',
-      badge: 'Dla zespolu',
-      price: 'Custom',
-      note: 'Dopasowany do skali, wspolpracy i procesu contentowego',
-      description: 'Dla marek i zespolow, ktore chca przyspieszyc produkcje, review oraz publishing na wielu kanalach.',
-      ctaLabel: 'Porozmawiaj o Premium',
-      ctaHref: 'mailto:hello@starvia.app?subject=Starvia%20Premium',
+      badge: 'Najczęściej wybierany',
+      price: '199 zł',
+      period: '/ miesiąc',
+      note: 'Pełny workflow dla marki i zespołu',
+      description: 'Więcej mocy AI, obrazy contentowe marki i pewniejszy rytm publikacji na trzech kanałach.',
+      ctaLabel: 'Wybierz Premium',
+      ctaRoute: '/register',
       featured: true,
       features: [
-        'Szersza wspolpraca zespolowa i szybsze review loop',
-        'Mocniejszy operating layer dla kampanii i kalendarza',
-        'Lepsza kontrola nad publikacja, jakoscia i rytmem pracy',
+        'Wszystko z Free',
+        'Generowanie spersonalizowanych obrazów contentowych',
+        'Szersza współpraca, review i kalendarz kampanii',
+        'Pełniejsza kontrola publikacji na FB, IG i LinkedIn',
       ],
     },
   ];
 
-  ngAfterViewInit(): void {
-    const pricingSection = this.host.nativeElement.querySelector('#pricing');
-    if (pricingSection instanceof HTMLElement) {
-      this.pricingStarsInteraction.attach(pricingSection);
-    }
-  }
-
-  ngOnDestroy(): void {
-    this.pricingStarsInteraction.destroy();
+  protected pad(n: number): string {
+    return n.toString().padStart(2, '0');
   }
 }

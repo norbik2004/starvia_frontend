@@ -10,8 +10,6 @@ import {
 } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { Header } from '../../layout/header/header';
-import { Hero } from '../../layout/hero/hero';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
 import { PageRevealDirective } from '../../directives/page-reveal';
@@ -37,93 +35,123 @@ const passwordsMatchValidator: ValidatorFn = (
 
 @Component({
   selector: 'app-reset-password-page',
-  imports: [ReactiveFormsModule, RouterLink, Header, Hero, PageRevealDirective],
+  imports: [ReactiveFormsModule, RouterLink, PageRevealDirective],
   styleUrl: './reset-password.scss',
   template: `
-    <div appPageReveal>
-      <app-header
-        [links]="[]"
-        actionLabel="Back home"
-        actionRoute="/"
-        navLabel="Reset password navigation"
-        brandMode="route"
-        brandRoute="/"
-      />
+    <div class="auth-shell marketing-surface" appPageReveal>
+      <div class="auth-atmosphere" aria-hidden="true">
+        <span class="auth-orb auth-orb--a"></span>
+        <span class="auth-orb auth-orb--b"></span>
+      </div>
 
-      <app-hero
-        eyebrow="Account security"
-        heading="Choose a new password"
-        description="Set a new password for your Starvia account to regain access."
-        [showActions]="false"
-        [fillViewport]="true"
-        [customPanel]="true"
-        panelCaption="Reset password form"
-      >
-        <div hero-panel class="media-slot reset-password-panel">
+      <section class="auth-panel" aria-label="Nowe hasło">
+        <header class="auth-panel__top">
+          <a routerLink="/" class="brand" aria-label="Starvia — strona główna">
+            <span class="brand__icon-wrap">
+              <img
+                class="brand__icon"
+                src="/starvia-logo.png"
+                alt=""
+                width="44"
+                height="44"
+                decoding="async"
+              />
+            </span>
+            <span class="brand__name" aria-hidden="true">Starvia</span>
+          </a>
+          <a routerLink="/login" class="auth-panel__switch">
+            <svg class="auth-panel__switch-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none">
+              <circle cx="12" cy="8" r="3.25" stroke="currentColor" stroke-width="1.75" />
+              <path
+                d="M5.5 19.25c1.6-3.1 3.9-4.5 6.5-4.5s4.9 1.4 6.5 4.5"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+            Zaloguj się
+          </a>
+        </header>
+
+        <div class="auth-panel__body">
           @if (isLinkInvalid()) {
-            <div class="reset-password-form">
-              <p class="reset-password-form__eyebrow">Invalid link</p>
-              <p class="form-status form-status--error" role="alert">
-                This reset link is missing required details. Request a new one from your account
-                settings or try again from the email.
+            <div class="auth-form reset-password-form">
+              <p class="auth-form__eyebrow">Nieprawidłowy link</p>
+              <h2 class="auth-form__title">Link jest niepełny</h2>
+              <p class="reset-password-form__lead">
+                Ten link do resetu nie zawiera wymaganych danych. Poproś o nowy w ustawieniach konta
+                albo użyj ponownie wiadomości email.
               </p>
+              <a routerLink="/forgot-password" class="btn btn--primary submit-btn">
+                <span class="material-icons submit-btn__icon" aria-hidden="true">mail</span>
+                Wyślij nowy link
+              </a>
               <p class="auth-switch">
-                <a routerLink="/login" class="auth-switch__link">Back to login</a>
+                <a routerLink="/login" class="auth-switch__link">Wróć do logowania</a>
               </p>
             </div>
           } @else {
-            <form class="reset-password-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-              <div class="reset-password-form__intro">
-                <p class="reset-password-form__eyebrow">Password reset</p>
-                <p class="reset-password-form__email">Enter a new password for your account.</p>
-              </div>
+            <form
+              class="auth-form reset-password-form"
+              [formGroup]="form"
+              (ngSubmit)="submit()"
+              novalidate
+            >
+              <p class="auth-form__eyebrow">Nowe hasło</p>
+              <h2 class="auth-form__title">Ustaw hasło</h2>
+              <p class="reset-password-form__lead">
+                Wybierz nowe hasło do konta Starvia, żeby odzyskać dostęp.
+              </p>
 
               <div class="field">
-                <label class="field__label" for="password">New password</label>
+                <label class="field__label" for="password">Nowe hasło</label>
                 <input
                   id="password"
                   class="field__input"
                   type="password"
                   formControlName="password"
                   autocomplete="new-password"
-                  placeholder="Create a new password"
+                  placeholder="Utwórz nowe hasło"
                 />
                 <div class="field__message" aria-live="polite">
                   @if (password.invalid && (password.touched || password.dirty)) {
-                    <p class="field__error">Password must be at least 8 characters long.</p>
+                    <p class="field__error">Hasło musi mieć co najmniej 8 znaków.</p>
                   }
                 </div>
               </div>
 
               <div class="field">
-                <label class="field__label" for="repeat-password">Repeat password</label>
+                <label class="field__label" for="repeat-password">Powtórz hasło</label>
                 <input
                   id="repeat-password"
                   class="field__input"
                   type="password"
                   formControlName="repeatPassword"
                   autocomplete="new-password"
-                  placeholder="Repeat your new password"
+                  placeholder="Powtórz hasło"
                 />
                 <div class="field__message" aria-live="polite">
                   @if (repeatPassword.invalid && (repeatPassword.touched || repeatPassword.dirty)) {
-                    <p class="field__error">Please repeat your password.</p>
+                    <p class="field__error">Powtórz hasło.</p>
                   } @else if (
-                    form.hasError('passwordMismatch') && (repeatPassword.touched || repeatPassword.dirty)
+                    form.hasError('passwordMismatch') &&
+                    (repeatPassword.touched || repeatPassword.dirty)
                   ) {
-                    <p class="field__error">Passwords do not match.</p>
+                    <p class="field__error">Hasła nie są takie same.</p>
                   }
                 </div>
               </div>
 
               <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
-                {{ isSubmitting() ? 'Updating password...' : 'Update password' }}
+                <span class="material-icons submit-btn__icon" aria-hidden="true">lock_reset</span>
+                @if (isSubmitting()) {
+                  <span class="submit-btn__label">
+                    Zapisywanie<span class="btn-loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
+                  </span>
+                } @else {
+                  Zapisz hasło
+                }
               </button>
-
-              <p class="auth-switch">
-                Remembered it?
-                <a routerLink="/login" class="auth-switch__link">Log in</a>
-              </p>
 
               <div class="form-status-slot" aria-live="polite">
                 @if (resetError(); as error) {
@@ -135,7 +163,14 @@ const passwordsMatchValidator: ValidatorFn = (
             </form>
           }
         </div>
-      </app-hero>
+
+        <footer class="auth-panel__foot">
+          <p class="auth-panel__foot-copy">© {{ currentYear }} Starvia</p>
+          <div class="auth-panel__foot-links">
+            <a routerLink="/" class="auth-panel__foot-link">Wróć na stronę główną</a>
+          </div>
+        </footer>
+      </section>
     </div>
   `,
 })
@@ -144,6 +179,7 @@ export class ResetPasswordPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
+  protected readonly currentYear = new Date().getFullYear();
   protected readonly isLinkInvalid = signal(false);
   protected readonly isSubmitting = signal(false);
   protected readonly resetError = signal<ApplicationError | null>(null);
@@ -202,7 +238,11 @@ export class ResetPasswordPage {
         next: () => void this.router.navigateByUrl('/reset-password-success'),
         error: (error: unknown) => {
           this.resetError.set(
-            toApplicationError(error, 'Error while resetting password, contact support')
+            toApplicationError(
+              error,
+              'Nie udało się zresetować hasła. Spróbuj ponownie lub skontaktuj się z pomocą.',
+              'Wystąpił nieoczekiwany błąd. Spróbuj ponownie za chwilę.'
+            )
           );
         },
       });

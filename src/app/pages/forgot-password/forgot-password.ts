@@ -2,8 +2,6 @@ import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { Header } from '../../layout/header/header';
-import { Hero } from '../../layout/hero/hero';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
 import { PageRevealDirective } from '../../directives/page-reveal';
@@ -15,46 +13,74 @@ type ForgotPasswordForm = FormGroup<{
 
 @Component({
   selector: 'app-forgot-password-page',
-  imports: [ReactiveFormsModule, RouterLink, Header, Hero, PageRevealDirective],
+  imports: [ReactiveFormsModule, RouterLink, PageRevealDirective],
   styleUrl: './forgot-password.scss',
   template: `
-    <div appPageReveal>
-      <app-header
-        [links]="[]"
-        actionLabel="Back home"
-        actionRoute="/"
-        navLabel="Forgot password navigation"
-        brandMode="route"
-        brandRoute="/"
-      />
+    <div class="auth-shell marketing-surface" appPageReveal>
+      <div class="auth-atmosphere" aria-hidden="true">
+        <span class="auth-orb auth-orb--a"></span>
+        <span class="auth-orb auth-orb--b"></span>
+      </div>
 
-      <app-hero
-        eyebrow="Account recovery"
-        heading="Reset your password"
-        description="Enter your email address and we will send you a link to choose a new password."
-        [showActions]="false"
-        [fillViewport]="true"
-        [customPanel]="true"
-        panelCaption="Forgot password form"
-      >
-        <div hero-panel class="media-slot forgot-password-panel">
+      <section class="auth-panel" aria-label="Reset hasła">
+        <header class="auth-panel__top">
+          <a routerLink="/" class="brand" aria-label="Starvia — strona główna">
+            <span class="brand__icon-wrap">
+              <img
+                class="brand__icon"
+                src="/starvia-logo.png"
+                alt=""
+                width="44"
+                height="44"
+                decoding="async"
+              />
+            </span>
+            <span class="brand__name" aria-hidden="true">Starvia</span>
+          </a>
+          <a routerLink="/login" class="auth-panel__switch">
+            <svg class="auth-panel__switch-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none">
+              <circle cx="12" cy="8" r="3.25" stroke="currentColor" stroke-width="1.75" />
+              <path
+                d="M5.5 19.25c1.6-3.1 3.9-4.5 6.5-4.5s4.9 1.4 6.5 4.5"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+            Zaloguj się
+          </a>
+        </header>
+
+        <div class="auth-panel__body">
           @if (emailSent()) {
-            <div class="forgot-password-form">
-              <p class="forgot-password-form__eyebrow">Check your inbox</p>
+            <div class="auth-form forgot-password-form">
+              <p class="auth-form__eyebrow">Sprawdź skrzynkę</p>
+              <h2 class="auth-form__title">Link wysłany</h2>
               <p class="forgot-password-form__message">
-                If an account exists for <strong>{{ submittedEmail() }}</strong>, you will receive a
-                password reset link shortly.
+                Jeśli konto dla adresu <strong>{{ submittedEmail() }}</strong> istnieje, wkrótce
+                dostaniesz link do ustawienia nowego hasła.
               </p>
               <p class="forgot-password-form__hint">
-                If you don't see it, check spam or promotions and wait a minute before trying again.
+                Nie widzisz wiadomości? Sprawdź spam lub folder Oferty i odczekaj chwilę przed
+                kolejną próbą.
               </p>
-              <a routerLink="/login" class="btn btn--primary submit-btn">Back to login</a>
+              <a routerLink="/login" class="btn btn--primary submit-btn">
+                <span class="material-icons submit-btn__icon" aria-hidden="true">login</span>
+                Wróć do logowania
+              </a>
             </div>
           } @else {
-            <form class="forgot-password-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-              <div class="forgot-password-form__intro">
-                <p class="forgot-password-form__eyebrow">Password reset</p>
-              </div>
+            <form
+              class="auth-form forgot-password-form"
+              [formGroup]="form"
+              (ngSubmit)="submit()"
+              novalidate
+            >
+              <p class="auth-form__eyebrow">Odzyskiwanie dostępu</p>
+              <h2 class="auth-form__title">Zresetuj hasło</h2>
+              <p class="forgot-password-form__lead">
+                Podaj adres email — wyślemy link do wyboru nowego hasła.
+              </p>
 
               <div class="field">
                 <label class="field__label" for="email">Email</label>
@@ -64,23 +90,25 @@ type ForgotPasswordForm = FormGroup<{
                   type="email"
                   formControlName="email"
                   autocomplete="email"
-                  placeholder="you@company.com"
+                  placeholder="jan@firma.pl"
                 />
                 <div class="field__message" aria-live="polite">
                   @if (email.invalid && (email.touched || email.dirty)) {
-                    <p class="field__error">Enter a valid email address.</p>
+                    <p class="field__error">Podaj poprawny adres email.</p>
                   }
                 </div>
               </div>
 
               <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
-                {{ isSubmitting() ? 'Sending...' : 'Send email' }}
+                <span class="material-icons submit-btn__icon" aria-hidden="true">mail</span>
+                @if (isSubmitting()) {
+                  <span class="submit-btn__label">
+                    Wysyłanie<span class="btn-loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
+                  </span>
+                } @else {
+                  Wyślij link
+                }
               </button>
-
-              <p class="auth-switch">
-                Remembered your password?
-                <a routerLink="/login" class="auth-switch__link">Log in</a>
-              </p>
 
               <div class="form-status-slot" aria-live="polite">
                 @if (submitError(); as error) {
@@ -92,12 +120,21 @@ type ForgotPasswordForm = FormGroup<{
             </form>
           }
         </div>
-      </app-hero>
+
+        <footer class="auth-panel__foot">
+          <p class="auth-panel__foot-copy">© {{ currentYear }} Starvia</p>
+          <div class="auth-panel__foot-links">
+            <a routerLink="/" class="auth-panel__foot-link">Wróć na stronę główną</a>
+          </div>
+        </footer>
+      </section>
     </div>
   `,
 })
 export class ForgotPasswordPage {
   private readonly authService = inject(AuthService);
+
+  protected readonly currentYear = new Date().getFullYear();
 
   protected readonly form: ForgotPasswordForm = new FormGroup({
     email: new FormControl('', {
@@ -140,7 +177,11 @@ export class ForgotPasswordPage {
         },
         error: (error: unknown) => {
           this.submitError.set(
-            toApplicationError(error, 'Unable to send the reset email right now. Please try again later.')
+            toApplicationError(
+              error,
+              'Nie udało się wysłać wiadomości. Spróbuj ponownie za chwilę.',
+              'Wystąpił nieoczekiwany błąd. Spróbuj ponownie za chwilę.'
+            )
           );
         },
       });

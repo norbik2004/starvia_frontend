@@ -1,125 +1,110 @@
-import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  OnDestroy,
-  inject,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { createFeaturesStars } from '../shared/section-stars';
-import { createSectionStarsInteraction } from '../shared/section-stars-pointer';
-import { SectionStarsLayer } from '../shared/section-stars-layer';
+import { ScrollRevealDirective } from '../../directives/scroll-reveal';
 
-type FeatureCard = {
+type FeatureBeat = {
+  id: string;
   eyebrow: string;
   title: string;
   body: string;
+  image: string;
+  imageAlt: string;
 };
 
-const SUPPORTING_FEATURES: FeatureCard[] = [
+const FEATURE_BEATS: FeatureBeat[] = [
   {
-    eyebrow: 'Calendar',
-    title: 'Kampanie, serie i pojedyncze posty mieszkaja w jednym kalendarzu.',
-    body: 'Zespol widzi rytm publikacji, zaleznosci i priorytety bez recznego spinania tego w kilku narzedziach.',
+    id: 'content',
+    eyebrow: 'Zarządzanie treścią',
+    title: 'Jeden workspace na drafty, wersje i statusy.',
+    body: 'Trzymaj posty, briefy i poprawki w jednym miejscu. Wiesz, co jest w trakcie, co czeka na akceptację i co idzie na live.',
+    image: '/marketing/feature-content.png',
+    imageAlt: 'Workspace zarządzania treścią',
   },
   {
-    eyebrow: 'Brand voice',
-    title: 'Jeden draft zamienia sie w wersje dopasowane do kazdego kanalu.',
-    body: 'Zachowujesz spojny ton marki, ale bez przepisywania tresci od nowa dla LinkedIna, X czy Instagrama.',
+    id: 'ai-copy',
+    eyebrow: 'AI generowanie treści',
+    title: 'Copy w tonie marki — z AI supportem przy każdym draftcie.',
+    body: 'Generuj posty, hooki i warianty kanałowe. Asystent AI pomaga iterować, dopasowywać długość i utrzymać spójny voice marki.',
+    image: '/marketing/feature-ai.png',
+    imageAlt: 'AI writing i support',
   },
   {
-    eyebrow: 'Review loop',
-    title: 'Feedback i poprawki dzieja sie tam, gdzie tresc faktycznie powstaje.',
-    body: 'Mniej chaosu w komentarzach i mniej zgadywania, ktora wersja jest finalna oraz gotowa do publikacji.',
+    id: 'ai-media',
+    eyebrow: 'Obrazy contentowe',
+    title: 'Spersonalizowane grafiki dopasowane do Twojej marki.',
+    body: 'Generuj wizualia pod posty social — w stylu, kolorach i klimacie marki. Szybciej od briefu do gotowego assetu.',
+    image: '/marketing/feature-media.png',
+    imageAlt: 'Generowanie obrazów contentowych AI',
   },
   {
-    eyebrow: 'AI ops',
-    title: 'AI wspiera produkcje, ale nie odrywa zespolu od realnego kontekstu kampanii.',
-    body: 'Briefy, cele i poprzednie iteracje zostaja w obiegu, wiec kazdy kolejny draft zaczyna z lepszego miejsca.',
+    id: 'calendar',
+    eyebrow: 'Kalendarz publikacji',
+    title: 'Planuj publikacje z wyprzedzeniem.',
+    body: 'Układaj kolejkę postów w kalendarzu, widzisz rytm kampanii i publikujesz wtedy, kiedy trzeba — bez chaosu terminów.',
+    image: '/marketing/feature-publish.png',
+    imageAlt: 'Kalendarz publikacji',
   },
 ];
 
 @Component({
   selector: 'app-features',
-  imports: [RouterLink, SectionStarsLayer],
+  imports: [RouterLink, ScrollRevealDirective],
   styleUrl: './features.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section
-      id="features"
-      class="page-section features"
-      (mousemove)="starsInteraction.onPointerMove($event)"
-      (mouseleave)="starsInteraction.onPointerLeave()"
-    >
-      <app-section-stars-layer
-        class="features-stars"
-        [stars]="stars"
-        [nearIds]="starsInteraction.nearStarIds()"
-      />
-
+    <section id="features" class="page-section features">
       <div class="section-inner">
-        <header class="section-header section-header--centered">
-          <p class="section-eyebrow">System operacyjny dla contentu</p>
-          <h2 class="section-title">Starvia laczy strategia, AI i publikacje w jeden operacyjny flow.</h2>
+        <header class="section-header section-header--centered" appScrollReveal>
+          <p class="section-eyebrow">Funkcje</p>
+          <h2 class="section-title">Od pomysłu do publikacji — z AI w rytmie marki.</h2>
           <p class="section-lead">
-            Zamiast dorzucac kolejny edytor, Starvia spina caly proces: od planowania kampanii po
-            finalny post i kolejne iteracje zespolu.
+            Zarządzaj treścią, generuj copy i obrazy, planuj w kalendarzu i publikuj na Facebooku,
+            Instagramie oraz LinkedIn.
           </p>
         </header>
 
-        <article class="feature-spotlight" aria-labelledby="feature-ai-title">
-          <div class="feature-spotlight__content">
-            <p class="feature-spotlight__eyebrow">Execution gap</p>
-            <h3 id="feature-ai-title" class="feature-spotlight__title">
-              Tworca lub marketer nie powinien spedzac dnia na recznym koordynowaniu publikacji.
-            </h3>
-            <p class="feature-spotlight__lead">
-              Starvia porzadkuje proces, w ktorym strategia, drafty, feedback i harmonogram
-              wzajemnie sie napedzaja zamiast blokowac.
-            </p>
-            <div class="feature-spotlight__metrics" aria-label="Korzyści operacyjne">
-              <div class="feature-spotlight__metric">
-                <span class="feature-spotlight__metric-value">Jeden rytm</span>
-                <span class="feature-spotlight__metric-label">od briefu do publikacji</span>
+        <div class="feature-beats">
+          @for (item of beats; track item.id; let i = $index; let odd = $odd) {
+            <article
+              class="feature-beat"
+              [class.feature-beat--reverse]="odd"
+              appScrollReveal
+              [appScrollRevealDelay]="i * 70"
+            >
+              <div class="feature-beat__copy">
+                <div class="feature-beat__meta">
+                  <span class="feature-beat__index" aria-hidden="true">{{ pad(i + 1) }}</span>
+                  <p class="feature-beat__eyebrow">{{ item.eyebrow }}</p>
+                </div>
+                <h3 class="feature-beat__title">{{ item.title }}</h3>
+                <p class="feature-beat__body">{{ item.body }}</p>
               </div>
-              <div class="feature-spotlight__metric">
-                <span class="feature-spotlight__metric-value">Mniej tarcia</span>
-                <span class="feature-spotlight__metric-label">miedzy contentem, AI i review</span>
-              </div>
-            </div>
-            <a routerLink="/register" class="feature-spotlight__link">Uruchom workflow w Starvia</a>
-          </div>
-        </article>
-
-        <ul class="feature-grid">
-          @for (item of supportingFeatures; track item.title) {
-            <li class="feature-card">
-              <p class="feature-card__eyebrow">{{ item.eyebrow }}</p>
-              <h3 class="feature-card__title">{{ item.title }}</h3>
-              <p class="feature-card__body">{{ item.body }}</p>
-            </li>
+              <figure class="feature-beat__media">
+                <span class="feature-beat__media-glow" aria-hidden="true"></span>
+                <img
+                  [src]="item.image"
+                  [alt]="item.imageAlt"
+                  width="1280"
+                  height="720"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </figure>
+            </article>
           }
-        </ul>
+        </div>
+
+        <div class="features-cta" appScrollReveal>
+          <a routerLink="/register" class="btn btn--primary">Zacznij za darmo</a>
+        </div>
       </div>
     </section>
   `,
 })
-export class Features implements AfterViewInit, OnDestroy {
-  private readonly host = inject(ElementRef<HTMLElement>);
+export class Features {
+  protected readonly beats = FEATURE_BEATS;
 
-  protected readonly supportingFeatures = SUPPORTING_FEATURES;
-  protected readonly stars = createFeaturesStars();
-  protected readonly starsInteraction = createSectionStarsInteraction(this.stars);
-
-  ngAfterViewInit(): void {
-    const section = this.host.nativeElement.querySelector('section');
-    if (section instanceof HTMLElement) {
-      this.starsInteraction.attach(section);
-    }
-  }
-
-  ngOnDestroy(): void {
-    this.starsInteraction.destroy();
+  protected pad(n: number): string {
+    return n.toString().padStart(2, '0');
   }
 }

@@ -15,6 +15,95 @@
   }
 }
 
+:host-context(.home) {
+  font-family: var(--font-primary);
+
+  .site-header::before {
+    background: color-mix(in srgb, var(--sv-canvas) 92%, transparent);
+  }
+
+  .site-header.is-at-top::before {
+    background: transparent;
+  }
+
+  .site-header.is-scrolled .header-shell {
+    border-color: color-mix(in srgb, var(--sv-dark) 12%, transparent);
+    background: color-mix(in srgb, var(--sv-canvas-soft) 96%, transparent);
+    box-shadow: 0 12px 32px rgb(45 45 45 / 0.08);
+  }
+
+  /* Keep brand wordmark visible — hide-on-top fought hierarchy */
+  .site-header.is-at-top .brand {
+    gap: 0.4rem;
+  }
+
+  .site-header.is-at-top .brand__name {
+    max-width: 8rem;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .brand,
+  .brand:hover {
+    color: var(--sv-ink);
+  }
+
+  .brand__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.55rem;
+  }
+
+  .nav-link {
+    color: var(--sv-ink-muted);
+    font-weight: var(--font-weight-medium);
+
+    &:hover,
+    &:focus-visible {
+      color: var(--sv-ink);
+      background: transparent;
+    }
+  }
+
+  .nav-link::after {
+    background: var(--sv-accent);
+  }
+
+  .menu-toggle,
+  .nav-close {
+    color: var(--sv-ink);
+  }
+
+  .nav .btn--primary {
+    min-width: 10rem;
+  }
+
+  .nav-login {
+    min-width: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 64rem) {
+    .nav {
+      gap: 0.35rem;
+    }
+
+    .nav .btn {
+      margin-left: 0.35rem;
+    }
+
+    .nav .btn--primary {
+      margin-left: 0.75rem;
+    }
+
+    .brand__icon {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+}
+
 .header-layout {
   position: relative;
 }
@@ -461,6 +550,12 @@
   :host.is-header-hidden .header-shell {
     pointer-events: none;
     transform: translate3d(0, calc(-100% - 0.5rem), 0);
+  }
+
+  /* Header chrome sits above the body backdrop while open — hide it so only the drawer shows. */
+  :host.is-nav-open .header-motion {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .nav-drawer-head {

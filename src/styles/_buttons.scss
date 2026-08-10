@@ -1,4 +1,4 @@
-// Primary app buttons — Apple-like solid primary + outlined secondary
+// Primary app buttons — marketing uses charcoal → lime; dashboard keeps Material primary
 
 .btn.btn--primary,
 .btn.btn--raised-primary,
@@ -8,21 +8,21 @@ button.btn--raised-primary,
 a.btn--primary,
 a.btn--raised-primary,
 a.btn--hero-primary {
-  min-height: 2.75rem;
-  padding-inline: 1.375rem;
+  min-height: 2.8125rem;
+  padding: 0.81rem 1.5rem;
   border: 1px solid var(--mat-sys-primary);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-cta);
   color: var(--mat-sys-on-primary, #fff);
-  font-weight: var(--font-weight-normal);
+  font-family: inherit;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.01em;
   background-color: var(--mat-sys-primary);
   background-image: none;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--mat-sys-primary) 22%, transparent);
+  box-shadow: none;
   cursor: pointer;
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
-    box-shadow 0.2s ease,
     color 0.2s ease,
     opacity 0.2s ease;
 }
@@ -37,7 +37,6 @@ a.btn--raised-primary:hover,
 a.btn--hero-primary:hover {
   background-color: color-mix(in srgb, var(--mat-sys-primary) 88%, #fff);
   border-color: color-mix(in srgb, var(--mat-sys-primary) 88%, #fff);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--mat-sys-primary) 28%, transparent);
 }
 
 .btn.btn--primary:disabled,
@@ -46,7 +45,6 @@ button.btn--primary:disabled,
 button.btn--raised-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-  box-shadow: none;
 }
 
 .btn.btn--secondary,
@@ -57,16 +55,16 @@ button.btn--raised-secondary,
 a.btn--secondary,
 a.btn--raised-secondary,
 a.btn--hero-secondary {
-  min-height: 2.75rem;
-  padding-inline: 1.375rem;
+  min-height: 2.8125rem;
+  padding: 0.81rem 1.25rem;
   border: 1px solid var(--mat-sys-primary);
-  border-radius: var(--radius-pill);
-  background-color: color-mix(in srgb, var(--mat-sys-surface) 72%, transparent);
+  border-radius: var(--radius-cta);
+  background-color: transparent;
   background-image: none;
   color: var(--mat-sys-primary);
-  font-weight: var(--font-weight-normal);
+  font-family: inherit;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.01em;
-  backdrop-filter: blur(8px);
   box-shadow: none;
   cursor: pointer;
   transition:
@@ -105,6 +103,68 @@ a.btn--compact {
   padding: 0.5rem 1.25rem;
   font-size: 1rem;
   line-height: 1.2;
+}
+
+/* Landing / Tabela-style CTAs (scoped) */
+.home,
+.marketing-surface {
+  .btn.btn--primary,
+  .btn.btn--raised-primary,
+  .btn.btn--hero-primary,
+  a.btn--primary,
+  a.btn--raised-primary,
+  a.btn--hero-primary {
+    border-color: var(--sv-dark);
+    background-color: var(--sv-dark);
+    color: var(--sv-white);
+  }
+
+  .btn.btn--primary:hover:not(:disabled),
+  .btn.btn--raised-primary:hover:not(:disabled),
+  .btn.btn--hero-primary:hover:not(:disabled),
+  a.btn--primary:hover,
+  a.btn--raised-primary:hover,
+  a.btn--hero-primary:hover {
+    border-color: var(--sv-accent);
+    background-color: var(--sv-accent);
+    color: var(--sv-ink);
+  }
+
+  .btn.btn--primary:active:not(:disabled),
+  .btn.btn--hero-primary:active:not(:disabled),
+  a.btn--primary:active,
+  a.btn--hero-primary:active {
+    border-color: var(--sv-accent-dark);
+    background-color: var(--sv-accent-dark);
+    color: var(--sv-ink);
+  }
+
+  .btn.btn--secondary,
+  .btn.btn--raised-secondary,
+  .btn.btn--hero-secondary,
+  a.btn--secondary,
+  a.btn--raised-secondary,
+  a.btn--hero-secondary {
+    border-color: var(--sv-dark-soft);
+    background-color: transparent;
+    color: var(--sv-ink);
+  }
+
+  .btn.btn--secondary:hover:not(:disabled),
+  .btn.btn--raised-secondary:hover:not(:disabled),
+  .btn.btn--hero-secondary:hover:not(:disabled),
+  a.btn--secondary:hover,
+  a.btn--raised-secondary:hover,
+  a.btn--hero-secondary:hover {
+    border-color: var(--sv-accent);
+    background-color: transparent;
+    color: var(--sv-ink);
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid var(--sv-accent);
+    outline-offset: 3px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
