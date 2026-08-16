@@ -3,9 +3,9 @@
 $compact-input-height: 1.875rem;
 
 @mixin compact-field-surface {
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 14%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, #fff 55%, transparent);
+  background: color-mix(in srgb, var(--sv-white) 72%, var(--sv-canvas));
 }
 
 :host {
@@ -28,6 +28,8 @@ $compact-input-height: 1.875rem;
     justify-content: space-between;
     gap: var(--space-sm) var(--space-md);
     padding: 0.625rem 0.875rem;
+    border-color: color-mix(in srgb, var(--sv-dark) 12%, transparent);
+    background: color-mix(in srgb, var(--sv-canvas-soft) 94%, transparent);
   }
 
   &__start {
@@ -40,7 +42,7 @@ $compact-input-height: 1.875rem;
 
   &__range {
     margin: 0;
-    color: var(--mat-sys-on-surface-variant);
+    color: var(--sv-ink-muted);
     font-size: 0.8125rem;
     line-height: 1.4;
     white-space: nowrap;
@@ -49,7 +51,7 @@ $compact-input-height: 1.875rem;
 
   &__range-label {
     margin-right: 0.25rem;
-    color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 88%, transparent);
+    color: var(--sv-ink-muted);
   }
 
   &__page-size {
@@ -59,7 +61,7 @@ $compact-input-height: 1.875rem;
       text-transform: none;
       letter-spacing: 0;
       font-size: 0.8125rem;
-      color: var(--mat-sys-on-surface-variant);
+      color: var(--sv-ink-muted);
     }
 
     .field__input {
@@ -72,9 +74,10 @@ $compact-input-height: 1.875rem;
       @include compact-field-surface;
 
       &:focus {
-        border-color: color-mix(in srgb, var(--mat-sys-primary) 35%, var(--border-subtle));
-        background: #fff;
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--mat-sys-primary) 7%, transparent);
+        border-color: color-mix(in srgb, var(--sv-accent) 70%, var(--sv-dark));
+        background: var(--sv-white);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-accent) 25%, transparent);
+        outline: none;
       }
     }
   }
@@ -102,10 +105,10 @@ $compact-input-height: 1.875rem;
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
-    border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sv-dark) 14%, transparent);
     border-radius: var(--radius-sm);
-    background: #fff;
-    color: var(--mat-sys-on-surface);
+    background: color-mix(in srgb, var(--sv-white) 86%, var(--sv-canvas));
+    color: var(--sv-ink);
     cursor: pointer;
     transition:
       background-color 0.2s ease,
@@ -119,13 +122,13 @@ $compact-input-height: 1.875rem;
     }
 
     &:hover:not(:disabled) {
-      border-color: color-mix(in srgb, var(--mat-sys-primary) 35%, var(--border-subtle));
-      background: color-mix(in srgb, var(--mat-sys-primary) 8%, #fff);
-      color: var(--mat-sys-primary);
+      border-color: var(--sv-dark);
+      background: var(--sv-dark);
+      color: var(--sv-accent);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--mat-sys-primary);
+      outline: 2px solid var(--sv-accent);
       outline-offset: 2px;
     }
 
@@ -151,7 +154,7 @@ $compact-input-height: 1.875rem;
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--mat-sys-on-surface-variant);
+    color: var(--sv-ink-muted);
     font: inherit;
     font-size: 0.8125rem;
     font-weight: var(--font-weight-medium);
@@ -163,21 +166,21 @@ $compact-input-height: 1.875rem;
       color 0.2s ease;
 
     &:hover:not(:disabled) {
-      border-color: color-mix(in srgb, var(--border-subtle) 85%, transparent);
-      background: color-mix(in srgb, var(--mat-sys-surface-container) 70%, #fff);
-      color: var(--mat-sys-on-surface);
+      border-color: color-mix(in srgb, var(--sv-dark) 18%, transparent);
+      background: color-mix(in srgb, var(--sv-canvas-muted) 65%, var(--sv-white));
+      color: var(--sv-ink);
     }
 
     &.is-active {
-      border-color: color-mix(in srgb, var(--mat-sys-primary) 30%, var(--border-subtle));
-      background: color-mix(in srgb, var(--mat-sys-primary) 12%, #fff);
-      color: var(--mat-sys-primary);
+      border-color: color-mix(in srgb, var(--sv-accent) 72%, var(--sv-dark));
+      background: var(--sv-accent);
+      color: var(--sv-ink);
       font-weight: var(--font-weight-semibold);
       cursor: default;
     }
 
     &:focus-visible {
-      outline: 2px solid var(--mat-sys-primary);
+      outline: 2px solid var(--sv-accent);
       outline-offset: 2px;
     }
 
@@ -193,7 +196,7 @@ $compact-input-height: 1.875rem;
     justify-content: center;
     min-width: 1.5rem;
     height: 2.25rem;
-    color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 70%, transparent);
+    color: var(--sv-ink-muted);
     font-size: 0.875rem;
     letter-spacing: 0.08em;
     user-select: none;

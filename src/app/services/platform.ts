@@ -12,7 +12,6 @@ export class PlatformService {
   getPlatforms(): Observable<Platform[]> {
     return this.http
       .get(this.platformsUrl, {
-        withCredentials: true,
         responseType: 'text',
       })
       .pipe(map((response) => parsePlatformsResponse(response)));

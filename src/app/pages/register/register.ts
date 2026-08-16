@@ -14,6 +14,7 @@ import { ApplicationError, toApplicationError } from '../../models/application-e
 import { AuthService } from '../../services/auth';
 import { PageRevealDirective } from '../../directives/page-reveal';
 import { lockAuthPageBody } from '../shared/auth-page-body-lock';
+import { grantConfirmEmailAccess } from '../confirm-email/confirm-email-access';
 
 type RegisterForm = FormGroup<{
   email: FormControl<string>;
@@ -222,10 +223,12 @@ export class RegisterPage {
       .register({ email, password })
       .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
-        next: () =>
+        next: ({ userId }) => {
+          grantConfirmEmailAccess({ email, userId });
           void this.router.navigate(['/confirm-email'], {
-            state: { email },
-          }),
+            state: { email, userId },
+          });
+        },
         error: (error: unknown) => {
           this.registerError.set(
             toApplicationError(

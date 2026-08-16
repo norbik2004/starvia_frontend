@@ -6,6 +6,8 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
+  background: var(--sv-dark);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sv-white) 82%, transparent);
 
   &--md {
     width: 2.75rem;
@@ -34,12 +36,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(
-      145deg,
-      color-mix(in srgb, var(--mat-sys-primary) 78%, #fff),
-      color-mix(in srgb, var(--mat-sys-primary) 42%, var(--mat-sys-surface-container-high))
-    );
-    color: #fff;
+    background:
+      radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--sv-accent) 18%, transparent), transparent 48%),
+      var(--sv-dark);
+    color: var(--sv-accent);
     font-size: 0.8125rem;
     font-weight: var(--font-weight-bold);
     letter-spacing: 0.03em;

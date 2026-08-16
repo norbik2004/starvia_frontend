@@ -60,8 +60,10 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
     >
       <header class="dashboard-social-account-detail__header" appPageReveal>
         <a routerLink="/dashboard/social-accounts" class="section-eyebrow dashboard-social-account-detail__back">
-          ← Back to social accounts
+          <span class="material-icons" aria-hidden="true">arrow_back</span>
+          Back to social accounts
         </a>
+        <span class="dashboard-social-account-detail__header-note" aria-hidden="true">Fine-tune the details.</span>
       </header>
 
       @if (isLoading()) {
@@ -69,7 +71,10 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
       }
 
       @if (errorMessage()) {
-        <p class="posts-status posts-status--error" role="alert">{{ errorMessage() }}</p>
+        <div class="dashboard-route-status dashboard-route-status--error" role="alert">
+          <span class="material-icons" aria-hidden="true">error_outline</span>
+          <p>{{ errorMessage() }}</p>
+        </div>
       }
 
       @if (connection(); as item) {
@@ -106,6 +111,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
               </div>
 
               <div class="social-account-detail-card__hero-copy">
+                <p class="social-account-detail-card__eyebrow">Connected channel</p>
                 <div class="social-account-detail-card__headline">
                   <h1 id="social-account-detail-title" class="social-account-detail-card__title">
                     {{ platformLabel(item.platformId) }}
@@ -436,15 +442,17 @@ export class DashboardSocialAccountDetail {
     this.editingField.set(field);
 
     queueMicrotask(() => {
-      if (field === 'accountUsername') {
-        const input = this.usernameInput()?.nativeElement;
-        if (!input) return;
-        input.focus();
-        input.select();
-        return;
-      }
+      requestAnimationFrame(() => {
+        if (field === 'accountUsername') {
+          const input = this.usernameInput()?.nativeElement;
+          if (!input) return;
+          input.focus({ preventScroll: true });
+          input.select();
+          return;
+        }
 
-      this.commentInput()?.focus();
+        this.commentInput()?.focus();
+      });
     });
   }
 

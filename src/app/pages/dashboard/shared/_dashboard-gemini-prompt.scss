@@ -1,4 +1,3 @@
-$dashboard-green: #2e7d32;
 $dashboard-prompt-limit-red: #c62828;
 
 .dashboard-gemini-prompt-composer {
@@ -20,7 +19,7 @@ $dashboard-prompt-limit-red: #c62828;
   text-align: right;
   font-size: 0.6875rem;
   line-height: 1.4;
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--sv-ink-muted);
 
   &--limit {
     color: $dashboard-prompt-limit-red;
@@ -37,13 +36,13 @@ $dashboard-prompt-limit-red: #c62828;
   padding: 0.55rem 1.15rem;
   border: none;
   border-radius: var(--radius-pill);
-  color: #fff;
+  color: var(--sv-ink);
   font-size: 0.875rem;
   font-weight: var(--font-weight-semibold);
   line-height: 1.2;
   cursor: pointer;
-  background: $dashboard-green;
-  box-shadow: 0 4px 14px color-mix(in srgb, $dashboard-green 24%, transparent);
+  background: var(--sv-accent);
+  box-shadow: 0 8px 20px -14px color-mix(in srgb, var(--sv-dark) 55%, transparent);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
@@ -55,11 +54,12 @@ $dashboard-prompt-limit-red: #c62828;
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px color-mix(in srgb, $dashboard-green 30%, transparent);
+    background: var(--sv-accent-dark);
+    box-shadow: 0 12px 26px -15px color-mix(in srgb, var(--sv-dark) 58%, transparent);
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, $dashboard-green 65%, transparent);
+    outline: 2px solid var(--sv-dark);
     outline-offset: 2px;
   }
 
@@ -70,5 +70,15 @@ $dashboard-prompt-limit-red: #c62828;
 
   &--full {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-green-pill-btn {
+    transition: none;
+
+    &:hover:not(:disabled) {
+      transform: none;
+    }
   }
 }

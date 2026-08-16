@@ -1,16 +1,11 @@
-import { AfterViewInit, Component, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { toApplicationError } from '../../../models/application-error';
 import { normalizePostTitle, POST_TITLE_MAX_LENGTH } from '../../../models/post';
 import { PostService } from '../../../services/post';
-import {
-  DEFAULT_POSTS_LIST_QUERY,
-  postsListQueryToParams,
-  readPostsListQueryFromHistory,
-} from '../dashboard-posts/posts-list-query';
-import { PageRevealDirective } from '../../../directives/page-reveal';
+import { DrawerMotionDirective } from '../../../layout/shared/drawer-motion';
 
 type CreatePostForm = FormGroup<{
   title: FormControl<string>;
@@ -18,89 +13,116 @@ type CreatePostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-create',
-  imports: [RouterLink, ReactiveFormsModule, PageRevealDirective],
-  styleUrl: '../dashboard-post-detail/dashboard-post-detail.scss',
+  imports: [ReactiveFormsModule, DrawerMotionDirective],
+  styleUrl: './dashboard-post-create.scss',
   template: `
-    <section class="dashboard-content-page post-detail" aria-labelledby="post-create-title" appPageReveal>
-      <header class="post-detail__header">
-        <div class="post-detail__top">
-          <div class="post-detail__nav">
-            <a
-              [routerLink]="['/dashboard/posts']"
-              [queryParams]="postsReturnQueryParams()"
-              class="section-eyebrow post-detail__eyebrow"
-            >
-              ← Back to posts
-            </a>
-          </div>
-        </div>
+    <button
+      type="button"
+      class="post-create-drawer__backdrop"
+      appDrawerMotion="backdrop"
+      [drawerMotionState]="open() ? 'open' : closing() ? 'closing' : 'closed'"
+      [attr.aria-hidden]="!open()"
+      aria-label="Close new post panel"
+      (click)="cancel()"
+    ></button>
 
-        <h1 id="post-create-title" class="post-detail__title post-detail__title--static">New post</h1>
+    <aside
+      #drawer
+      class="post-create-drawer"
+      appDrawerMotion="panel"
+      [drawerMotionState]="open() ? 'open' : closing() ? 'closing' : 'closed'"
+      [attr.aria-hidden]="!open()"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="post-create-title"
+      aria-describedby="post-create-description"
+    >
+      <header class="post-create-drawer__head">
+        <div>
+          <p class="post-create-drawer__eyebrow">New content</p>
+          <h1 id="post-create-title" class="post-create-drawer__title">Create a post</h1>
+        </div>
+        <button
+          type="button"
+          class="post-create-drawer__close"
+          aria-label="Close new post panel"
+          [disabled]="isCreating()"
+          (click)="cancel()"
+        >
+          <span class="post-create-drawer__close-icon" aria-hidden="true"></span>
+        </button>
       </header>
 
-      @if (errorMessage()) {
-        <p class="posts-status posts-status--error" role="alert">{{ errorMessage() }}</p>
-      }
+      <form class="post-create-drawer__form" [formGroup]="form" (ngSubmit)="submit()">
+        <div class="post-create-drawer__body">
+          <p id="post-create-description" class="post-create-drawer__description">
+            Start with a clear title. You can add the content, media and publication details in the next step.
+          </p>
 
-      <form class="post-detail__sections" [formGroup]="form" (ngSubmit)="submit()">
-        <section class="post-detail__content post-detail__three-quarters" aria-labelledby="post-create-title-label">
-          <p id="post-create-title-label" class="section-eyebrow post-detail__content-label">Title</p>
-          <div class="dashboard-edit-panel">
+          @if (errorMessage()) {
+            <p class="post-create-drawer__status" role="alert">{{ errorMessage() }}</p>
+          }
+
+          <div class="field">
+            <label class="field__label" for="create-post-title">Post title</label>
             <textarea
               #titleInput
               id="create-post-title"
-              class="field__input field__input--title"
+              class="field__input"
               formControlName="title"
-              rows="2"
+              rows="5"
               maxlength="{{ titleMaxLength }}"
               autocomplete="off"
+              placeholder="What do you want to write about?"
               aria-describedby="create-post-title-hint create-post-title-error"
               (input)="onTitleInput()"
             ></textarea>
-            <div class="dashboard-edit-foot">
-              <div class="dashboard-edit-meta">
-                <p id="create-post-title-hint" class="dashboard-edit-hint">
-                  {{ form.controls.title.value.length }}/{{ titleMaxLength }}
-                </p>
-                <div class="dashboard-edit-meta__error" aria-live="polite">
-                  @if (form.controls.title.touched && form.controls.title.hasError('required')) {
-                    <p id="create-post-title-error" class="field__error" role="alert">Title is required.</p>
-                  } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
-                    <p id="create-post-title-error" class="field__error" role="alert">
-                      Title cannot exceed {{ titleMaxLength }} characters.
-                    </p>
-                  }
-                </div>
+            <div class="field__meta">
+              <div aria-live="polite">
+                @if (form.controls.title.touched && form.controls.title.hasError('required')) {
+                  <p id="create-post-title-error" class="field__error" role="alert">Title is required.</p>
+                } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
+                  <p id="create-post-title-error" class="field__error" role="alert">
+                    Title cannot exceed {{ titleMaxLength }} characters.
+                  </p>
+                }
               </div>
-              <div class="dashboard-inline-actions">
-                <button type="submit" class="btn btn--primary btn--raised-primary btn--compact" [disabled]="isCreating() || form.invalid">
-                  {{ isCreating() ? 'Creating…' : 'Create post' }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--secondary btn--raised-secondary btn--compact"
-                  [disabled]="isCreating()"
-                  (click)="cancel()"
-                >
-                  Cancel
-                </button>
-              </div>
+              <span id="create-post-title-hint" class="field__counter">
+                {{ form.controls.title.value.length }}/{{ titleMaxLength }}
+              </span>
             </div>
           </div>
-        </section>
+        </div>
+
+        <footer class="post-create-drawer__actions">
+          <button
+            type="button"
+            class="btn btn--secondary"
+            [disabled]="isCreating()"
+            (click)="cancel()"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn--primary" [disabled]="isCreating() || form.invalid">
+            <span class="material-icons" aria-hidden="true">add</span>
+            {{ isCreating() ? 'Creating…' : 'Create post' }}
+          </button>
+        </footer>
       </form>
-    </section>
+    </aside>
   `,
 })
-export class DashboardPostCreate implements AfterViewInit {
+export class DashboardPostCreate {
   private readonly postService = inject(PostService);
   private readonly router = inject(Router);
   private readonly titleInput = viewChild<ElementRef<HTMLTextAreaElement>>('titleInput');
+  private readonly drawer = viewChild<ElementRef<HTMLElement>>('drawer');
+
+  readonly closed = output<void>();
+  readonly open = input(false);
+  readonly closing = input(false);
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
-  protected readonly postsReturnQueryParams = signal(
-    postsListQueryToParams(readPostsListQueryFromHistory() ?? DEFAULT_POSTS_LIST_QUERY)
-  );
 
   protected readonly form: CreatePostForm = new FormGroup({
     title: new FormControl('', {
@@ -112,14 +134,30 @@ export class DashboardPostCreate implements AfterViewInit {
   protected readonly isCreating = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
-  ngAfterViewInit(): void {
-    queueMicrotask(() => this.titleInput()?.nativeElement?.focus());
-  }
+  private readonly focusWhenOpened = effect((onCleanup) => {
+    if (!this.open()) {
+      return;
+    }
 
-  @HostListener('document:keydown.escape')
-  protected onEscape(): void {
-    if (!this.isCreating()) {
+    this.form.reset({ title: '' });
+    this.errorMessage.set(null);
+    const frame = requestAnimationFrame(() => this.titleInput()?.nativeElement.focus());
+    onCleanup(() => cancelAnimationFrame(frame));
+  });
+
+  @HostListener('document:keydown', ['$event'])
+  protected onDocumentKeydown(event: KeyboardEvent): void {
+    if (!this.open()) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
       this.cancel();
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      this.keepFocusInDrawer(event);
     }
   }
 
@@ -152,9 +190,9 @@ export class DashboardPostCreate implements AfterViewInit {
   }
 
   protected cancel(): void {
-    void this.router.navigate(['/dashboard/posts'], {
-      queryParams: this.postsReturnQueryParams(),
-    });
+    if (this.open() && !this.isCreating() && !this.closing()) {
+      this.closed.emit();
+    }
   }
 
   private applyClampedInput(
@@ -181,5 +219,29 @@ export class DashboardPostCreate implements AfterViewInit {
 
   private clampTitle(value: string): string {
     return normalizePostTitle(value).slice(0, POST_TITLE_MAX_LENGTH);
+  }
+
+  private keepFocusInDrawer(event: KeyboardEvent): void {
+    const focusable = Array.from(
+      this.drawer()?.nativeElement.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), textarea:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    );
+
+    if (focusable.length === 0) {
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 }

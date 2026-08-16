@@ -1,6 +1,6 @@
 $delete-red: #c62828;
 $delete-red-hover: #b71c1c;
-$delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
+$delete-red-soft: color-mix(in srgb, $delete-red 9%, var(--sv-white));
 
 .dashboard-delete-btn {
   display: inline-flex;
@@ -10,7 +10,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   width: 2.5rem;
   height: 2.5rem;
   padding: 0;
-  border: 1px solid color-mix(in srgb, $delete-red 28%, var(--border-subtle));
+  border: 1px solid color-mix(in srgb, $delete-red 32%, color-mix(in srgb, var(--sv-dark) 10%, transparent));
   border-radius: var(--radius-md);
   background: $delete-red-soft;
   color: $delete-red;
@@ -27,7 +27,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 
   &:hover:not(:disabled) {
-    color: #fff;
+    color: var(--sv-white);
     border-color: $delete-red;
     background: $delete-red;
     box-shadow: 0 4px 14px color-mix(in srgb, $delete-red 28%, transparent);
@@ -44,7 +44,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 
   &--active {
-    color: #fff;
+    color: var(--sv-white);
     border-color: $delete-red;
     background: $delete-red;
     box-shadow: 0 4px 14px color-mix(in srgb, $delete-red 28%, transparent);
@@ -75,10 +75,16 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
 
     &:hover:not(:disabled),
     &.dashboard-delete-btn--active {
-      color: #fff;
+      color: var(--sv-white);
       border-color: $delete-red;
       background: $delete-red;
       box-shadow: none;
     }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-delete-btn {
+    transition: none;
   }
 }

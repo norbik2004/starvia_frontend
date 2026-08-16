@@ -1,24 +1,20 @@
-import {
-  AfterViewInit,
-  Component,
-  DestroyRef,
-  ElementRef,
-  inject,
-  OnDestroy,
-  signal,
-} from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
-import { Header } from '../../layout/header/header';
-import { createHeroStars } from '../../layout/shared/section-stars';
-import { createSectionStarsInteraction } from '../../layout/shared/section-stars-pointer';
-import { SectionStarsLayer } from '../../layout/shared/section-stars-layer';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Location } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageRevealDirective } from '../../directives/page-reveal';
-import { lockAuthPageBody } from '../shared/auth-page-body-lock';
 import { AuthService } from '../../services/auth';
+import { lockAuthPageBody } from '../shared/auth-page-body-lock';
+import {
+  clearEmailConfirmedAccess,
+  grantEmailConfirmedAccess,
+  readEmailConfirmedAccess,
+  tryClaimEmailConfirmedCallback,
+} from './email-confirmed-access';
 
-type EmailConfirmedStatus = 'success' | 'error' | 'unknown';
+type EmailConfirmedStatus = 'success' | 'error';
 
 const RESEND_COOLDOWN_SECONDS = 20 * 60;
+const REDIRECT_SECONDS = 5;
 
 function readResendCooldownLeftSeconds(email: string): number {
   const key = `auth:resend-confirmation:${email.toLowerCase()}`;
@@ -39,95 +35,120 @@ function writeResendCooldown(email: string): void {
 
 @Component({
   selector: 'app-email-confirmed-page',
-  imports: [Header, SectionStarsLayer, PageRevealDirective],
+  imports: [RouterLink, PageRevealDirective],
   styleUrl: './email-confirmed.scss',
   template: `
-    <app-header
-      [links]="[]"
-      actionLabel="Back home"
-      actionRoute="/"
-      navLabel="Email confirmed navigation"
-      brandMode="route"
-      brandRoute="/"
-    />
-
-    <main
-      class="email-confirmed"
-      (mousemove)="starsInteraction.onPointerMove($event)"
-      (mouseleave)="starsInteraction.onPointerLeave()"
-    >
-      <div class="email-confirmed__bg" aria-hidden="true">
-        <app-section-stars-layer
-          class="email-confirmed__stars"
-          [stars]="stars"
-          [nearIds]="starsInteraction.nearStarIds()"
-        />
+    <div class="auth-shell marketing-surface" appPageReveal>
+      <div class="auth-atmosphere" aria-hidden="true">
+        <span class="auth-orb auth-orb--a"></span>
+        <span class="auth-orb auth-orb--b"></span>
       </div>
 
-      <div class="email-confirmed__content" appPageReveal>
-        @if (status() === 'error') {
-          <p class="email-confirmed__code email-confirmed__code--error">!</p>
-          <h1 class="email-confirmed__title">Email confirmation failed</h1>
-          @if (errorMessage(); as message) {
-            <p class="email-confirmed__message email-confirmed__message--error">{{ message }}</p>
-          }
-          @if (email(); as address) {
-            <p class="email-confirmed__email">{{ address }}</p>
-          }
-          <p class="email-confirmed__hint">
-            You can resend the confirmation email. For security, it can be sent once every 20 minutes.
-          </p>
+      <section class="auth-panel" aria-label="Potwierdzenie email">
+        <header class="auth-panel__top">
+          <a routerLink="/" class="brand" aria-label="Starvia — strona główna">
+            <span class="brand__icon-wrap">
+              <img
+                class="brand__icon"
+                src="/starvia-logo.png"
+                alt=""
+                width="44"
+                height="44"
+                decoding="async"
+              />
+            </span>
+            <span class="brand__name" aria-hidden="true">Starvia</span>
+          </a>
+          <a routerLink="/login" class="auth-panel__switch" (click)="leaveToLogin()">Zaloguj się</a>
+        </header>
 
-          <div class="email-confirmed__actions" aria-label="Email confirmation help actions">
-            <button
-              type="button"
-              class="btn btn--primary"
-              (click)="resendEmail()"
-              [disabled]="!email() || isResending() || resendCooldownLeftSeconds() > 0"
-            >
-              @if (resendCooldownLeftSeconds() > 0) {
-                Resend in {{ formatCooldown(resendCooldownLeftSeconds()) }}
-              } @else {
-                {{ isResending() ? 'Sending...' : 'Resend email' }}
+        <div class="auth-panel__body">
+          <div class="confirm-card">
+            @if (status() === 'error') {
+              <p class="confirm-card__eyebrow confirm-card__eyebrow--error">Coś poszło nie tak</p>
+              <h1 class="confirm-card__title">Nie udało się potwierdzić emaila</h1>
+
+              @if (errorMessage(); as message) {
+                <p class="confirm-card__message confirm-card__message--error">{{ message }}</p>
               }
-            </button>
-            <a href="mailto:support@starvia.app" class="btn btn--secondary">Contact</a>
-          </div>
 
-          @if (resendResult() === 'success') {
-            <p class="email-confirmed__note email-confirmed__note--success">
-              Confirmation email sent. Please check your inbox.
-            </p>
-          } @else if (resendResult() === 'error') {
-            <p class="email-confirmed__note email-confirmed__note--error">
-              Unable to resend the email right now. Please try again later.
-            </p>
-          }
-        } @else {
-          <p class="email-confirmed__code">✓</p>
-          <h1 class="email-confirmed__title">Email confirmed</h1>
-          <p class="email-confirmed__message">
-            Your email address is verified. Redirecting to login in
-            <span class="email-confirmed__countdown">{{ secondsLeft() }}s</span>.
-          </p>
-        }
-      </div>
-    </main>
+              @if (email(); as address) {
+                <p class="confirm-card__email">{{ address }}</p>
+              }
+
+              <p class="confirm-card__hint">
+                Możesz wysłać wiadomość ponownie. Ze względów bezpieczeństwa — raz na 20 minut.
+              </p>
+
+              <div class="confirm-card__actions">
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  (click)="resendEmail()"
+                  [disabled]="!email() || isResending() || resendCooldownLeftSeconds() > 0"
+                >
+                  @if (resendCooldownLeftSeconds() > 0) {
+                    Ponów za {{ formatCooldown(resendCooldownLeftSeconds()) }}
+                  } @else {
+                    {{ isResending() ? 'Wysyłanie...' : 'Wyślij ponownie' }}
+                  }
+                </button>
+                <a routerLink="/login" class="btn btn--secondary" (click)="leaveToLogin()">
+                  Przejdź do logowania
+                </a>
+              </div>
+
+              @if (resendResult() === 'success') {
+                <p class="confirm-card__note confirm-card__note--success">
+                  Wiadomość wysłana. Sprawdź skrzynkę.
+                </p>
+              } @else if (resendResult() === 'error') {
+                <p class="confirm-card__note confirm-card__note--error">
+                  Nie udało się wysłać wiadomości. Spróbuj później.
+                </p>
+              }
+            } @else {
+              <p class="confirm-card__eyebrow">Gotowe</p>
+              <h1 class="confirm-card__title">Email potwierdzony</h1>
+              <p class="confirm-card__message">
+                Adres jest zweryfikowany. Za chwilę przeniesiemy Cię do logowania —
+                <span class="confirm-card__countdown">{{ secondsLeft() }}s</span>
+              </p>
+              <a
+                routerLink="/login"
+                class="btn btn--primary confirm-card__cta"
+                (click)="leaveToLogin()"
+              >
+                Zaloguj się teraz
+              </a>
+            }
+          </div>
+        </div>
+
+        <footer class="auth-panel__foot">
+          <p class="auth-panel__foot-copy">© {{ currentYear }} Starvia</p>
+          <div class="auth-panel__foot-links">
+            <a routerLink="/" class="auth-panel__foot-link" (click)="clearAccess()">
+              Wróć na stronę główną
+            </a>
+          </div>
+        </footer>
+      </section>
+    </div>
   `,
 })
-export class EmailConfirmedPage implements AfterViewInit, OnDestroy {
-  private readonly host = inject(ElementRef<HTMLElement>);
+export class EmailConfirmedPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly location = inject(Location);
   private readonly destroyRef = inject(DestroyRef);
   private readonly auth = inject(AuthService);
 
-  protected readonly status = signal<EmailConfirmedStatus>('unknown');
+  protected readonly currentYear = new Date().getFullYear();
+  protected readonly status = signal<EmailConfirmedStatus>('success');
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly email = signal<string | null>(null);
-  protected readonly secondsLeft = signal(5);
-  protected readonly stars = createHeroStars();
-  protected readonly starsInteraction = createSectionStarsInteraction(this.stars);
+  protected readonly secondsLeft = signal(REDIRECT_SECONDS);
 
   protected readonly resendCooldownLeftSeconds = signal(0);
   protected readonly isResending = signal(false);
@@ -135,33 +156,49 @@ export class EmailConfirmedPage implements AfterViewInit, OnDestroy {
 
   constructor() {
     lockAuthPageBody();
-    this.readQueryParams();
+    this.hydrateAccess();
   }
 
-  private readQueryParams(): void {
-    const qp = this.route.snapshot.queryParamMap;
-    const status = qp.get('status');
-    const message = qp.get('message');
-    const email = qp.get('email');
+  protected clearAccess(): void {
+    clearEmailConfirmedAccess();
+  }
 
-    this.email.set(typeof email === 'string' && email.trim().length ? email.trim() : null);
+  protected leaveToLogin(): void {
+    clearEmailConfirmedAccess();
+  }
+
+  private hydrateAccess(): void {
+    const claimed = tryClaimEmailConfirmedCallback(this.route.snapshot.queryParamMap);
+    if (claimed) {
+      grantEmailConfirmedAccess(claimed);
+      // Strip query so the callback URL cannot be replayed from history / share.
+      this.location.replaceState('/email-confirmed');
+      this.applyAccess(claimed.status, claimed.email, claimed.message);
+      return;
+    }
+
+    const access = readEmailConfirmedAccess();
+    if (!access) {
+      void this.router.navigateByUrl('/login');
+      return;
+    }
+
+    this.applyAccess(access.status, access.email, access.message);
+  }
+
+  private applyAccess(
+    status: EmailConfirmedStatus,
+    email: string | null,
+    message: string | null
+  ): void {
+    this.status.set(status);
+    this.email.set(email);
+    this.errorMessage.set(message);
     this.refreshCooldown();
 
     if (status === 'success') {
-      this.status.set('success');
-      this.errorMessage.set(null);
       this.startRedirectCountdown();
-      return;
     }
-
-    if (status === 'error') {
-      this.status.set('error');
-      this.errorMessage.set(typeof message === 'string' && message.trim().length ? message.trim() : null);
-      return;
-    }
-
-    this.status.set('unknown');
-    this.errorMessage.set(null);
   }
 
   protected resendEmail(): void {
@@ -217,25 +254,17 @@ export class EmailConfirmedPage implements AfterViewInit, OnDestroy {
     this.destroyRef.onDestroy(() => window.clearInterval(intervalId));
   }
 
-  ngAfterViewInit(): void {
-    const section = this.host.nativeElement.querySelector('.email-confirmed');
-    if (section instanceof HTMLElement) {
-      this.starsInteraction.attach(section);
-    }
-  }
-
-  ngOnDestroy(): void {
-    this.starsInteraction.destroy();
-  }
-
   private startRedirectCountdown(): void {
+    this.secondsLeft.set(REDIRECT_SECONDS);
+
     const intervalId = window.setInterval(() => {
       this.secondsLeft.update((value) => Math.max(0, value - 1));
     }, 1000);
 
     const timeoutId = window.setTimeout(() => {
+      clearEmailConfirmedAccess();
       void this.router.navigateByUrl('/login');
-    }, 5000);
+    }, REDIRECT_SECONDS * 1000);
 
     this.destroyRef.onDestroy(() => {
       window.clearInterval(intervalId);
@@ -243,4 +272,3 @@ export class EmailConfirmedPage implements AfterViewInit, OnDestroy {
     });
   }
 }
-

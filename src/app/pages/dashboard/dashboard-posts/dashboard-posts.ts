@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { Component, DestroyRef, HostListener, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, take } from 'rxjs';
@@ -14,6 +14,8 @@ import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboa
 import { toPaginationPage } from '../shared/pagination';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
+import { DashboardPostCreate } from '../dashboard-post-create/dashboard-post-create';
+import { DrawerMotionDirective, drawerMotionDelay } from '../../../layout/shared/drawer-motion';
 import {
   DEFAULT_POSTS_LIST_QUERY,
   hasActiveFilters,
@@ -54,7 +56,7 @@ type PostsForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-posts',
-  imports: [NgClass, ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardPaginationPanel, DashboardPlatformLogo, PageLoading, PageRevealDirective],
+  imports: [NgClass, ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardPaginationPanel, DashboardPlatformLogo, PageLoading, PageRevealDirective, DashboardPostCreate, DrawerMotionDirective],
   styleUrl: './dashboard-posts.scss',
   template: `
     <section class="dashboard-content-page dashboard-posts" aria-labelledby="dashboard-posts-title">
@@ -66,14 +68,15 @@ type PostsForm = FormGroup<{
               <p class="section-eyebrow dashboard-posts__eyebrow">Content</p>
               <h1 id="dashboard-posts-title" class="dashboard-posts__title">Posts</h1>
             </div>
-            <a
+            <button
+              #addPostButton
+              type="button"
               class="dashboard-posts__add-btn"
-              [routerLink]="['/dashboard/posts/new']"
-              [state]="postsReturnState()"
+              (click)="openCreateDrawer()"
             >
               <span class="material-icons dashboard-posts__add-icon" aria-hidden="true">add</span>
               Add post
-            </a>
+            </button>
           </div>
         </header>
 
@@ -94,18 +97,22 @@ type PostsForm = FormGroup<{
           </button>
         </div>
 
-        @if (filtersOpen()) {
-          <button
-            type="button"
-            class="posts-filters__backdrop"
-            aria-label="Close filters"
-            (click)="closeFilters()"
-          ></button>
-        }
+        <button
+          type="button"
+          class="posts-filters__backdrop"
+          appDrawerMotion="backdrop"
+          [drawerMotionState]="filtersOpen() ? 'open' : filtersClosing() ? 'closing' : 'closed'"
+          [drawerMotionMobileOnly]="true"
+          aria-label="Close filters"
+          (click)="closeFilters()"
+        ></button>
 
         <form
           id="posts-filters-panel"
           class="posts-filters"
+          appDrawerMotion="panel"
+          [drawerMotionState]="filtersOpen() ? 'open' : filtersClosing() ? 'closing' : 'closed'"
+          [drawerMotionMobileOnly]="true"
           [class.is-open]="filtersOpen()"
           [formGroup]="form"
           (ngSubmit)="applyFilters()"
@@ -117,6 +124,19 @@ type PostsForm = FormGroup<{
               <span class="close-icon" aria-hidden="true"></span>
             </button>
           </div>
+
+          <header class="posts-filters__panel-head">
+            <div>
+              <p class="posts-filters__panel-eyebrow">Refine your workspace</p>
+              <h2 class="posts-filters__panel-title">Find the right posts faster.</h2>
+            </div>
+            @if (filtersActive()) {
+              <span class="posts-filters__panel-status">
+                <span class="material-icons" aria-hidden="true">check</span>
+                Filters applied
+              </span>
+            }
+          </header>
 
           <div class="posts-filters__grid">
             <div class="posts-filters__row posts-filters__row--meta">
@@ -448,14 +468,14 @@ type PostsForm = FormGroup<{
               {{ filtersActive() ? 'No posts match your filters.' : 'No posts yet.' }}
             </p>
             @if (!filtersActive()) {
-              <a
+              <button
+                type="button"
                 class="dashboard-posts__add-btn dashboard-posts__add-btn--empty"
-                [routerLink]="['/dashboard/posts/new']"
-                [state]="postsReturnState()"
+                (click)="openCreateDrawer()"
               >
                 <span class="material-icons dashboard-posts__add-icon" aria-hidden="true">add</span>
                 Create your first post
-              </a>
+              </button>
             }
           </div>
         } @else {
@@ -578,6 +598,12 @@ type PostsForm = FormGroup<{
         }
         </div>
       }
+
+      <app-dashboard-post-create
+        [open]="createDrawerOpen()"
+        [closing]="createDrawerClosing()"
+        (closed)="closeCreateDrawer()"
+      />
     </section>
   `,
 })
@@ -587,6 +613,7 @@ export class DashboardPosts {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly addPostButton = viewChild<ElementRef<HTMLButtonElement>>('addPostButton');
 
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
   protected readonly postStatusOptions = POST_STATUS_OPTIONS;
@@ -625,11 +652,25 @@ export class DashboardPosts {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly result = signal<PagedPostsResponse | null>(null);
   protected readonly filtersOpen = signal(false);
+  protected readonly filtersClosing = signal(false);
+  protected readonly createDrawerOpen = signal(false);
+  protected readonly createDrawerClosing = signal(false);
   protected readonly openFilterMenu = signal<FilterMenuId | null>(null);
   private readonly attachmentPreviewUrls = signal<Record<string, string>>({});
   private readonly attachmentPreviewObjectUrls = new Set<string>();
+  private filtersCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private createDrawerCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const shouldOpen = params.get('create') === 'true';
+      if (shouldOpen) {
+        this.setCreateDrawerState(true);
+      } else if (this.createDrawerOpen()) {
+        this.startCreateDrawerClose(false);
+      }
+    });
+
     this.route.queryParamMap.pipe(take(1)).subscribe((params) => {
       const query = parsePostsListQuery(params);
       this.applyListQuery(query);
@@ -637,13 +678,19 @@ export class DashboardPosts {
     });
 
     this.destroyRef.onDestroy(() => {
+      this.clearFiltersCloseTimer();
+      this.clearCreateDrawerCloseTimer();
       document.body.classList.remove('posts-filters-open');
+      document.body.classList.remove('post-create-open');
       this.revokeAttachmentPreviewUrls();
     });
   }
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
+    if (this.createDrawerOpen() || this.createDrawerClosing()) {
+      return;
+    }
     if (this.openFilterMenu()) {
       this.closeFilterMenu();
       return;
@@ -737,6 +784,16 @@ export class DashboardPosts {
   protected closeFilters(): void {
     this.closeFilterMenu();
     this.setFiltersOpen(false);
+  }
+
+  protected openCreateDrawer(): void {
+    this.closeFilters();
+    this.setCreateDrawerState(true);
+    this.syncQueryParams();
+  }
+
+  protected closeCreateDrawer(): void {
+    this.startCreateDrawerClose(true);
   }
 
   protected postsReturnState(): { postsReturn: PostsListQuery } {
@@ -938,14 +995,85 @@ export class DashboardPosts {
   private syncQueryParams(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: postsListQueryToParams(this.currentListQuery()),
+      queryParams: {
+        ...postsListQueryToParams(this.currentListQuery()),
+        create: this.createDrawerOpen() ? 'true' : null,
+      },
       replaceUrl: true,
     });
   }
 
   private setFiltersOpen(open: boolean): void {
-    this.filtersOpen.set(open);
-    const lockScroll = open && window.matchMedia('(max-width: 48rem)').matches;
-    document.body.classList.toggle('posts-filters-open', lockScroll);
+    if (open) {
+      this.clearFiltersCloseTimer();
+      this.filtersClosing.set(false);
+      this.filtersOpen.set(true);
+      document.body.classList.toggle(
+        'posts-filters-open',
+        window.matchMedia('(max-width: 48rem)').matches
+      );
+      return;
+    }
+
+    if (!this.filtersOpen()) {
+      return;
+    }
+
+    this.filtersOpen.set(false);
+
+    if (!window.matchMedia('(max-width: 48rem)').matches) {
+      document.body.classList.remove('posts-filters-open');
+      return;
+    }
+
+    this.filtersClosing.set(true);
+    this.filtersCloseTimer = setTimeout(() => {
+      this.filtersClosing.set(false);
+      document.body.classList.remove('posts-filters-open');
+      this.filtersCloseTimer = null;
+    }, drawerMotionDelay());
+  }
+
+  private clearFiltersCloseTimer(): void {
+    if (this.filtersCloseTimer === null) {
+      return;
+    }
+    clearTimeout(this.filtersCloseTimer);
+    this.filtersCloseTimer = null;
+  }
+
+  private setCreateDrawerState(open: boolean): void {
+    if (open) {
+      this.clearCreateDrawerCloseTimer();
+      this.createDrawerClosing.set(false);
+    }
+    this.createDrawerOpen.set(open);
+    document.body.classList.toggle('post-create-open', open);
+  }
+
+  private startCreateDrawerClose(syncQuery: boolean): void {
+    if (!this.createDrawerOpen() || this.createDrawerClosing()) {
+      return;
+    }
+
+    this.createDrawerOpen.set(false);
+    this.createDrawerClosing.set(true);
+    this.createDrawerCloseTimer = setTimeout(() => {
+      this.createDrawerClosing.set(false);
+      document.body.classList.remove('post-create-open');
+      this.createDrawerCloseTimer = null;
+      if (syncQuery) {
+        this.syncQueryParams();
+      }
+      requestAnimationFrame(() => this.addPostButton()?.nativeElement.focus());
+    }, drawerMotionDelay());
+  }
+
+  private clearCreateDrawerCloseTimer(): void {
+    if (this.createDrawerCloseTimer === null) {
+      return;
+    }
+    clearTimeout(this.createDrawerCloseTimer);
+    this.createDrawerCloseTimer = null;
   }
 }

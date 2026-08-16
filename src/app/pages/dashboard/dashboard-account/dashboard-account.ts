@@ -44,9 +44,15 @@ const READ_ENTER_MS = 260;
       <div appPageReveal>
         <header class="dashboard-account__header">
           <div class="dashboard-account__header-copy">
-            <p class="section-eyebrow dashboard-account__eyebrow">Settings</p>
-            <h1 id="dashboard-account-title" class="dashboard-account__title">Account</h1>
+            <p class="section-eyebrow dashboard-account__eyebrow">Workspace settings</p>
+            <h1 id="dashboard-account-title" class="dashboard-account__title">
+              Account <span class="dashboard-account__title-mark" aria-hidden="true">your corner</span>
+            </h1>
+            <p class="dashboard-account__intro">
+              Keep your profile, security and connected channels in one calm place.
+            </p>
           </div>
+          <p class="dashboard-account__scribble" aria-hidden="true">Make it yours.</p>
         </header>
       </div>
 
@@ -55,7 +61,10 @@ const READ_ENTER_MS = 260;
       }
 
       @if (errorMessage()) {
-        <p class="posts-status posts-status--error" role="alert">{{ errorMessage() }}</p>
+        <div class="dashboard-route-status dashboard-route-status--error" role="alert">
+          <span class="material-icons" aria-hidden="true">error_outline</span>
+          <p>{{ errorMessage() }}</p>
+        </div>
       }
 
       @if (account(); as profile) {
@@ -250,7 +259,13 @@ const READ_ENTER_MS = 260;
 
             @if (!platformsLoading() && !platformsError()) {
               @if (platforms().length === 0) {
-                <p class="account-connected__empty">No social accounts connected yet.</p>
+                <div class="account-connected__empty">
+                  <span class="account-connected__empty-icon material-icons" aria-hidden="true">add_link</span>
+                  <div>
+                    <h3>No social accounts yet</h3>
+                    <p>Connect a channel when you are ready to start publishing.</p>
+                  </div>
+                </div>
               } @else {
                 <ul class="account-connected__list" appPageReveal [appPageRevealList]="true">
                   @for (connection of platforms(); track connection.id) {
@@ -362,10 +377,12 @@ export class DashboardAccount {
     this.isEditingUsername.set(true);
 
     queueMicrotask(() => {
-      const input = this.usernameInput()?.nativeElement;
-      if (!input) return;
-      input.focus();
-      input.select();
+      requestAnimationFrame(() => {
+        const input = this.usernameInput()?.nativeElement;
+        if (!input) return;
+        input.focus({ preventScroll: true });
+        input.select();
+      });
     });
   }
 

@@ -6,16 +6,18 @@
 @use '../shared/post-status';
 
 $compact-input-height: 1.875rem;
-$add-post-green: #2e7d32;
-$panel-divider: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+$cta-charcoal: var(--sv-dark);
+$cta-lime: var(--sv-accent);
+$panel-divider: 1px solid color-mix(in srgb, var(--sv-dark) 10%, transparent);
 $post-card-body-lines-with-attachments: 3;
 $post-card-body-lines-without-attachments: 4;
 $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 
 @mixin compact-field-surface {
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 12%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, #fff 55%, transparent);
+  background: color-mix(in srgb, var(--sv-white) 72%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 @function post-card-body-block-height($lines) {
@@ -43,28 +45,28 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
   background: transparent;
 
   .field {
-    gap: 0.1rem;
+    gap: 0.3rem;
   }
 
   .field__label {
-    font-size: 0.6875rem;
+    font-size: 0.7rem;
     font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 88%, transparent);
+    color: var(--sv-ink-muted);
   }
 
   .field__input {
-    min-height: $compact-input-height;
-    padding: 0.28rem 0.55rem;
-    font-size: 0.8125rem;
+    min-height: 2.25rem;
+    padding: 0.48rem 0.65rem;
+    font-size: 0.8375rem;
     @include compact-field-surface;
   }
 
   .field__input:focus {
-    border-color: color-mix(in srgb, var(--mat-sys-primary) 35%, var(--border-subtle));
-    background: #fff;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mat-sys-primary) 7%, transparent);
+    border-color: color-mix(in srgb, var(--sv-accent) 78%, var(--sv-dark));
+    background: color-mix(in srgb, var(--sv-white) 90%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-accent) 28%, transparent);
   }
 
   .btn {
@@ -86,7 +88,8 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 @mixin posts-toolbar($edge: bottom) {
   @include auth.auth-form;
   @include posts-compact-panel;
-  padding-#{$edge}: 0.5rem;
+  @include shell.surface-card;
+  padding: clamp(0.9rem, 2vw, 1.2rem);
   border-#{$edge}: $panel-divider;
 }
 
@@ -128,10 +131,9 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 
   &__header-copy {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
     min-width: 0;
   }
 
@@ -144,27 +146,35 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     min-height: 0;
     padding-block: 0.4rem;
     padding-inline: 1.375rem;
-    border: none;
+    border: 1px solid $cta-charcoal;
     border-radius: var(--radius-pill);
-    color: #fff;
+    color: var(--sv-white);
     font-size: 0.875rem;
     font-weight: var(--font-weight-semibold);
+    font-family: inherit;
     line-height: 1.2;
     text-decoration: none;
-    background: $add-post-green;
-    box-shadow: 0 4px 14px color-mix(in srgb, $add-post-green 24%, transparent);
+    background: $cta-charcoal;
+    box-shadow: 0 8px 18px -12px color-mix(in srgb, $cta-charcoal 55%, transparent);
+    cursor: pointer;
     transition:
       transform 0.2s ease,
-      box-shadow 0.2s ease;
+      box-shadow 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
 
     &:hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 18px color-mix(in srgb, $add-post-green 30%, transparent);
+      border-color: $cta-lime;
+      background: $cta-lime;
+      color: var(--sv-ink);
+      box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--sv-dark) 55%, transparent);
     }
 
     &:focus-visible {
-      outline: 2px solid color-mix(in srgb, $add-post-green 65%, transparent);
-      outline-offset: 2px;
+      outline: 3px solid $cta-lime;
+      outline-offset: 3px;
     }
 
     &--empty {
@@ -182,19 +192,21 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     margin: 0;
     line-height: 1.2;
     flex-shrink: 0;
+    color: var(--sv-ink);
 
     &::after {
-      content: '/';
-      margin-left: 0.5rem;
-      color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 70%, transparent);
-      font-weight: var(--font-weight-medium);
+      content: '';
+      display: block;
+      width: 2.5rem;
+      height: 0.2rem;
+      margin-top: 0.35rem;
+      border-radius: var(--radius-pill);
+      background: var(--sv-accent);
     }
   }
 
   &__title {
     @include shell.page-title;
-    font-size: clamp(1.375rem, 2vw, 1.75rem);
-    line-height: 1.15;
   }
 }
 
@@ -214,12 +226,13 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 2.25rem;
-  padding: 0.45rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--mat-sys-surface-container-low) 55%, #fff);
-  color: var(--mat-sys-on-surface);
+  min-height: 2.5rem;
+  padding: 0.4rem 1rem 0.4rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 12%, transparent);
+  border-radius: var(--radius-cta);
+  background: color-mix(in srgb, var(--sv-white) 82%, transparent);
+  color: var(--sv-ink);
+  backdrop-filter: blur(10px);
   font: inherit;
   font-size: 0.875rem;
   font-weight: var(--font-weight-semibold);
@@ -232,19 +245,32 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 
   &:hover,
   &:focus-visible {
-    border-color: color-mix(in srgb, var(--mat-sys-primary) 35%, var(--border-subtle));
-    background: color-mix(in srgb, var(--mat-sys-primary) 8%, #fff);
-    color: var(--mat-sys-primary);
+    border-color: color-mix(in srgb, var(--sv-accent) 72%, var(--sv-dark));
+    background: color-mix(in srgb, var(--sv-accent) 16%, var(--sv-white));
+    color: var(--sv-ink);
+    outline: none;
   }
 
   &.is-active {
-    border-color: color-mix(in srgb, var(--mat-sys-primary) 40%, var(--border-subtle));
-    background: color-mix(in srgb, var(--mat-sys-primary) 10%, #fff);
-    color: var(--mat-sys-primary);
+    border-color: var(--sv-dark);
+    background: var(--sv-dark);
+    color: var(--sv-white);
+
+    .posts-filters__toggle-icon {
+      background: var(--sv-accent);
+      color: var(--sv-ink);
+    }
   }
 }
 
 .posts-filters__toggle-icon {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-accent) 65%, var(--sv-white));
+  color: var(--sv-ink);
   font-size: 1.125rem;
   line-height: 1;
 }
@@ -252,8 +278,8 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 .posts-filters__active-badge {
   padding: 0.125rem 0.5rem;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent);
-  color: var(--mat-sys-primary);
+  background: var(--sv-accent);
+  color: var(--sv-ink);
   font-size: 0.6875rem;
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
@@ -263,19 +289,82 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 .posts-filters {
   @include posts-toolbar(bottom);
   flex: 0 0 auto;
-  padding-top: 0;
+  border-color: color-mix(in srgb, var(--sv-dark) 11%, transparent);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(
+      ellipse 30% 65% at 100% 0%,
+      color-mix(in srgb, var(--sv-accent) 16%, transparent),
+      transparent 72%
+    ),
+    color-mix(in srgb, var(--sv-white) 84%, transparent);
+  box-shadow: 0 16px 38px -32px rgb(45 45 45 / 0.42);
+
+  &__panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--sv-dark) 9%, transparent);
+  }
+
+  &__panel-eyebrow,
+  &__panel-title {
+    margin: 0;
+  }
+
+  &__panel-eyebrow {
+    font-family: var(--font-accent);
+    font-size: 1.05rem;
+    line-height: 1;
+    color: var(--sv-ink-muted);
+  }
+
+  &__panel-title {
+    margin-top: 0.3rem;
+    color: var(--sv-ink);
+    font-size: 1rem;
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.015em;
+  }
+
+  &__panel-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    padding: 0.32rem 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--sv-accent) 58%, var(--sv-dark));
+    border-radius: var(--radius-cta);
+    background: var(--sv-accent);
+    color: var(--sv-ink);
+    font-size: 0.7rem;
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    .material-icons {
+      font-size: 0.9rem;
+    }
+  }
 
   &__grid {
     display: grid;
-    gap: 0.375rem;
+    gap: 0.65rem;
     align-content: start;
   }
 
   &__row {
     display: grid;
     align-items: end;
-    gap: 0.375rem 0.5rem;
+    gap: 0.55rem 0.65rem;
     min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--sv-dark) 7%, transparent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--sv-white) 48%, transparent);
 
     &--meta {
       grid-template-columns: minmax(5.5rem, 0.9fr) 3.75rem repeat(3, minmax(5.5rem, 1fr));
@@ -293,7 +382,15 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     gap: 0.375rem;
     align-items: center;
     justify-content: flex-end;
-    margin-top: 0.375rem;
+    margin-top: 0.75rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid color-mix(in srgb, var(--sv-dark) 9%, transparent);
+
+    .btn {
+      min-width: 7.25rem;
+      min-height: 2.25rem;
+      border-radius: 0.75rem;
+    }
   }
 }
 
@@ -360,7 +457,9 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     font-size: 1.125rem;
     line-height: 1;
     opacity: 0.55;
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      opacity 0.2s ease;
   }
 
   &.is-open &__chevron {
@@ -378,10 +477,11 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     gap: 0.125rem;
     min-width: 11rem;
     padding: 0.3rem;
-    border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, var(--mat-sys-primary) 8%);
+    border: 1px solid color-mix(in srgb, var(--sv-dark) 14%, transparent);
     border-radius: var(--radius-md);
-    background: var(--mat-sys-surface);
-    box-shadow: 0 12px 28px color-mix(in srgb, var(--mat-sys-on-surface) 14%, transparent);
+    background: color-mix(in srgb, var(--sv-white) 92%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 18px 36px -24px color-mix(in srgb, var(--sv-dark) 42%, transparent);
   }
 
   &__option {
@@ -400,15 +500,17 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     line-height: 1.2;
     text-align: left;
     cursor: pointer;
-    transition: background-color 0.18s ease, color 0.18s ease;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease;
 
     &:hover {
-      background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+      background: color-mix(in srgb, var(--sv-accent) 16%, transparent);
     }
 
     &.is-active {
-      background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
-      color: var(--mat-sys-primary);
+      background: color-mix(in srgb, var(--sv-accent) 28%, transparent);
+      color: var(--sv-ink);
       font-weight: var(--font-weight-semibold);
     }
 
@@ -421,7 +523,7 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 
 .posts-sort-order {
   display: flex;
-  height: $compact-input-height;
+  height: 2.25rem;
   overflow: hidden;
   @include compact-field-surface;
 
@@ -452,13 +554,13 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     }
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
-      color: var(--mat-sys-primary);
+      background: color-mix(in srgb, var(--sv-accent) 16%, transparent);
+      color: var(--sv-ink);
     }
 
     &.is-active {
-      background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent);
-      color: var(--mat-sys-primary);
+      background: color-mix(in srgb, var(--sv-accent) 30%, transparent);
+      color: var(--sv-ink);
     }
 
     &:disabled {
@@ -500,39 +602,39 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
   min-width: 0;
   min-height: 0;
   padding: var(--space-md) var(--space-lg);
-  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 48%, transparent);
-  border-left: 3px solid color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 10%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--sv-accent) 62%, var(--sv-dark));
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: color-mix(in srgb, var(--sv-white) 88%, transparent);
+  backdrop-filter: blur(12px);
   color: inherit;
   text-decoration: none;
   box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 90%, transparent) inset,
-    0 1px 3px color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent),
-    0 6px 20px color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
+    0 1px 0 rgb(255 255 255 / 0.72) inset,
+    0 12px 30px -26px rgb(45 45 45 / 0.3);
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease,
     transform 0.2s ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--mat-sys-primary) 28%, var(--border-subtle));
-    border-left-color: color-mix(in srgb, var(--mat-sys-primary) 72%, transparent);
+    border-color: color-mix(in srgb, var(--sv-dark) 18%, transparent);
+    border-left-color: var(--sv-accent);
     box-shadow:
-      0 1px 0 color-mix(in srgb, #fff 90%, transparent) inset,
-      0 4px 12px color-mix(in srgb, var(--mat-sys-on-surface) 7%, transparent),
-      0 14px 32px color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+      0 1px 0 rgb(255 255 255 / 0.78) inset,
+      0 18px 40px -25px rgb(45 45 45 / 0.38);
     transform: translateY(-2px);
 
     .post-card__open-hint {
       opacity: 1;
       transform: translateX(0);
-      color: var(--mat-sys-primary);
+      color: var(--sv-ink);
+      background: var(--sv-accent);
     }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary);
+    outline: 3px solid var(--sv-accent);
     outline-offset: 3px;
   }
 
@@ -614,7 +716,10 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     min-width: 0;
 
     @media (min-width: 48rem) {
-      min-height: calc(#{post-card-body-block-height($post-card-body-lines-with-attachments)} + #{$post-card-attachment-row-height});
+      min-height: calc(
+        #{post-card-body-block-height($post-card-body-lines-with-attachments)} +
+          #{$post-card-attachment-row-height}
+      );
     }
 
     &--no-attachments {
@@ -785,8 +890,8 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     width: 1.75rem;
     height: 1.75rem;
     border-radius: var(--radius-pill);
-    background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
-    color: color-mix(in srgb, var(--mat-sys-primary) 55%, var(--mat-sys-on-surface-variant));
+    background: color-mix(in srgb, var(--sv-accent) 20%, transparent);
+    color: var(--sv-ink-muted);
     opacity: 0.55;
     transform: translateX(-0.125rem);
     transition:
@@ -816,7 +921,6 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
   .posts-filters__row--search {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
 }
 
 @media (max-width: 48rem) {
@@ -848,6 +952,13 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     border-bottom: none;
     border-radius: 0;
     overflow: hidden;
+    background:
+      radial-gradient(
+        ellipse 80% 24% at 100% 0%,
+        color-mix(in srgb, var(--sv-accent) 15%, transparent),
+        transparent 72%
+      ),
+      var(--sv-canvas-soft);
 
     &.is-open {
       @include drawer.panel-open;
@@ -903,6 +1014,10 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     @include drawer.head;
   }
 
+  .posts-filters__panel-head {
+    display: none;
+  }
+
   .posts-filters__drawer-title {
     margin: 0;
     font-size: 1.0625rem;
@@ -928,6 +1043,7 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    padding: 0.85rem;
   }
 
   .posts-filters__row--meta {
@@ -954,7 +1070,7 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
     gap: 0.5rem;
     width: 100%;
     margin-top: 0;
-    padding-top: 0.75rem;
+    padding: 0.85rem;
     border-top: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
 
     .btn {
@@ -991,10 +1107,6 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
       flex-direction: column;
       align-items: stretch;
       gap: 0.5rem;
-    }
-
-    &__eyebrow::after {
-      display: none;
     }
 
     &__title {
@@ -1054,6 +1166,22 @@ $post-card-attachment-row-height: calc(3.5rem + 0.625rem);
 
     &__open-hint {
       display: none;
+    }
+  }
+}
+
+@media (max-width: 30rem) {
+  .post-card {
+    &__badges,
+    &__attachments {
+      gap: 0.25rem;
+    }
+
+    &__attachment-thumb,
+    &__attachment-more {
+      width: 3rem;
+      min-width: 3rem;
+      height: 3rem;
     }
   }
 }

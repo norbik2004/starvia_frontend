@@ -81,9 +81,16 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
       <div appPageReveal>
         <header class="dashboard-social-accounts__header">
           <div class="dashboard-social-accounts__header-copy">
-            <p class="section-eyebrow dashboard-social-accounts__eyebrow">Settings</p>
-            <h1 id="dashboard-social-accounts-title" class="dashboard-social-accounts__title">Social accounts</h1>
+            <p class="section-eyebrow dashboard-social-accounts__eyebrow">Workspace settings</p>
+            <h1 id="dashboard-social-accounts-title" class="dashboard-social-accounts__title">
+              Social accounts
+              <span class="dashboard-social-accounts__title-mark" aria-hidden="true">all together</span>
+            </h1>
+            <p class="dashboard-social-accounts__intro">
+              Connect the channels you use and keep every publishing identity within reach.
+            </p>
           </div>
+          <p class="dashboard-social-accounts__scribble" aria-hidden="true">Grow from here.</p>
         </header>
       </div>
 
@@ -92,9 +99,10 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
       }
 
       @if (loadError()) {
-        <p class="account-panel__status account-panel__status--error" role="alert">
-          {{ loadError() }}
-        </p>
+        <div class="dashboard-route-status dashboard-route-status--error" role="alert">
+          <span class="material-icons" aria-hidden="true">cloud_off</span>
+          <p>{{ loadError() }}</p>
+        </div>
       }
 
       @if (!isLoading() && !loadError()) {
@@ -169,6 +177,14 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
                     </li>
                   }
                 </ul>
+              </div>
+            } @else {
+              <div class="social-accounts__empty">
+                <span class="social-accounts__empty-icon material-icons" aria-hidden="true">link</span>
+                <div class="social-accounts__empty-copy">
+                  <h3>Start with your first channel</h3>
+                  <p>Choose an available platform below. Your connected accounts will live here.</p>
+                </div>
               </div>
             }
 

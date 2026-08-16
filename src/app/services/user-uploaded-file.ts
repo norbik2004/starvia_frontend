@@ -17,7 +17,7 @@ export class UserUploadedFileService {
   getFiles(
     pageNumber: number,
     pageSize: number,
-    filters: UserUploadedFilesFilterParams = {}
+    filters: UserUploadedFilesFilterParams = {},
   ): Observable<PagedUserUploadedFilesResponse> {
     let params = new HttpParams()
       .set('PageNumber', String(pageNumber))
@@ -38,7 +38,6 @@ export class UserUploadedFileService {
 
     return this.http.get<PagedUserUploadedFilesResponse>(this.filesUrl, {
       params,
-      withCredentials: true,
     });
   }
 
@@ -48,27 +47,20 @@ export class UserUploadedFileService {
       formData.append('Files', file);
     }
 
-    return this.http.post<UserUploadedFileItem[]>(this.filesUrl, formData, {
-      withCredentials: true,
-    });
+    return this.http.post<UserUploadedFileItem[]>(this.filesUrl, formData);
   }
 
   downloadFile(fileId: string): Observable<Blob> {
     return this.http.get(`${this.filesUrl}/download/${fileId}`, {
-      withCredentials: true,
       responseType: 'blob',
     });
   }
 
   updateFile(payload: UserUploadedFileUpdateRequest): Observable<UserUploadedFileItem> {
-    return this.http.put<UserUploadedFileItem>(this.filesUrl, payload, {
-      withCredentials: true,
-    });
+    return this.http.put<UserUploadedFileItem>(this.filesUrl, payload);
   }
 
   deleteFile(fileId: string): Observable<void> {
-    return this.http.delete<void>(`${this.filesUrl}/${fileId}`, {
-      withCredentials: true,
-    });
+    return this.http.delete<void>(`${this.filesUrl}/${fileId}`);
   }
 }

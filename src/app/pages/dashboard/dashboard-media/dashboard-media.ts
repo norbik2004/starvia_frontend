@@ -503,10 +503,12 @@ export class DashboardMedia {
     this.descriptionError.set(null);
 
     queueMicrotask(() => {
-      const input = this.renameInput()?.nativeElement;
-      input?.focus();
-      input?.select();
-      this.descriptionInput()?.scheduleLayout();
+      requestAnimationFrame(() => {
+        const input = this.renameInput()?.nativeElement;
+        input?.focus({ preventScroll: true });
+        input?.select();
+        this.descriptionInput()?.scheduleLayout();
+      });
     });
   }
 

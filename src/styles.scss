@@ -99,8 +99,13 @@ video {
 
 body.nav-open,
 body.dashboard-nav-open,
+body.post-create-open,
 body.auth-page {
   overflow: hidden;
+}
+
+body.post-create-open .dashboard-layout__main {
+  z-index: var(--drawer-z-panel-raised);
 }
 
 html:has(body.auth-page) {

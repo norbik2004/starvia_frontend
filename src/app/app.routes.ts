@@ -1,10 +1,11 @@
 import { Routes } from '@angular/router';
 import { sessionGuard } from './guards/session.guard';
+import { emailConfirmedAccessGuard } from './guards/email-confirmed-access.guard';
+import { confirmEmailAccessGuard } from './guards/confirm-email-access.guard';
 import { DashboardSocialAccounts } from './pages/dashboard/dashboard-social-accounts/dashboard-social-accounts';
 import { DashboardSocialAccountDetail } from './pages/dashboard/dashboard-social-account-detail/dashboard-social-account-detail';
 import { DashboardAccount } from './pages/dashboard/dashboard-account/dashboard-account';
 import { DashboardOverview } from './pages/dashboard/dashboard-overview/dashboard-overview';
-import { DashboardPostCreate } from './pages/dashboard/dashboard-post-create/dashboard-post-create';
 import { DashboardPostDetail } from './pages/dashboard/dashboard-post-detail/dashboard-post-detail';
 import { DashboardMedia } from './pages/dashboard/dashboard-media/dashboard-media';
 import { DashboardMediaGenerate } from './pages/dashboard/dashboard-media-generate/dashboard-media-generate';
@@ -46,13 +47,13 @@ export const routes: Routes = [
   {
     path: 'confirm-email',
     component: ConfirmEmailPage,
-    canActivate: [sessionGuard],
+    canActivate: [sessionGuard, confirmEmailAccessGuard],
     data: { session: { mode: 'guest' } },
   },
   {
     path: 'email-confirmed',
     component: EmailConfirmedPage,
-    canActivate: [sessionGuard],
+    canActivate: [sessionGuard, emailConfirmedAccessGuard],
     data: { session: { mode: 'guest' } },
   },
   {
@@ -87,7 +88,7 @@ export const routes: Routes = [
       },
       {
         path: 'posts/new',
-        component: DashboardPostCreate,
+        redirectTo: 'posts',
       },
       {
         path: 'posts/:id',

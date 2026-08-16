@@ -1,5 +1,3 @@
-$drawer-transition-duration: 0.22s;
-
 @mixin menu-toggle {
   align-items: center;
   justify-content: center;
@@ -145,9 +143,6 @@ $drawer-transition-duration: 0.22s;
   box-shadow:
     -24px 0 48px color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent),
     var(--mat-sys-level3);
-  transition:
-    transform $drawer-transition-duration ease,
-    visibility $drawer-transition-duration ease;
 
   @include panel-closed;
 

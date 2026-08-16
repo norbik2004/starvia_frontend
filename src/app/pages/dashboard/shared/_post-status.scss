@@ -1,16 +1,16 @@
 @mixin post-status-tones {
   &.post-status--draft {
-    --post-status-fg: #546e7a;
-    --post-status-bg: color-mix(in srgb, #546e7a 12%, transparent);
-    --post-status-border: color-mix(in srgb, #546e7a 28%, transparent);
-    --post-status-hover-bg: color-mix(in srgb, #546e7a 18%, transparent);
+    --post-status-fg: var(--sv-dark-soft);
+    --post-status-bg: color-mix(in srgb, var(--sv-dark-soft) 10%, transparent);
+    --post-status-border: color-mix(in srgb, var(--sv-dark-soft) 24%, transparent);
+    --post-status-hover-bg: color-mix(in srgb, var(--sv-dark-soft) 16%, transparent);
   }
 
   &.post-status--in-progress {
-    --post-status-fg: var(--mat-sys-primary);
-    --post-status-bg: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
-    --post-status-border: color-mix(in srgb, var(--mat-sys-primary) 28%, transparent);
-    --post-status-hover-bg: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+    --post-status-fg: var(--sv-ink);
+    --post-status-bg: color-mix(in srgb, var(--sv-accent) 34%, transparent);
+    --post-status-border: color-mix(in srgb, var(--sv-accent) 58%, var(--sv-dark));
+    --post-status-hover-bg: color-mix(in srgb, var(--sv-accent) 52%, transparent);
   }
 
   &.post-status--done {
@@ -44,6 +44,14 @@
 
   &--pulse {
     animation: post-status-pulse 0.32s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &--pulse {
+      animation: none;
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 @use '../dashboard-content-shell' as shell;
 
 .dashboard-list-board {
+  position: relative;
   display: grid;
   gap: var(--space-sm);
   min-width: 0;
@@ -8,8 +9,35 @@
   transition: opacity 0.2s ease;
 
   &--loading {
-    opacity: 1;
     pointer-events: none;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 2rem 0 0;
+      z-index: 4;
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--sv-canvas) 58%, transparent);
+      backdrop-filter: blur(2px);
+    }
+
+    &::after {
+      content: '●  Updating…';
+      position: absolute;
+      top: 3rem;
+      left: 50%;
+      z-index: 5;
+      padding: 0.55rem 0.85rem;
+      border: 1px solid color-mix(in srgb, var(--sv-accent) 55%, var(--sv-dark));
+      border-radius: var(--radius-pill);
+      background: var(--sv-dark);
+      color: var(--sv-accent);
+      box-shadow: 0 10px 26px -14px color-mix(in srgb, var(--sv-dark) 55%, transparent);
+      font-size: 0.75rem;
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.02em;
+      transform: translateX(-50%);
+    }
   }
 
   &__head {
@@ -20,9 +48,15 @@
 
   &__summary {
     margin: 0;
-    color: var(--mat-sys-on-surface-variant);
+    color: var(--sv-ink-muted);
     font-size: 0.8125rem;
     line-height: 1.4;
     @include shell.meta-strong;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-list-board {
+    transition: none;
   }
 }

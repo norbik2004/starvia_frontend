@@ -1,0 +1,30 @@
+// Starvia workspace theme: keeps Material components functional while aligning
+// the authenticated product with the warm marketing/auth visual language.
+
+@mixin theme {
+  --mat-sys-primary: var(--sv-dark);
+  --mat-sys-on-primary: var(--sv-white);
+  --mat-sys-primary-container: var(--sv-accent);
+  --mat-sys-on-primary-container: var(--sv-ink);
+  --mat-sys-secondary: var(--sv-dark-soft);
+  --mat-sys-on-secondary: var(--sv-white);
+  --mat-sys-secondary-container: color-mix(in srgb, var(--sv-accent) 20%, var(--sv-white));
+  --mat-sys-on-secondary-container: var(--sv-ink);
+  --mat-sys-tertiary: var(--sv-accent-dark);
+  --mat-sys-on-tertiary: var(--sv-ink);
+  --mat-sys-surface: var(--sv-canvas-soft);
+  --mat-sys-surface-container-lowest: var(--sv-white);
+  --mat-sys-surface-container-low: color-mix(in srgb, var(--sv-white) 86%, var(--sv-canvas));
+  --mat-sys-surface-container: color-mix(in srgb, var(--sv-white) 70%, var(--sv-canvas));
+  --mat-sys-surface-container-high: var(--sv-canvas-muted);
+  --mat-sys-on-surface: var(--sv-ink);
+  --mat-sys-on-surface-variant: var(--sv-ink-muted);
+  --mat-sys-outline: color-mix(in srgb, var(--sv-dark) 30%, transparent);
+  --mat-sys-outline-variant: color-mix(in srgb, var(--sv-dark) 14%, transparent);
+  --mat-focus-indicator-color: var(--sv-accent);
+  --border-subtle: color-mix(in srgb, var(--sv-dark) 12%, transparent);
+  --border-muted: color-mix(in srgb, var(--sv-dark) 16%, transparent);
+
+  color: var(--sv-ink);
+  font-family: var(--font-primary);
+}

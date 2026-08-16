@@ -19,7 +19,7 @@ export class PostService {
   getMyPosts(
     pageNumber: number,
     pageSize: number,
-    filters: PostsFilterParams = {}
+    filters: PostsFilterParams = {},
   ): Observable<PagedPostsResponse> {
     let params = new HttpParams()
       .set('PageNumber', String(pageNumber))
@@ -56,7 +56,6 @@ export class PostService {
     return this.http
       .get<unknown>(this.postsUrl, {
         params,
-        withCredentials: true,
       })
       .pipe(
         map((response) => {
@@ -66,64 +65,50 @@ export class PostService {
           }
 
           return parsed;
-        })
+        }),
       );
   }
 
   getPost(id: number): Observable<PostItem> {
-    return this.http
-      .get<unknown>(`${this.postsUrl}/${id}`, {
-        withCredentials: true,
-      })
-      .pipe(
-        map((response) => {
-          const parsed = parsePostItem(response);
-          if (!parsed) {
-            throw new Error('Invalid post response.');
-          }
+    return this.http.get<unknown>(`${this.postsUrl}/${id}`).pipe(
+      map((response) => {
+        const parsed = parsePostItem(response);
+        if (!parsed) {
+          throw new Error('Invalid post response.');
+        }
 
-          return parsed;
-        })
-      );
+        return parsed;
+      }),
+    );
   }
 
   createPost(payload: CreatePostPayload): Observable<PostItem> {
-    return this.http
-      .post<unknown>(this.postsUrl, payload, {
-        withCredentials: true,
-      })
-      .pipe(
-        map((response) => {
-          const parsed = parsePostItem(response);
-          if (!parsed) {
-            throw new Error('Invalid post response.');
-          }
+    return this.http.post<unknown>(this.postsUrl, payload).pipe(
+      map((response) => {
+        const parsed = parsePostItem(response);
+        if (!parsed) {
+          throw new Error('Invalid post response.');
+        }
 
-          return parsed;
-        })
-      );
+        return parsed;
+      }),
+    );
   }
 
   updatePost(id: number, payload: UpdatePostPayload): Observable<PostItem> {
-    return this.http
-      .put<unknown>(`${this.postsUrl}/${id}`, payload, {
-        withCredentials: true,
-      })
-      .pipe(
-        map((response) => {
-          const parsed = parsePostItem(response);
-          if (!parsed) {
-            throw new Error('Invalid post response.');
-          }
+    return this.http.put<unknown>(`${this.postsUrl}/${id}`, payload).pipe(
+      map((response) => {
+        const parsed = parsePostItem(response);
+        if (!parsed) {
+          throw new Error('Invalid post response.');
+        }
 
-          return parsed;
-        })
-      );
+        return parsed;
+      }),
+    );
   }
 
   deletePost(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.postsUrl}/${id}`, {
-      withCredentials: true,
-    });
+    return this.http.delete<void>(`${this.postsUrl}/${id}`);
   }
 }

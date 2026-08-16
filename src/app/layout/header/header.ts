@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import { SessionService } from '../../services/session';
 import { mountDrawerBodyBackdrop } from '../shared/drawer-body-backdrop';
+import { DrawerMotionDirective, drawerMotionDelay } from '../shared/drawer-motion';
 
 type HeaderLink = {
   id: string;
@@ -21,11 +22,11 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
 
 @Component({
   selector: 'app-header',
-  imports: [RouterLink],
+  imports: [RouterLink, DrawerMotionDirective],
   styleUrl: './header.scss',
   host: {
     '[class.is-header-hidden]': 'headerHidden()',
-    '[class.is-nav-open]': 'menuOpen()',
+    '[class.is-nav-open]': 'menuOpen() || menuClosing()',
   },
   template: `
     <div class="header-layout">
@@ -81,6 +82,9 @@ const SCROLL_OFF_THRESHOLD_PX = 8;
       <nav
         id="site-nav"
         class="nav"
+        appDrawerMotion="panel"
+        [drawerMotionState]="menuOpen() ? 'open' : menuClosing() ? 'closing' : 'closed'"
+        [drawerMotionMobileOnly]="true"
         [class.is-open]="menuOpen()"
         [attr.aria-label]="navLabel"
       >
@@ -128,11 +132,13 @@ export class Header implements OnDestroy {
   @Input() brandMode: 'scroll' | 'route' = 'scroll';
   @Input() brandRoute = '/';
   protected readonly menuOpen = signal(false);
+  protected readonly menuClosing = signal(false);
   protected readonly scrolled = signal(false);
   protected readonly headerHidden = signal(false);
 
   private lastScrollY = 0;
   private scrollRafId = 0;
+  private closeTimer: ReturnType<typeof setTimeout> | null = null;
   private unmountBodyBackdrop: (() => void) | null = null;
 
   private readonly onScroll = (): void => {
@@ -182,6 +188,7 @@ export class Header implements OnDestroy {
       cancelAnimationFrame(this.scrollRafId);
       this.scrollRafId = 0;
     }
+    this.clearCloseTimer();
     this.clearBodyBackdrop();
     document.body.classList.remove('nav-open');
   }
@@ -210,21 +217,42 @@ export class Header implements OnDestroy {
   }
 
   private setMenuOpen(open: boolean): void {
-    this.menuOpen.set(open);
-    document.body.classList.toggle('nav-open', open);
-
     if (open) {
+      this.clearCloseTimer();
+      this.menuClosing.set(false);
+      this.menuOpen.set(true);
+      document.body.classList.add('nav-open');
       this.headerHidden.set(false);
       this.clearBodyBackdrop();
       this.unmountBodyBackdrop = mountDrawerBodyBackdrop('Close menu', () => this.closeMenu());
-    } else {
-      this.clearBodyBackdrop();
+      return;
     }
+
+    if (!this.menuOpen()) {
+      return;
+    }
+
+    this.menuOpen.set(false);
+    this.menuClosing.set(true);
+    this.clearBodyBackdrop();
+    this.closeTimer = setTimeout(() => {
+      this.menuClosing.set(false);
+      document.body.classList.remove('nav-open');
+      this.closeTimer = null;
+    }, drawerMotionDelay());
   }
 
   private clearBodyBackdrop(): void {
     this.unmountBodyBackdrop?.();
     this.unmountBodyBackdrop = null;
+  }
+
+  private clearCloseTimer(): void {
+    if (this.closeTimer === null) {
+      return;
+    }
+    clearTimeout(this.closeTimer);
+    this.closeTimer = null;
   }
 
   private shouldAutoHideOnScroll(): boolean {

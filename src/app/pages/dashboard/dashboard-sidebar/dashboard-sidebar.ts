@@ -2,8 +2,6 @@ import { Component, DestroyRef, HostListener, OnDestroy, inject, signal } from '
 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { MatTooltip } from '@angular/material/tooltip';
-
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 
 import { catchError, filter, finalize, of } from 'rxjs';
@@ -12,6 +10,7 @@ import type { UserAccount } from '../../../models/user-account';
 import { AuthService } from '../../../services/auth';
 import { SessionService } from '../../../services/session';
 import { mountDrawerBodyBackdrop } from '../../../layout/shared/drawer-body-backdrop';
+import { DrawerMotionDirective, drawerMotionDelay } from '../../../layout/shared/drawer-motion';
 import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-user-avatar';
 
 
@@ -43,7 +42,6 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
     ],
   },
   { label: 'Posts', icon: 'notes', route: '/dashboard/posts' },
-  { label: 'Prompts', icon: 'chat', route: '/dashboard/prompts' },
 ] as const;
 
 
@@ -52,13 +50,17 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
   selector: 'app-dashboard-sidebar',
 
-  imports: [RouterLink, RouterLinkActive, MatTooltip, DashboardUserAvatar],
+  imports: [RouterLink, RouterLinkActive, DashboardUserAvatar, DrawerMotionDirective],
 
   styleUrl: './dashboard-sidebar.scss',
 
   template: `
 
-    <aside class="dashboard-sidebar" [class.is-menu-open]="menuOpen()" aria-label="Dashboard">
+    <aside
+      class="dashboard-sidebar"
+      [class.is-menu-open]="menuOpen() || menuClosing()"
+      aria-label="Dashboard"
+    >
 
       <div class="dashboard-sidebar__mobile-bar">
 
@@ -116,7 +118,13 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
 
 
-      <div id="dashboard-sidebar-panel" class="dashboard-sidebar__panel">
+      <div
+        id="dashboard-sidebar-panel"
+        class="dashboard-sidebar__panel"
+        appDrawerMotion="panel"
+        [drawerMotionState]="menuOpen() ? 'open' : menuClosing() ? 'closing' : 'closed'"
+        [drawerMotionMobileOnly]="true"
+      >
 
         <div class="dashboard-sidebar__drawer-head">
 
@@ -291,28 +299,6 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
             </div>
 
-            <button
-
-              type="button"
-
-              class="dashboard-sidebar__notifications"
-
-              aria-label="Notifications"
-
-              matTooltip="Notifications"
-
-              matTooltipPosition="below"
-
-            >
-
-              <span class="material-icons dashboard-sidebar__notifications-icon" aria-hidden="true">
-
-                notifications
-
-              </span>
-
-            </button>
-
           </div>
 
 
@@ -370,6 +356,7 @@ export class DashboardSidebar implements OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
 
   private unmountBodyBackdrop: (() => void) | null = null;
+  private closeTimer: ReturnType<typeof setTimeout> | null = null;
 
 
 
@@ -380,6 +367,7 @@ export class DashboardSidebar implements OnDestroy {
   protected readonly isLoggingOut = signal(false);
 
   protected readonly menuOpen = signal(false);
+  protected readonly menuClosing = signal(false);
 
   protected readonly currentUrl = signal(this.router.url);
 
@@ -563,6 +551,7 @@ export class DashboardSidebar implements OnDestroy {
 
 
   ngOnDestroy(): void {
+    this.clearCloseTimer();
     this.clearBodyBackdrop();
     document.body.classList.remove('dashboard-nav-open');
   }
@@ -570,23 +559,41 @@ export class DashboardSidebar implements OnDestroy {
 
 
   private setMenuOpen(open: boolean): void {
-
-    this.menuOpen.set(open);
-
-    document.body.classList.toggle('dashboard-nav-open', open);
-
     if (open) {
+      this.clearCloseTimer();
+      this.menuClosing.set(false);
+      this.menuOpen.set(true);
+      document.body.classList.add('dashboard-nav-open');
       this.clearBodyBackdrop();
       this.unmountBodyBackdrop = mountDrawerBodyBackdrop('Close menu', () => this.closeMenu());
-    } else {
-      this.clearBodyBackdrop();
+      return;
     }
 
+    if (!this.menuOpen()) {
+      return;
+    }
+
+    this.menuOpen.set(false);
+    this.menuClosing.set(true);
+    this.clearBodyBackdrop();
+    this.closeTimer = setTimeout(() => {
+      this.menuClosing.set(false);
+      document.body.classList.remove('dashboard-nav-open');
+      this.closeTimer = null;
+    }, drawerMotionDelay());
   }
 
   private clearBodyBackdrop(): void {
     this.unmountBodyBackdrop?.();
     this.unmountBodyBackdrop = null;
+  }
+
+  private clearCloseTimer(): void {
+    if (this.closeTimer === null) {
+      return;
+    }
+    clearTimeout(this.closeTimer);
+    this.closeTimer = null;
   }
 
 }

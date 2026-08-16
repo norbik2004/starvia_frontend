@@ -1,4 +1,4 @@
-// Primary app buttons — marketing uses charcoal → lime; dashboard keeps Material primary
+// Primary app buttons — public and authenticated Starvia surfaces use charcoal → lime.
 
 .btn.btn--primary,
 .btn.btn--raised-primary,
@@ -107,7 +107,8 @@ a.btn--compact {
 
 /* Landing / Tabela-style CTAs (scoped) */
 .home,
-.marketing-surface {
+.marketing-surface,
+.dashboard-layout {
   .btn.btn--primary,
   .btn.btn--raised-primary,
   .btn.btn--hero-primary,

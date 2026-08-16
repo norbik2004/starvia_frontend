@@ -24,7 +24,6 @@ export class GeminiService {
   getConversation(postId: number): Observable<UserPromptConversationItem[]> {
     return this.http.get<UserPromptConversationItem[]>(
       `${this.userPromptUrl}/conversation/${postId}`,
-      { withCredentials: true }
     );
   }
 
@@ -58,12 +57,8 @@ export class GeminiService {
 
     return this.http
       .post(this.geminiUrl, formData, {
-        withCredentials: true,
         responseType: 'text',
       })
       .pipe(map((response) => parseGeneratedPostText(response)));
   }
-
 }
-
-

@@ -43,25 +43,33 @@
   @include auth.auth-form;
 
   display: grid;
-  gap: var(--space-xs);
+  gap: 0.55rem;
   width: 100%;
   max-width: none;
   box-sizing: border-box;
-  padding: var(--space-md);
+  padding: 0.65rem;
   overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, var(--mat-sys-primary) 8%);
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 8%, transparent);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--mat-sys-surface) 96%, var(--mat-sys-surface-container-low));
+  background: color-mix(in srgb, var(--sv-white) 54%, transparent);
+  box-shadow: none;
 
   .field__input {
     width: 100%;
     box-sizing: border-box;
     min-height: 2.25rem;
     padding: 0.45rem 0.65rem;
+    border-color: color-mix(in srgb, var(--sv-dark) 13%, transparent);
+    background: color-mix(in srgb, var(--sv-white) 82%, transparent);
+
+    &:focus {
+      border-color: color-mix(in srgb, var(--sv-dark) 30%, var(--sv-accent));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-accent) 30%, transparent);
+    }
   }
 
   &--compact {
-    padding: var(--space-sm);
+    padding: 0.5rem;
   }
 
   > * {
@@ -131,7 +139,7 @@
 .dashboard-edit-hint {
   flex: 0 0 auto;
   margin: 0;
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--sv-ink-muted);
   font-size: var(--text-eyebrow);
   line-height: 1.25;
   white-space: nowrap;
@@ -162,6 +170,14 @@
   flex-wrap: wrap;
   gap: 0.625rem;
 
+  > .btn {
+    min-width: 6.75rem;
+    min-height: 2.25rem;
+    padding: 0.45rem 1.25rem;
+    border-radius: 0.75rem;
+    line-height: 1.2;
+  }
+
   > * {
     animation: dashboard-edit-in 180ms ease-out both;
   }
@@ -177,8 +193,8 @@
 
 @media (max-width: 48rem) {
   .dashboard-edit-panel {
-    padding: var(--space-sm);
-    gap: var(--space-sm);
+    padding: 0.6rem;
+    gap: 0.6rem;
 
     .field__input {
       min-height: 2.75rem;
@@ -214,7 +230,8 @@
     > .btn {
       width: 100%;
       justify-content: center;
-      min-height: 2.75rem;
+      min-height: 2.35rem;
+      padding-block: 0.5rem;
     }
   }
 }

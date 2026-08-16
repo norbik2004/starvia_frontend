@@ -5,26 +5,26 @@
   gap: var(--space-lg);
   width: 100%;
   padding: var(--space-lg) var(--space-xl);
-  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 11%, transparent);
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: color-mix(in srgb, var(--sv-white) 88%, var(--sv-canvas-soft));
   box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 90%, transparent) inset,
-    0 1px 3px color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
+    0 1px 0 rgb(255 255 255 / 0.8) inset,
+    0 16px 36px -30px color-mix(in srgb, var(--sv-dark) 34%, transparent);
 
   &--user {
-    border-left: 3px solid color-mix(in srgb, var(--mat-sys-primary) 42%, transparent);
+    border-left: 3px solid var(--sv-accent);
     background:
       linear-gradient(
         135deg,
-        color-mix(in srgb, var(--mat-sys-primary) 5%, #fff) 0%,
-        #fff 38%,
-        #fff 100%
+        color-mix(in srgb, var(--sv-accent) 13%, var(--sv-white)) 0%,
+        color-mix(in srgb, var(--sv-white) 90%, var(--sv-canvas-soft)) 42%,
+        color-mix(in srgb, var(--sv-white) 88%, var(--sv-canvas-soft)) 100%
       );
   }
 
   &--accounts {
-    border-left: 3px solid color-mix(in srgb, var(--mat-sys-primary) 24%, transparent);
+    border-left: 3px solid color-mix(in srgb, var(--sv-accent) 65%, var(--sv-dark));
   }
 
   &__hero {
@@ -33,7 +33,7 @@
     gap: var(--space-lg);
     min-width: 0;
     padding-bottom: var(--space-md);
-    border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 75%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--sv-dark) 10%, transparent);
   }
 
   &__hero-copy {
@@ -44,7 +44,7 @@
 
   &__title {
     margin: 0;
-    color: var(--mat-sys-on-surface);
+    color: var(--sv-ink);
     font-size: var(--text-h3);
     font-weight: var(--font-weight-semibold);
     line-height: var(--leading-snug);
@@ -52,7 +52,7 @@
 
   &__copy {
     margin: 0;
-    color: var(--mat-sys-on-surface-variant);
+    color: var(--sv-ink-muted);
     font-size: var(--text-body-sm);
     line-height: var(--leading-body);
   }
@@ -77,8 +77,9 @@
     width: 2.5rem;
     height: 2.5rem;
     border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent);
-    color: var(--mat-sys-primary);
+    border: 1px solid color-mix(in srgb, var(--sv-dark) 12%, transparent);
+    background: var(--sv-dark);
+    color: var(--sv-accent);
 
     .material-icons {
       font-size: 1.25rem;

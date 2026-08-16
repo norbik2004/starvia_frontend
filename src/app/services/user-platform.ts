@@ -12,7 +12,10 @@ import {
 @Injectable({ providedIn: 'root' })
 export class UserPlatformService {
   private readonly http = inject(HttpClient);
-  private readonly userPlatformsUrl = new URL('UserPlatform/user-platforms', environment.backendUrl).toString();
+  private readonly userPlatformsUrl = new URL(
+    'UserPlatform/user-platforms',
+    environment.backendUrl,
+  ).toString();
 
   private userPlatformUrl(id: number): string {
     return new URL(`UserPlatform/${id}`, environment.backendUrl).toString();
@@ -21,7 +24,6 @@ export class UserPlatformService {
   getUserPlatforms(): Observable<UserPlatform[]> {
     return this.http
       .get(this.userPlatformsUrl, {
-        withCredentials: true,
         responseType: 'text',
       })
       .pipe(map((response) => parseUserPlatformsResponse(response)));
@@ -30,7 +32,6 @@ export class UserPlatformService {
   getUserPlatform(id: number): Observable<UserPlatform> {
     return this.http
       .get(this.userPlatformUrl(id), {
-        withCredentials: true,
         responseType: 'text',
       })
       .pipe(
@@ -43,24 +44,21 @@ export class UserPlatformService {
                 throw new Error('User platform not found.');
               }
               return match;
-            })
-          )
-        )
+            }),
+          ),
+        ),
       );
   }
 
   updateUserPlatform(id: number, request: UpdateUserPlatformRequest): Observable<string> {
     return this.http.put(this.userPlatformUrl(id), request, {
-      withCredentials: true,
       headers: { 'Content-Type': 'application/json' },
       responseType: 'text',
     });
   }
 
   deleteUserPlatform(id: number): Observable<void> {
-    return this.http.delete<void>(this.userPlatformUrl(id), {
-      withCredentials: true,
-    });
+    return this.http.delete<void>(this.userPlatformUrl(id));
   }
 
   private parseUserPlatformResponse(response: unknown): UserPlatform {

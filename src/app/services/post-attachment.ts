@@ -18,14 +18,12 @@ export class PostAttachmentService {
 
   create(payload: PostAttachmentsRequest): Observable<string> {
     return this.http.post(this.url, payload, {
-      withCredentials: true,
       responseType: 'text',
     });
   }
 
   update(payload: PostAttachmentsRequest): Observable<string> {
     return this.http.put(this.url, payload, {
-      withCredentials: true,
       responseType: 'text',
     });
   }
@@ -33,8 +31,6 @@ export class PostAttachmentService {
   delete(postAttachmentId: number): Observable<void> {
     return this.http.delete<void>(this.url, {
       params: { postAttachmentId },
-      withCredentials: true,
     });
   }
 }
-

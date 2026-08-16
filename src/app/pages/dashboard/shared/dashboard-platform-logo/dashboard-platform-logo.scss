@@ -4,11 +4,11 @@
   justify-content: center;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  color: var(--mat-sys-primary);
-  background: color-mix(in srgb, var(--mat-sys-primary) 12%, #fff);
+  color: var(--sv-ink);
+  background: color-mix(in srgb, var(--sv-accent) 48%, var(--sv-white));
   box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 88%, transparent) inset,
-    0 1px 3px color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+    0 1px 0 rgb(255 255 255 / 0.8) inset,
+    0 3px 10px -7px color-mix(in srgb, var(--sv-dark) 45%, transparent);
 
   svg {
     display: block;
@@ -66,17 +66,17 @@
   }
 
   &.social-account-card--linkedin {
-    color: #fff;
+    color: var(--sv-white);
     background: linear-gradient(180deg, #0a66c2 0%, #084d94 100%);
   }
 
   &.social-account-card--facebook {
-    color: #fff;
+    color: var(--sv-white);
     background: linear-gradient(180deg, #1877f2 0%, #0f5bd6 100%);
   }
 
   &.social-account-card--instagram {
-    color: #fff;
+    color: var(--sv-white);
     background: linear-gradient(
       135deg,
       #f58529 0%,

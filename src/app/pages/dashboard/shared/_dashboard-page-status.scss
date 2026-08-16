@@ -3,4 +3,17 @@
 .posts-status {
   @include shell.posts-status;
   flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 10%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--sv-white) 72%, var(--sv-canvas-soft));
+  line-height: var(--leading-body);
+
+  &--error {
+    border-color: color-mix(in srgb, var(--mat-sys-error) 24%, transparent);
+    background: color-mix(in srgb, var(--mat-sys-error) 6%, var(--sv-white));
+  }
 }

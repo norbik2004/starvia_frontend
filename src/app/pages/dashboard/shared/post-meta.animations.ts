@@ -11,7 +11,7 @@ const PANEL_LEAVE = prefersReducedMotion ? '0ms' : '120ms ease-in';
 
 export const postMetaChipAnimation = trigger('postMetaChip', [
   transition(':enter', [
-    style({ opacity: 0 }),
+    style({ opacity: prefersReducedMotion ? 1 : 0 }),
     animate(ENTER, style({ opacity: 1 })),
   ]),
   transition(':leave', [
@@ -21,7 +21,7 @@ export const postMetaChipAnimation = trigger('postMetaChip', [
 
 export const postMetaFadeSlideAnimation = trigger('postMetaFadeSlide', [
   transition(':enter', [
-    style({ opacity: 0 }),
+    style({ opacity: prefersReducedMotion ? 1 : 0 }),
     animate(PANEL_ENTER, style({ opacity: 1 })),
   ]),
   transition(':leave', [
@@ -31,7 +31,7 @@ export const postMetaFadeSlideAnimation = trigger('postMetaFadeSlide', [
 
 export const postMetaPanelAnimation = trigger('postMetaPanel', [
   transition(':enter', [
-    style({ opacity: 0 }),
+    style({ opacity: prefersReducedMotion ? 1 : 0 }),
     animate(PANEL_ENTER, style({ opacity: 1 })),
   ]),
   transition(':leave', [

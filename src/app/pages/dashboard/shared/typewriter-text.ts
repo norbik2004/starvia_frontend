@@ -9,6 +9,22 @@ export function createTypewriter(
   let timerId = 0;
   let cancelled = false;
 
+  if (prefersReducedMotion()) {
+    timerId = window.setTimeout(() => {
+      if (cancelled) {
+        return;
+      }
+
+      onUpdate(fullText);
+      onComplete();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+    };
+  }
+
   const tick = (): void => {
     if (cancelled) {
       return;
@@ -33,6 +49,10 @@ export function createTypewriter(
     cancelled = true;
     window.clearTimeout(timerId);
   };
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 }
 
 function typewriterDelayFor(char: string, baseMs: number): number {

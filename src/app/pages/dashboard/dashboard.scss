@@ -1,9 +1,12 @@
 @use './dashboard-content-shell' as shell;
+@use '../../../styles/dashboard-marketing' as dashboard-marketing;
 
 :host {
+  @include dashboard-marketing.theme;
+
   display: block;
   min-height: 100dvh;
-  background: #fff;
+  background: var(--sv-canvas);
 }
 
 .dashboard-layout {
@@ -21,8 +24,9 @@
   flex-direction: column;
   min-width: 0;
   height: 100dvh;
-  border-inline-end: 1px solid var(--border-subtle);
-  background: #fff;
+  border-inline-end: 1px solid color-mix(in srgb, var(--sv-dark) 12%, transparent);
+  background: color-mix(in srgb, var(--sv-canvas-soft) 94%, transparent);
+  box-shadow: 10px 0 32px rgb(45 45 45 / 0.035);
 
   > app-dashboard-sidebar {
     flex: 1;
@@ -40,7 +44,7 @@
   min-width: 0;
   width: 100%;
   min-height: 100dvh;
-  padding: var(--space-lg) var(--container-padding) var(--space-lg);
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 3vw, 2.5rem) clamp(2rem, 4vw, 3rem);
   overflow: visible;
 }
 
@@ -88,9 +92,9 @@
     z-index: 180;
     height: auto;
     border-inline-end: none;
-    border-bottom: 1px solid var(--border-subtle);
-    background: #fff;
-    box-shadow: 0 8px 24px color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--sv-dark) 12%, transparent);
+    background: color-mix(in srgb, var(--sv-canvas-soft) 96%, transparent);
+    box-shadow: 0 8px 24px rgb(45 45 45 / 0.08);
 
     &:has(.dashboard-sidebar.is-menu-open) {
       z-index: var(--drawer-z-panel-raised);

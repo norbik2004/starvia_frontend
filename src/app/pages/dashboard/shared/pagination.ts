@@ -17,6 +17,10 @@ export function showingFrom(page: PaginationPage, pageSize: number): number {
 }
 
 export function showingTo(page: PaginationPage, pageSize: number): number {
+  if (page.itemCount === 0) {
+    return 0;
+  }
+
   return showingFrom(page, pageSize) + page.itemCount - 1;
 }
 

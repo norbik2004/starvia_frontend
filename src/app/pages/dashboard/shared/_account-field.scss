@@ -10,7 +10,7 @@
   padding: var(--space-md) 0;
 
   & + & {
-    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 65%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--sv-dark) 10%, transparent);
   }
 
   &--editing {
@@ -44,7 +44,7 @@
 
   &--danger {
     .account-field__hint {
-      color: var(--mat-sys-on-surface-variant);
+      color: var(--sv-ink-muted);
     }
   }
 
@@ -60,7 +60,7 @@
     align-items: center;
     gap: 0.35rem;
     margin: 0;
-    color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 92%, transparent);
+    color: var(--sv-ink-muted);
     font-size: 0.6875rem;
     font-weight: var(--font-weight-semibold);
     letter-spacing: 0.06em;
@@ -68,13 +68,13 @@
 
     .material-icons {
       font-size: 0.9375rem;
-      color: color-mix(in srgb, var(--mat-sys-primary) 72%, var(--mat-sys-on-surface-variant));
+      color: color-mix(in srgb, var(--sv-accent) 62%, var(--sv-dark));
     }
   }
 
   &__value {
     margin: 0;
-    color: var(--mat-sys-on-surface);
+    color: var(--sv-ink);
     font-size: var(--text-body);
     font-weight: var(--font-weight-semibold);
     line-height: var(--leading-snug);
@@ -83,12 +83,12 @@
 
   &__hint {
     margin: 0;
-    color: var(--mat-sys-on-surface-variant);
+    color: var(--sv-ink-muted);
     font-size: var(--text-body-sm);
     line-height: var(--leading-body);
 
     strong {
-      color: var(--mat-sys-on-surface);
+      color: var(--sv-ink);
       font-weight: var(--font-weight-semibold);
     }
   }
@@ -99,7 +99,7 @@
     line-height: var(--leading-body);
 
     &--success {
-      color: var(--mat-sys-primary);
+      color: #2e7d32;
     }
 
     &--error {
@@ -113,14 +113,16 @@
     display: grid;
     gap: 0.25rem;
     min-width: 0;
-    padding: var(--space-sm);
-    border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, var(--mat-sys-primary) 8%);
+    padding: 0.6rem;
+    border: 1px solid color-mix(in srgb, var(--sv-dark) 8%, transparent);
     border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--mat-sys-surface) 96%, var(--mat-sys-surface-container-low));
+    background: color-mix(in srgb, var(--sv-white) 54%, transparent);
 
     .field__input {
       min-height: 2.25rem;
       padding: 0.45rem 0.65rem;
+      border-color: color-mix(in srgb, var(--sv-dark) 13%, transparent);
+      background: color-mix(in srgb, var(--sv-white) 82%, transparent);
     }
 
     .field__input.field__input--inline-title {
@@ -174,20 +176,20 @@
       min-width: 1.5rem;
       min-height: 1.5rem;
       padding: 0.0625rem;
-      color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 72%, transparent);
+      color: var(--sv-ink-muted);
 
       .material-icons.edit-icon__glyph,
       .edit-icon__glyph {
         font-size: 1.375rem;
-        color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 72%, transparent);
+        color: var(--sv-ink-muted);
       }
 
       &:hover:not(.edit-icon--disabled) {
-        color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 88%, transparent);
+        color: var(--sv-ink);
 
         .material-icons.edit-icon__glyph,
         .edit-icon__glyph {
-          color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 88%, transparent);
+          color: var(--sv-ink);
         }
       }
     }
@@ -235,7 +237,7 @@
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 78%, transparent);
+    color: var(--sv-ink-muted);
     cursor: pointer;
     transition:
       color 0.15s ease,
@@ -246,12 +248,12 @@
     }
 
     &:hover:not(:disabled) {
-      color: var(--mat-sys-on-surface);
-      background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+      color: var(--sv-ink);
+      background: color-mix(in srgb, var(--sv-dark) 7%, transparent);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--mat-sys-primary);
+      outline: 2px solid var(--sv-accent);
       outline-offset: 1px;
     }
 
@@ -261,11 +263,12 @@
     }
 
     &--confirm {
-      color: var(--mat-sys-primary);
+      color: var(--sv-ink);
+      background: var(--sv-accent);
 
       &:hover:not(:disabled) {
-        color: var(--mat-sys-primary);
-        background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent);
+        color: var(--sv-ink);
+        background: var(--sv-accent-dark);
       }
     }
   }
@@ -278,7 +281,7 @@
   &__divider {
     margin: 0;
     border: 0;
-    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--sv-dark) 11%, transparent);
   }
 }
 

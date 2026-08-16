@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   input,
   signal,
 } from '@angular/core';
@@ -137,7 +138,14 @@ const LINKEDIN_PREVIEW_REPOST_COUNT = 12;
                 />
               </figure>
             } @else {
-              <div class="li-post__carousel">
+              <div
+                class="li-post__carousel"
+                role="region"
+                aria-roledescription="carousel"
+                aria-label="Post attachments"
+                tabindex="0"
+                (keydown)="onCarouselKeydown($event)"
+              >
                 <figure
                   class="li-post__media-figure"
                   [style.aspect-ratio]="mediaAspectRatio(attachmentSrcs()[activeImageIndex()])"
@@ -145,7 +153,7 @@ const LINKEDIN_PREVIEW_REPOST_COUNT = 12;
                   <img
                     class="li-post__media-image"
                     [src]="attachmentSrcs()[activeImageIndex()]"
-                    alt=""
+                    [alt]="'Post attachment ' + (activeImageIndex() + 1) + ' of ' + attachmentSrcs().length"
                     (load)="onMediaImageLoad($event, attachmentSrcs()[activeImageIndex()])"
                   />
                 </figure>
@@ -153,7 +161,7 @@ const LINKEDIN_PREVIEW_REPOST_COUNT = 12;
                   type="button"
                   class="li-post__carousel-nav li-post__carousel-nav--prev"
                   aria-label="Previous image"
-                  [disabled]="activeImageIndex() === 0"
+                  [attr.aria-disabled]="activeImageIndex() === 0"
                   (click)="showPreviousImage()"
                 >
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -164,7 +172,7 @@ const LINKEDIN_PREVIEW_REPOST_COUNT = 12;
                   type="button"
                   class="li-post__carousel-nav li-post__carousel-nav--next"
                   aria-label="Next image"
-                  [disabled]="activeImageIndex() >= attachmentSrcs().length - 1"
+                  [attr.aria-disabled]="activeImageIndex() >= attachmentSrcs().length - 1"
                   (click)="showNextImage()"
                 >
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -179,6 +187,9 @@ const LINKEDIN_PREVIEW_REPOST_COUNT = 12;
                     ></span>
                   }
                 </div>
+                <p class="li-post__carousel-status" aria-live="polite" aria-atomic="true">
+                  Image {{ activeImageIndex() + 1 }} of {{ attachmentSrcs().length }}
+                </p>
               </div>
             }
           </div>
@@ -326,6 +337,15 @@ export class DashboardLinkedinPostPreview {
     return text.length > 210 || lineCount > LINKEDIN_BODY_CLAMP_LINES;
   });
 
+  constructor() {
+    effect(() => {
+      const lastIndex = Math.max(0, this.attachmentSrcs().length - 1);
+      if (this.activeImageIndex() > lastIndex) {
+        this.activeImageIndex.set(lastIndex);
+      }
+    });
+  }
+
   protected toggleBodyExpanded(): void {
     this.bodyExpanded.update((expanded) => !expanded);
   }
@@ -337,6 +357,22 @@ export class DashboardLinkedinPostPreview {
   protected showNextImage(): void {
     const lastIndex = this.attachmentSrcs().length - 1;
     this.activeImageIndex.update((index) => Math.min(lastIndex, index + 1));
+  }
+
+  protected onCarouselKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.showPreviousImage();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.showNextImage();
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      this.activeImageIndex.set(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      this.activeImageIndex.set(Math.max(0, this.attachmentSrcs().length - 1));
+    }
   }
 
   protected mediaAspectRatio(src: string): string {

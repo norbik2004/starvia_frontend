@@ -1,153 +1,123 @@
-@use '../../../styles/auth-page' as auth-page;
+@use '../../../styles/auth-marketing' as auth-marketing;
 
-:host {
-  @include auth-page.page-host;
-  display: flex;
-  flex-direction: column;
-}
+@include auth-marketing.marketing-auth-page('confirm-card');
 
-.email-confirmed {
-  position: relative;
-  flex: 1;
+.confirm-card {
+  width: min(100%, 26rem);
   display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: var(--space-xl) var(--container-padding);
+  gap: 0.85rem;
+  text-align: left;
 }
 
-.email-confirmed__bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  background: linear-gradient(
-    180deg,
-    #fff 0%,
-    #fff 38%,
-    color-mix(in srgb, var(--mat-sys-primary) 10%, #fff) 48%,
-    color-mix(in srgb, var(--mat-sys-primary) 22%, #fff) 56%,
-    color-mix(in srgb, var(--mat-sys-primary) 36%, #fff) 64%,
-    color-mix(in srgb, var(--mat-sys-primary) 50%, #fff) 72%,
-    color-mix(in srgb, var(--mat-sys-primary) 62%, #fff) 80%,
-    color-mix(in srgb, var(--mat-sys-primary) 72%, #fff) 88%,
-    color-mix(in srgb, var(--mat-sys-primary) 78%, #fff) 94%,
-    color-mix(in srgb, var(--mat-sys-primary) 82%, white) 100%
-  );
-}
-
-.email-confirmed__stars {
-  mask-image: linear-gradient(
-    180deg,
-    transparent 0%,
-    transparent 50%,
-    rgb(0 0 0 / 0.3) 58%,
-    rgb(0 0 0 / 0.7) 68%,
-    #000 78%
-  );
-}
-
-.email-confirmed__content {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 34rem);
-  text-align: center;
-  padding: clamp(1rem, 2.4vw, 1.5rem);
-  border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 55%, transparent);
-  background: color-mix(in srgb, var(--mat-sys-surface) 76%, transparent);
-  box-shadow: var(--mat-sys-level2);
-  backdrop-filter: blur(10px);
-}
-
-.email-confirmed__code {
-  margin: 0 0 var(--space-md);
-  font-size: clamp(4rem, 12vw, 5.5rem);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1;
-  color: color-mix(in srgb, var(--mat-sys-primary) 72%, var(--mat-sys-on-surface));
-}
-
-.email-confirmed__code--error {
-  color: color-mix(in srgb, var(--mat-sys-error) 85%, var(--mat-sys-on-surface));
-}
-
-.email-confirmed__title {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--text-h2);
-  font-weight: var(--font-weight-semibold);
-  color: var(--mat-sys-on-surface);
-}
-
-.email-confirmed__message {
+.confirm-card__eyebrow {
   margin: 0;
-  color: var(--mat-sys-on-surface-variant);
-  font-size: var(--text-body-sm);
-  line-height: var(--leading-snug);
+  font-family: var(--font-accent);
+  font-size: 1.35rem;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--sv-ink-muted);
+
+  &::after {
+    content: '';
+    display: block;
+    width: 1.75rem;
+    height: 0.18rem;
+    margin-top: 0.55rem;
+    border-radius: 999px;
+    background: var(--sv-accent);
+  }
 }
 
-.email-confirmed__message--error {
-  color: var(--mat-sys-error);
+.confirm-card__eyebrow--error::after {
+  background: #b42318;
+}
+
+.confirm-card__title {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: clamp(1.85rem, 2.8vw, 2.35rem);
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--sv-ink);
+}
+
+.confirm-card__message {
+  margin: 0;
+  color: var(--sv-ink-muted);
+  font-size: var(--text-body-sm);
+  line-height: 1.55;
+}
+
+.confirm-card__message--error {
+  color: #b42318;
   font-weight: var(--font-weight-semibold);
 }
 
-.email-confirmed__email {
-  margin: var(--space-md) 0 0;
-  padding: 0.65rem 0.8rem;
+.confirm-card__email {
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 12%, transparent);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--mat-sys-primary) 8%, var(--mat-sys-surface));
-  color: var(--mat-sys-on-surface);
+  background: color-mix(in srgb, var(--sv-white) 82%, var(--sv-accent) 6%);
+  color: var(--sv-ink);
   font-size: var(--text-body-sm);
   font-weight: var(--font-weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.email-confirmed__countdown {
-  display: inline-flex;
-  align-items: center;
+.confirm-card__hint {
+  margin: 0;
+  color: var(--sv-ink-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.confirm-card__countdown {
+  display: inline-block;
+  margin-left: 0.15rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-cta);
+  background: var(--sv-accent);
+  color: var(--sv-ink);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.confirm-card__cta {
+  width: 100%;
+  margin-top: 0.35rem;
   justify-content: center;
-  min-width: 2.75rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 18%, var(--border-muted));
-  background: color-mix(in srgb, var(--mat-sys-primary) 8%, var(--mat-sys-surface));
-  color: var(--mat-sys-primary);
-  font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
 }
 
-.email-confirmed__hint {
-  margin: var(--space-md) 0 0;
-  color: var(--mat-sys-on-surface-variant);
-  font-size: 0.8125rem;
-  line-height: var(--leading-snug);
-}
-
-.email-confirmed__actions {
-  margin-top: var(--space-md);
+.confirm-card__actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
+  margin-top: 0.25rem;
 
   .btn {
     width: 100%;
-    min-height: 2.25rem;
-    padding-block: 0.45rem;
-    white-space: nowrap;
+    justify-content: center;
   }
 }
 
-.email-confirmed__note {
-  margin: var(--space-md) 0 0;
-  font-size: 0.8125rem;
-  line-height: var(--leading-snug);
+.confirm-card__note {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
-.email-confirmed__note--success {
-  color: color-mix(in srgb, var(--mat-sys-primary) 70%, var(--mat-sys-on-surface));
+.confirm-card__note--success {
+  color: var(--sv-ink);
 }
 
-.email-confirmed__note--error {
-  color: var(--mat-sys-error);
+.confirm-card__note--error {
+  color: #b42318;
 }
 
+@media (min-width: 28rem) {
+  .confirm-card__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

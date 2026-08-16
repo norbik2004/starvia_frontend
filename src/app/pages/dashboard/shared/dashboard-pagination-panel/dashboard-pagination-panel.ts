@@ -14,8 +14,12 @@ import {
       <div class="dashboard-pagination-panel__bar">
         <div class="dashboard-pagination-panel__start">
           <p class="dashboard-pagination-panel__range" aria-live="polite">
-            <span class="dashboard-pagination-panel__range-label">Showing</span>
-            <strong>{{ rangeFrom() }}–{{ rangeTo() }}</strong>
+            @if (page().itemCount === 0) {
+              <strong>No items</strong>
+            } @else {
+              <span class="dashboard-pagination-panel__range-label">Showing</span>
+              <strong>{{ rangeFrom() }}–{{ rangeTo() }}</strong>
+            }
           </p>
 
           <div class="field field--compact field--inline dashboard-pagination-panel__page-size">

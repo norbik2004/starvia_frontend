@@ -1,4 +1,5 @@
-﻿$gemini-green: #2e7d32;
+﻿$gemini-green: var(--sv-dark);
+$gemini-lime: var(--sv-accent);
 $delete-red: #c62828;
 $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
 
@@ -27,9 +28,10 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   height: min(39rem, calc(100dvh - 5rem));
   max-height: min(39rem, calc(100dvh - 5rem));
   padding: var(--space-md) var(--space-md) 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 88%, $gemini-green 12%);
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 14%, transparent);
   border-radius: calc(var(--radius-md) + 2px);
-  background: var(--mat-sys-surface);
+  background: color-mix(in srgb, var(--sv-white) 92%, transparent);
+  backdrop-filter: blur(18px);
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 55%, transparent) inset,
     0 24px 56px color-mix(in srgb, var(--mat-sys-on-surface) 18%, transparent);
@@ -71,8 +73,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   width: 2.375rem;
   height: 2.375rem;
   border-radius: var(--radius-md);
-  color: $gemini-green;
-  background: color-mix(in srgb, $gemini-green 10%, var(--mat-sys-surface));
+  color: $gemini-lime;
+  background: $gemini-green;
 
   .material-icons {
     font-size: 1.125rem;
@@ -137,7 +139,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 35%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 35%, transparent)
+    transparent;
   touch-action: pan-y;
   scroll-behavior: auto;
 }
@@ -205,8 +208,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   &--starvia {
     box-sizing: border-box;
     padding: 0.18rem;
-    background: color-mix(in srgb, $gemini-green 10%, var(--mat-sys-surface-container-low));
-    box-shadow: 0 0 0 1px color-mix(in srgb, $gemini-green 18%, transparent);
+    background: color-mix(in srgb, $gemini-lime 24%, var(--sv-white));
+    box-shadow: 0 0 0 1px color-mix(in srgb, $gemini-lime 58%, var(--sv-dark));
   }
 }
 
@@ -229,13 +232,17 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   .gemini-chatbot__message--user & {
     border-bottom-right-radius: 0.35rem;
     color: var(--mat-sys-on-surface);
-    background: color-mix(in srgb, $gemini-green 9%, var(--mat-sys-surface-container-low));
+    background: color-mix(in srgb, $gemini-lime 20%, var(--sv-white));
   }
 
   .gemini-chatbot__message--assistant & {
     border-bottom-left-radius: 0.35rem;
     color: var(--mat-sys-on-surface);
-    background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, var(--mat-sys-surface-container-low));
+    background: color-mix(
+      in srgb,
+      var(--mat-sys-on-surface) 4%,
+      var(--mat-sys-surface-container-low)
+    );
     border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
   }
 }
@@ -285,7 +292,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     content: 'â€˘';
     position: absolute;
     left: 0;
-    color: color-mix(in srgb, $gemini-green 72%, var(--mat-sys-on-surface));
+    color: var(--sv-ink);
     font-weight: var(--font-weight-bold);
   }
 
@@ -310,7 +317,6 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   border-radius: calc(var(--radius-md) - 2px);
   background: color-mix(in srgb, var(--mat-sys-on-surface) 2.5%, transparent);
   position: relative;
-
 }
 
 .gemini-chatbot__olist-num {
@@ -327,9 +333,9 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   font-size: 0.6875rem;
   font-weight: var(--font-weight-bold);
   line-height: 1;
-  color: color-mix(in srgb, $gemini-green 85%, var(--mat-sys-on-surface));
-  background: color-mix(in srgb, $gemini-green 12%, var(--mat-sys-surface));
-  box-shadow: 0 0 0 1px color-mix(in srgb, $gemini-green 20%, transparent);
+  color: var(--sv-ink);
+  background: color-mix(in srgb, $gemini-lime 42%, var(--sv-white));
+  box-shadow: 0 0 0 1px color-mix(in srgb, $gemini-lime 64%, var(--sv-dark));
 }
 
 .gemini-chatbot__olist-title {
@@ -406,7 +412,11 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   border-radius: 1rem;
   border-bottom-left-radius: 0.35rem;
   border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
-  background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, var(--mat-sys-surface-container-low));
+  background: color-mix(
+    in srgb,
+    var(--mat-sys-on-surface) 3%,
+    var(--mat-sys-surface-container-low)
+  );
 }
 
 .gemini-chatbot__thinking-dots {
@@ -419,7 +429,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     width: 0.4rem;
     height: 0.4rem;
     border-radius: 50%;
-    background: $gemini-green;
+    background: $gemini-lime;
     animation: gemini-chat-dot-bounce 1.15s ease-in-out infinite;
 
     &:nth-child(2) {
@@ -580,8 +590,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
 }
 
 .gemini-chatbot__attach-input:focus-visible + .gemini-chatbot__attach-chip {
-  outline: 2px solid color-mix(in srgb, $gemini-green 65%, transparent);
-  outline-offset: 2px;
+  outline: 3px solid $gemini-lime;
+  outline-offset: 3px;
 }
 
 .gemini-prompt-input-row {
@@ -616,13 +626,15 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 
   &:hover:not(:disabled) {
+    color: var(--sv-ink);
+    background: $gemini-lime;
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px color-mix(in srgb, $gemini-green 30%, transparent);
+    box-shadow: 0 10px 22px -14px rgb(45 45 45 / 0.5);
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, $gemini-green 65%, transparent);
-    outline-offset: 2px;
+    outline: 3px solid $gemini-lime;
+    outline-offset: 3px;
   }
 
   &:disabled {
@@ -649,7 +661,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   gap: 0.55rem;
   min-height: 3.5rem;
   padding: 0.75rem 1.75rem 0.75rem 1.15rem;
-  border: 1px solid color-mix(in srgb, #fff 24%, $gemini-green 76%);
+  border: 1px solid $gemini-green;
   border-radius: var(--radius-pill);
   color: #fff;
   font-family: inherit;
@@ -661,9 +673,9 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   overflow: hidden;
   background: linear-gradient(
     145deg,
-    color-mix(in srgb, $gemini-green 78%, #fff) 0%,
+    var(--sv-dark-soft) 0%,
     $gemini-green 55%,
-    color-mix(in srgb, $gemini-green 92%, #1b5e20) 100%
+    $gemini-green 100%
   );
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 42%, transparent) inset,
@@ -696,12 +708,19 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 
   &:hover:not(:disabled) {
+    border-color: $gemini-lime;
+    color: var(--sv-ink);
+    background: $gemini-lime;
     transform: translateY(-2px);
-    filter: brightness(1.04);
+    filter: none;
     box-shadow:
       0 1px 0 color-mix(in srgb, #fff 48%, transparent) inset,
-      0 0 0 1px color-mix(in srgb, $gemini-green 22%, transparent),
-      0 18px 42px color-mix(in srgb, $gemini-green 42%, transparent);
+      0 0 0 1px color-mix(in srgb, $gemini-lime 65%, transparent),
+      0 18px 42px -24px rgb(45 45 45 / 0.5);
+
+    .gemini-chatbot__launcher-logo {
+      filter: brightness(0);
+    }
   }
 
   &:active:not(:disabled) {
@@ -710,7 +729,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, $gemini-green 65%, transparent);
+    outline: 3px solid $gemini-lime;
     outline-offset: 3px;
   }
 
@@ -731,6 +750,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   object-fit: contain;
   object-position: center;
   filter: brightness(0) invert(1);
+  transition: filter 0.2s ease;
 }
 
 .gemini-chatbot__launcher-label {
@@ -881,11 +901,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   font-weight: var(--font-weight-semibold);
   line-height: 1.2;
   cursor: pointer;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, $gemini-green 88%, #fff),
-    $gemini-green
-  );
+  background: $gemini-green;
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 28%, transparent) inset,
     0 4px 14px color-mix(in srgb, $gemini-green 26%, transparent);
@@ -907,16 +923,19 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 
   &:hover:not(:disabled) {
+    border-color: $gemini-lime;
+    color: var(--sv-ink);
+    background: $gemini-lime;
     transform: translateY(-1px);
-    filter: brightness(1.04);
+    filter: none;
     box-shadow:
       0 1px 0 color-mix(in srgb, #fff 32%, transparent) inset,
-      0 8px 20px color-mix(in srgb, $gemini-green 32%, transparent);
+      0 10px 22px -14px rgb(45 45 45 / 0.5);
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, $gemini-green 65%, transparent);
-    outline-offset: 2px;
+    outline: 3px solid $gemini-lime;
+    outline-offset: 3px;
   }
 
   &:disabled {
@@ -962,9 +981,10 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   box-sizing: border-box;
   width: min(26rem, calc(100vw - 2.5rem));
   padding: var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 88%, $gemini-green 12%);
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 14%, transparent);
   border-radius: calc(var(--radius-md) + 2px);
-  background: var(--mat-sys-surface);
+  background: color-mix(in srgb, var(--sv-white) 92%, transparent);
+  backdrop-filter: blur(18px);
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 55%, transparent) inset,
     0 16px 40px color-mix(in srgb, var(--mat-sys-on-surface) 18%, transparent);
@@ -1049,8 +1069,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   width: 2.375rem;
   height: 2.375rem;
   border-radius: var(--radius-md);
-  color: $gemini-green;
-  background: color-mix(in srgb, $gemini-green 10%, var(--mat-sys-surface));
+  color: $gemini-lime;
+  background: $gemini-green;
 
   .material-icons {
     font-size: 1.125rem;
@@ -1158,13 +1178,15 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   }
 
   &:hover:not(:disabled) {
+    color: var(--sv-ink);
+    background: $gemini-lime;
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px color-mix(in srgb, $gemini-green 30%, transparent);
+    box-shadow: 0 10px 22px -14px rgb(45 45 45 / 0.5);
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, $gemini-green 65%, transparent);
-    outline-offset: 2px;
+    outline: 3px solid $gemini-lime;
+    outline-offset: 3px;
   }
 
   &:disabled {
@@ -1268,7 +1290,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   height: 1em;
   margin-left: 1px;
   vertical-align: text-bottom;
-  background: $gemini-green;
+  background: $gemini-lime;
   animation: post-detail-typing-cursor-blink 0.85s step-end infinite;
 }
 
@@ -1318,7 +1340,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     width: 0.22rem;
     height: 0.22rem;
     border-radius: 50%;
-    background: color-mix(in srgb, $gemini-green 78%, var(--mat-sys-on-surface-variant));
+    background: color-mix(in srgb, $gemini-lime 72%, var(--sv-dark));
     animation: post-detail-ai-writing-dot 1.2s ease-in-out infinite;
 
     &:nth-child(2) {
@@ -1387,11 +1409,7 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   justify-content: center;
   border-radius: 50%;
   color: #fff;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, $gemini-green 88%, #fff),
-    $gemini-green
-  );
+  background: linear-gradient(135deg, color-mix(in srgb, $gemini-green 88%, #fff), $gemini-green);
   box-shadow: 0 8px 20px color-mix(in srgb, $gemini-green 28%, transparent);
 
   .material-icons {
@@ -1405,8 +1423,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
   inset: 0;
   border-radius: 50%;
   border: 2px solid transparent;
-  border-top-color: color-mix(in srgb, $gemini-green 75%, #fff);
-  border-right-color: color-mix(in srgb, $gemini-green 35%, transparent);
+  border-top-color: color-mix(in srgb, $gemini-lime 80%, var(--sv-white));
+  border-right-color: color-mix(in srgb, $gemini-lime 45%, transparent);
   animation: post-detail-ai-ring-spin 1.1s linear infinite;
 }
 
@@ -1421,8 +1439,8 @@ $delete-red-soft: color-mix(in srgb, $delete-red 10%, var(--mat-sys-surface));
     border-radius: var(--radius-pill);
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, $gemini-green 88%, #fff),
-      $gemini-green
+      color-mix(in srgb, $gemini-lime 82%, var(--sv-white)),
+      color-mix(in srgb, $gemini-lime 72%, var(--sv-dark))
     );
     animation: post-detail-ai-bar 1s ease-in-out infinite;
 

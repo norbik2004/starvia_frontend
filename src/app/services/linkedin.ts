@@ -13,7 +13,7 @@ export class LinkedInService {
   private readonly authorizeUrl = new URL('LinkedIn/authorize', environment.backendUrl).toString();
 
   getAuthorizationUrl(): Observable<string> {
-    return this.http.get<LinkedInAuthorizeResponse>(this.authorizeUrl, { withCredentials: true }).pipe(
+    return this.http.get<LinkedInAuthorizeResponse>(this.authorizeUrl).pipe(
       map((response) => {
         const url = typeof response?.url === 'string' ? response.url.trim() : '';
         if (!url) {
@@ -21,7 +21,7 @@ export class LinkedInService {
         }
 
         return url;
-      })
+      }),
     );
   }
 }

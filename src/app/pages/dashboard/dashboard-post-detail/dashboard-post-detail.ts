@@ -2808,14 +2808,16 @@ export class DashboardPostDetail {
 
   private focusField(field: EditableField): void {
     queueMicrotask(() => {
-      const input =
-        field === 'title' ? this.titleInput()?.nativeElement : this.bodyInput()?.nativeElement;
-      input?.focus();
-      input?.setSelectionRange(input.value.length, input.value.length);
+      requestAnimationFrame(() => {
+        const input =
+          field === 'title' ? this.titleInput()?.nativeElement : this.bodyInput()?.nativeElement;
+        input?.focus({ preventScroll: true });
+        input?.setSelectionRange(input.value.length, input.value.length);
 
-      if (field === 'body') {
-        requestAnimationFrame(() => this.resizeBodyInput());
-      }
+        if (field === 'body') {
+          this.resizeBodyInput();
+        }
+      });
     });
   }
 
