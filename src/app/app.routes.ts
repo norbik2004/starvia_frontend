@@ -19,7 +19,6 @@ import { ConfirmEmailPage } from './pages/confirm-email/confirm-email';
 import { EmailConfirmedPage } from './pages/email-confirmed/email-confirmed';
 import { ForgotPasswordPage } from './pages/forgot-password/forgot-password';
 import { ResetPasswordPage } from './pages/reset-password/reset-password';
-import { ResetPasswordSuccessPage } from './pages/reset-password-success/reset-password-success';
 
 export const routes: Routes = [
   {
@@ -53,16 +52,11 @@ export const routes: Routes = [
   {
     path: 'email-confirmed',
     component: EmailConfirmedPage,
-    canActivate: [sessionGuard, emailConfirmedAccessGuard],
-    data: { session: { mode: 'guest' } },
+    canActivate: [emailConfirmedAccessGuard],
   },
   {
     path: 'reset-password',
     component: ResetPasswordPage,
-  },
-  {
-    path: 'reset-password-success',
-    component: ResetPasswordSuccessPage,
   },
   {
     path: 'dashboard',

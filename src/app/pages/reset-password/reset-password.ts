@@ -8,7 +8,8 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
+import { Location } from '@angular/common';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ApplicationError, toApplicationError } from '../../models/application-error';
 import { AuthService } from '../../services/auth';
@@ -21,7 +22,7 @@ type ResetPasswordForm = FormGroup<{
 }>;
 
 const passwordsMatchValidator: ValidatorFn = (
-  control: AbstractControl
+  control: AbstractControl,
 ): ValidationErrors | null => {
   const password = control.get('password')?.value;
   const repeatPassword = control.get('repeatPassword')?.value;
@@ -142,11 +143,17 @@ const passwordsMatchValidator: ValidatorFn = (
                 </div>
               </div>
 
-              <button type="submit" class="btn btn--primary submit-btn" [disabled]="isSubmitting()">
+              <button
+                type="submit"
+                class="btn btn--primary submit-btn"
+                [disabled]="isSubmitting() || resetSucceeded()"
+              >
                 <span class="material-icons submit-btn__icon" aria-hidden="true">lock_reset</span>
                 @if (isSubmitting()) {
                   <span class="submit-btn__label">
-                    Zapisywanie<span class="btn-loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
+                    Zapisywanie<span class="btn-loading-dots" aria-hidden="true"
+                      ><span>.</span><span>.</span><span>.</span></span
+                    >
                   </span>
                 } @else {
                   Zapisz hasło
@@ -154,12 +161,22 @@ const passwordsMatchValidator: ValidatorFn = (
               </button>
 
               <div class="form-status-slot" aria-live="polite">
-                @if (resetError(); as error) {
+                @if (resetSucceeded()) {
+                  <p class="form-status" role="status">
+                    Hasło zostało zmienione. Możesz teraz zalogować się na konto.
+                  </p>
+                } @else if (resetError(); as error) {
                   <p class="form-status form-status--error" role="alert">
                     {{ error.description }}
                   </p>
                 }
               </div>
+
+              @if (resetSucceeded()) {
+                <p class="auth-switch">
+                  <a routerLink="/login" class="auth-switch__link">Przejdź do logowania</a>
+                </p>
+              }
             </form>
           }
         </div>
@@ -176,16 +193,17 @@ const passwordsMatchValidator: ValidatorFn = (
 })
 export class ResetPasswordPage {
   private readonly authService = inject(AuthService);
-  private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly location = inject(Location);
 
   protected readonly currentYear = new Date().getFullYear();
   protected readonly isLinkInvalid = signal(false);
   protected readonly isSubmitting = signal(false);
+  protected readonly resetSucceeded = signal(false);
   protected readonly resetError = signal<ApplicationError | null>(null);
 
   private userId: string | null = null;
-  private token: string | null = null;
+  private code: string | null = null;
 
   protected readonly form: ResetPasswordForm = new FormGroup(
     {
@@ -198,12 +216,12 @@ export class ResetPasswordPage {
         validators: [Validators.required],
       }),
     },
-    { validators: passwordsMatchValidator }
+    { validators: passwordsMatchValidator },
   );
 
   constructor() {
     lockAuthPageBody();
-    this.route.queryParamMap.subscribe((qp) => this.readQueryParams(qp));
+    this.readQueryParams();
   }
 
   protected get password(): FormControl<string> {
@@ -216,13 +234,16 @@ export class ResetPasswordPage {
 
   protected submit(): void {
     this.resetError.set(null);
+    this.resetSucceeded.set(false);
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
-    if (!this.userId || !this.token) {
+    const userId = this.userId;
+    const code = this.code;
+    if (!userId || !code) {
       this.isLinkInvalid.set(true);
       return;
     }
@@ -232,28 +253,39 @@ export class ResetPasswordPage {
     const { password } = this.form.getRawValue();
 
     this.authService
-      .confirmResetPassword(this.token, this.userId, password)
+      .resetPassword({ userId, code, password })
       .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
-        next: () => void this.router.navigateByUrl('/reset-password-success'),
+        next: () => {
+          this.resetSucceeded.set(true);
+          this.form.reset();
+          this.form.disable();
+          this.code = null;
+        },
         error: (error: unknown) => {
           this.resetError.set(
             toApplicationError(
               error,
               'Nie udało się zresetować hasła. Spróbuj ponownie lub skontaktuj się z pomocą.',
-              'Wystąpił nieoczekiwany błąd. Spróbuj ponownie za chwilę.'
-            )
+              'Wystąpił nieoczekiwany błąd. Spróbuj ponownie za chwilę.',
+            ),
           );
         },
       });
   }
 
-  private readQueryParams(qp: ParamMap): void {
+  private readQueryParams(): void {
+    const qp = this.route.snapshot.queryParamMap;
     const userId = qp.get('userId')?.trim();
-    const token = qp.get('token')?.trim();
+    const code = qp.get('code');
 
     this.userId = userId && userId.length > 0 ? userId : null;
-    this.token = token && token.length > 0 ? token : null;
-    this.isLinkInvalid.set(!this.userId || !this.token);
+    this.code = code?.trim() ? code : null;
+    this.isLinkInvalid.set(!this.userId || !this.code);
+
+    if (this.userId && this.code) {
+      // Keep the one-time reset code out of browser history and the address bar.
+      this.location.replaceState('/reset-password');
+    }
   }
 }

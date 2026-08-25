@@ -20,22 +20,37 @@ export type RegisterResponse = {
   userId: string;
 };
 
+export type ConfirmEmailRequest = {
+  userId: string;
+  code: string;
+};
+
+export type ResetPasswordRequest = {
+  userId: string;
+  code: string;
+  password: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly session = inject(SessionService);
   private readonly loginUrl = new URL('accounts/sign-in', environment.backendUrl).toString();
   private readonly registerUrl = new URL('accounts/register', environment.backendUrl).toString();
+  private readonly confirmEmailUrl = new URL(
+    'accounts/confirm-email',
+    environment.backendUrl,
+  ).toString();
   private readonly resendConfirmationEmailUrl = new URL(
     'Account/resend-confirmation-email',
     environment.backendUrl,
   ).toString();
-  private readonly resetPasswordUrl = new URL(
-    'Account/reset-password',
+  private readonly forgotPasswordUrl = new URL(
+    'accounts/forgot-password',
     environment.backendUrl,
   ).toString();
-  private readonly confirmResetPasswordUrl = new URL(
-    'Account/confirm-reset-password',
+  private readonly resetPasswordUrl = new URL(
+    'accounts/reset-password',
     environment.backendUrl,
   ).toString();
   private readonly accountMeUrl = new URL('accounts/me', environment.backendUrl).toString();
@@ -57,24 +72,28 @@ export class AuthService {
     return this.http.post<RegisterResponse>(this.registerUrl, request);
   }
 
+  confirmEmail(request: ConfirmEmailRequest): Observable<void> {
+    return this.http
+      .post(this.confirmEmailUrl, request, { responseType: 'text' })
+      .pipe(map(() => undefined));
+  }
+
   resendConfirmationEmail(email: string): Observable<unknown> {
     return this.http.get(this.resendConfirmationEmailUrl, {
       params: { email },
     });
   }
 
-  sendPasswordResetEmail(email: string): Observable<unknown> {
-    return this.http.get(this.resetPasswordUrl, {
-      params: { email },
-    });
+  sendPasswordResetEmail(email: string): Observable<void> {
+    return this.http
+      .post(this.forgotPasswordUrl, { email }, { responseType: 'text' })
+      .pipe(map(() => undefined));
   }
 
-  confirmResetPassword(token: string, userId: string, password: string): Observable<string> {
-    return this.http.post(this.confirmResetPasswordUrl, JSON.stringify(password), {
-      params: { token, userId },
-      headers: { 'Content-Type': 'application/json' },
-      responseType: 'text',
-    });
+  resetPassword(request: ResetPasswordRequest): Observable<void> {
+    return this.http
+      .post(this.resetPasswordUrl, request, { responseType: 'text' })
+      .pipe(map(() => undefined));
   }
 
   getAccount(): Observable<UserAccount> {
