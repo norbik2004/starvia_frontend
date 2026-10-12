@@ -657,7 +657,6 @@ export class DashboardPosts {
   protected readonly createDrawerClosing = signal(false);
   protected readonly openFilterMenu = signal<FilterMenuId | null>(null);
   private readonly attachmentPreviewUrls = signal<Record<string, string>>({});
-  private readonly attachmentPreviewObjectUrls = new Set<string>();
   private filtersCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private createDrawerCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -920,13 +919,11 @@ export class DashboardPosts {
       }
 
       this.fileService
-        .downloadFile(id)
+        .getPreviewUrl(id)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-          next: (blob) => {
-            const objectUrl = URL.createObjectURL(blob);
-            this.attachmentPreviewObjectUrls.add(objectUrl);
-            this.attachmentPreviewUrls.update((current) => ({ ...current, [id]: objectUrl }));
+          next: (url) => {
+            this.attachmentPreviewUrls.update((current) => ({ ...current, [id]: url }));
           },
           error: () => {
             // placeholder stays
@@ -936,10 +933,6 @@ export class DashboardPosts {
   }
 
   private revokeAttachmentPreviewUrls(): void {
-    for (const objectUrl of this.attachmentPreviewObjectUrls) {
-      URL.revokeObjectURL(objectUrl);
-    }
-    this.attachmentPreviewObjectUrls.clear();
     this.attachmentPreviewUrls.set({});
   }
 

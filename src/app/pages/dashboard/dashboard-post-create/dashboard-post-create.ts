@@ -3,7 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { toApplicationError } from '../../../models/application-error';
-import { normalizePostTitle, POST_TITLE_MAX_LENGTH } from '../../../models/post';
+import { normalizePostTitle, POST_TITLE_MAX_LENGTH, POST_TITLE_MIN_LENGTH } from '../../../models/post';
 import { PostService } from '../../../services/post';
 import { DrawerMotionDirective } from '../../../layout/shared/drawer-motion';
 
@@ -81,6 +81,10 @@ type CreatePostForm = FormGroup<{
               <div aria-live="polite">
                 @if (form.controls.title.touched && form.controls.title.hasError('required')) {
                   <p id="create-post-title-error" class="field__error" role="alert">Title is required.</p>
+                } @else if (form.controls.title.touched && form.controls.title.hasError('minlength')) {
+                  <p id="create-post-title-error" class="field__error" role="alert">
+                    Title must be at least {{ titleMinLength }} characters.
+                  </p>
                 } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
                   <p id="create-post-title-error" class="field__error" role="alert">
                     Title cannot exceed {{ titleMaxLength }} characters.
@@ -123,11 +127,16 @@ export class DashboardPostCreate {
   readonly closing = input(false);
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
+  protected readonly titleMinLength = POST_TITLE_MIN_LENGTH;
 
   protected readonly form: CreatePostForm = new FormGroup({
     title: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(POST_TITLE_MAX_LENGTH)],
+      validators: [
+        Validators.required,
+        Validators.minLength(POST_TITLE_MIN_LENGTH),
+        Validators.maxLength(POST_TITLE_MAX_LENGTH),
+      ],
     }),
   });
 

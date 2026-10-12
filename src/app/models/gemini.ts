@@ -8,20 +8,20 @@ export enum ConversationType {
 
 export type UserPromptRequest = {
   prompt: string;
-  postId: number;
+  postId: string;
   conversationType: ConversationType;
   includePostText?: boolean;
 };
 
 export type GeneratePostRequest = {
   prompt: string;
-  postId: number;
+  postId: string;
   includePostText?: boolean;
 };
 
 export type AskGeminiRequest = {
   prompt: string;
-  postId: number;
+  postId: string;
   includePostText?: boolean;
 };
 
@@ -39,7 +39,7 @@ export type UserPromptConversationItem = {
   id: number;
   prompt: string;
   response: string;
-  postId: number;
+  postId: string;
   createdAt: string;
 };
 

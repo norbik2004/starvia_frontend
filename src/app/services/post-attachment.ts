@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export type PostAttachmentsRequest = {
-  postId: number;
+  postId: string;
   attachments: Array<{
     userUploadedFileId: string;
     order: number;

@@ -16,17 +16,11 @@ import {
   POST_BODY_MAX_LENGTH,
   POST_STATUS_OPTIONS,
   POST_TITLE_MAX_LENGTH,
-  PLATFORM_TYPES,
-  arePostTagsEqual,
-  getPlatformTypeLabel,
-  getPlatformTypeName,
+  POST_TITLE_MIN_LENGTH,
   getPostStatusClass,
   getPostStatusIcon,
   getPostStatusLabel,
-  hasPostTag,
-  normalizePostTags,
   normalizeUpdatePostBody,
-  type PlatformType,
   type PostAttachmentItem,
   type PostItem,
   type PostStatus,
@@ -54,7 +48,7 @@ import { createTypewriter } from '../shared/typewriter-text';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
 import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
-import { DashboardPlatformLogo, type PlatformLogoSize } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
+import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { DashboardImageLightbox } from '../shared/dashboard-image-lightbox/dashboard-image-lightbox';
 import { DashboardLinkedinPostPreview } from '../shared/dashboard-linkedin-post-preview/dashboard-linkedin-post-preview';
 import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
@@ -90,7 +84,11 @@ type PostForm = FormGroup<{
   styleUrl: './dashboard-post-detail.scss',
   template: `
     <section class="dashboard-content-page post-detail" aria-labelledby="post-detail-title">
-      <header class="post-detail__header" appPageReveal>
+      <header
+        class="post-detail__header"
+        [class.post-detail__header--menu-open]="statusMenuOpen()"
+        appPageReveal
+      >
         <div class="post-detail__header-row">
           <a
             [routerLink]="['/dashboard/posts']"
@@ -103,81 +101,6 @@ type PostForm = FormGroup<{
           @if (post(); as item) {
             <div class="post-detail__header-tools">
               <div class="post-detail__header-meta">
-                <div class="post-detail__platforms-anchor" #platformsAnchor>
-                  <button
-                    type="button"
-                    class="post-detail__platforms-trigger"
-                    [class.post-detail__platforms-trigger--open]="platformMenuOpen()"
-                    [class.post-detail__platforms-trigger--empty]="item.tags.length === 0"
-                    [class.post-detail__platforms-trigger--has-tags]="item.tags.length > 0"
-                    matTooltip="Edit platforms"
-                    matTooltipPosition="below"
-                    [matTooltipDisabled]="tooltipsDisabled()"
-                    aria-label="Edit platforms"
-                    [attr.aria-expanded]="platformMenuOpen()"
-                    aria-controls="post-detail-platforms-menu"
-                    [disabled]="isMetaSaving() || isActionLocked()"
-                    (click)="togglePlatformMenu($event)"
-                  >
-                    <span class="post-detail__platforms-trigger-content">
-                      @if (item.tags.length === 0) {
-                        <span class="post-detail__platforms-empty">
-                          <span class="material-icons post-detail__platforms-trigger-icon" aria-hidden="true">hub</span>
-                          <span class="post-detail__platforms-trigger-label">Platforms</span>
-                        </span>
-                      } @else {
-                        <span class="post-detail__platforms-trigger-logos" aria-hidden="true">
-                          @for (tag of item.tags; track tag) {
-                            <span class="post-detail__platforms-trigger-logo">
-                              <app-dashboard-platform-logo
-                                [platformType]="platformTypeName(tag)"
-                                [size]="headerPlatformLogoSize()"
-                                [compact]="headerPlatformLogosCompact()"
-                              />
-                            </span>
-                          }
-                        </span>
-                      }
-                      <span class="material-icons post-detail__platforms-trigger-chevron" aria-hidden="true">expand_more</span>
-                    </span>
-                  </button>
-
-                  @if (platformMenuOpen()) {
-                    <div
-                      id="post-detail-platforms-menu"
-                      class="post-detail__platforms-menu"
-                      @postMetaPanel
-                      role="menu"
-                      aria-label="Platforms"
-                      (click)="$event.stopPropagation()"
-                    >
-                      @for (platform of platformTypes; track platform.value) {
-                        <button
-                          type="button"
-                          class="post-detail__platforms-menu-item"
-                          role="menuitemcheckbox"
-                          [class.post-detail__platforms-menu-item--active]="hasPostTag(item.tags, platform.value)"
-                          [attr.aria-checked]="hasPostTag(item.tags, platform.value)"
-                          [disabled]="isMetaSaving() || isActionLocked()"
-                          (click)="onTagToggle(platform.value)"
-                        >
-                          <app-dashboard-platform-logo [platformType]="platform.type" size="sm" />
-                          <span class="post-detail__platforms-menu-label">{{ platform.label }}</span>
-                          @if (hasPostTag(item.tags, platform.value)) {
-                            <span
-                              class="material-icons post-detail__platforms-menu-check"
-                              @postMetaChip
-                              aria-hidden="true"
-                            >check</span>
-                          }
-                        </button>
-                      }
-                    </div>
-                  }
-                </div>
-
-                <span class="post-detail__header-meta-sep" aria-hidden="true">·</span>
-
                 <div class="post-detail__status-anchor" #statusAnchor>
                   <button
                     type="button"
@@ -291,6 +214,10 @@ type PostForm = FormGroup<{
                   <div class="dashboard-edit-meta__error" aria-live="polite">
                     @if (form.controls.title.touched && form.controls.title.hasError('required')) {
                       <p id="post-title-error" class="field__error" role="alert">Title is required.</p>
+                    } @else if (form.controls.title.touched && form.controls.title.hasError('minlength')) {
+                      <p id="post-title-error" class="field__error" role="alert">
+                        Title must be at least {{ titleMinLength }} characters.
+                      </p>
                     } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
                       <p id="post-title-error" class="field__error" role="alert">
                         Title cannot exceed {{ titleMaxLength }} characters.
@@ -1309,7 +1236,6 @@ export class DashboardPostDetail {
   private readonly bodyHighlight = viewChild<ElementRef<HTMLDivElement>>('bodyHighlight');
   private readonly emojiAnchor = viewChild<ElementRef<HTMLElement>>('emojiAnchor');
   private readonly geminiAnchor = viewChild<ElementRef<HTMLElement>>('geminiAnchor');
-  private readonly platformsAnchor = viewChild<ElementRef<HTMLElement>>('platformsAnchor');
   private readonly statusAnchor = viewChild<ElementRef<HTMLElement>>('statusAnchor');
   private readonly geminiPromptInput = viewChild<AutoExpandTextarea>('geminiPromptInput');
   private readonly geminiChatPromptInput = viewChild<AutoExpandTextarea>('geminiChatPromptInput');
@@ -1335,6 +1261,7 @@ export class DashboardPostDetail {
   private geminiChatHistoryLoaded = false;
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
+  protected readonly titleMinLength = POST_TITLE_MIN_LENGTH;
   protected readonly bodyMaxLength = POST_BODY_MAX_LENGTH;
   protected readonly contentEmojis = POST_BODY_EMOJIS;
   protected readonly hashtagSegments = parseHashtagSegments;
@@ -1345,14 +1272,14 @@ export class DashboardPostDetail {
   protected readonly postStatusClass = getPostStatusClass;
   protected readonly postStatusIcon = getPostStatusIcon;
   protected readonly postStatusLabel = getPostStatusLabel;
-  protected readonly platformTypes = PLATFORM_TYPES;
-  protected readonly platformTypeLabel = getPlatformTypeLabel;
-  protected readonly platformTypeName = getPlatformTypeName;
-  protected readonly hasPostTag = hasPostTag;
   protected readonly form: PostForm = new FormGroup({
     title: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(POST_TITLE_MAX_LENGTH)],
+      validators: [
+        Validators.required,
+        Validators.minLength(POST_TITLE_MIN_LENGTH),
+        Validators.maxLength(POST_TITLE_MAX_LENGTH),
+      ],
     }),
     body: new FormControl('', {
       nonNullable: true,
@@ -1373,11 +1300,8 @@ export class DashboardPostDetail {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly saveMessage = signal<string | null>(null);
   protected readonly emojiPickerOpen = signal(false);
-  protected readonly platformMenuOpen = signal(false);
   protected readonly statusMenuOpen = signal(false);
   protected readonly statusPulse = signal(false);
-  protected readonly headerPlatformLogoSize = signal<PlatformLogoSize>('sm');
-  protected readonly headerPlatformLogosCompact = signal(false);
   protected readonly emojiPage = signal(0);
   private readonly emojiColumns = 8;
   private readonly emojiRows = 2;
@@ -1427,8 +1351,6 @@ export class DashboardPostDetail {
   protected readonly attachmentsMediaPage = signal<PagedUserUploadedFilesResponse | null>(null);
   protected readonly selectedAttachmentIds = signal<Set<string>>(new Set());
   protected readonly attachmentPreviewUrls = signal<Record<string, string>>({});
-  private readonly attachmentPreviewObjectUrls = new Set<string>();
-
   protected readonly attachmentsPickerCanPrev = signal(false);
   protected readonly attachmentsPickerCanNext = signal(false);
   protected readonly attachmentLightbox = signal<AttachmentLightboxPreview | null>(null);
@@ -1500,8 +1422,6 @@ export class DashboardPostDetail {
       const syncTooltips = (): void => {
         const isMobile = mobileQuery.matches;
         this.tooltipsDisabled.set(isMobile);
-        this.headerPlatformLogoSize.set(isMobile ? 'xs' : 'sm');
-        this.headerPlatformLogosCompact.set(isMobile);
       };
       syncTooltips();
       mobileQuery.addEventListener('change', syncTooltips);
@@ -1524,11 +1444,11 @@ export class DashboardPostDetail {
 
     this.route.paramMap
       .pipe(
-        map((params) => Number(params.get('id'))),
+        map((params) => params.get('id')?.trim() ?? ''),
         switchMap((id) => {
           this.resetView();
 
-          if (!Number.isFinite(id) || id <= 0) {
+          if (!id) {
             this.isLoading.set(false);
             this.errorMessage.set('Invalid post.');
             return EMPTY;
@@ -1566,8 +1486,7 @@ export class DashboardPostDetail {
       return;
     }
 
-    if (this.platformMenuOpen() || this.statusMenuOpen()) {
-      this.platformMenuOpen.set(false);
+    if (this.statusMenuOpen()) {
       this.statusMenuOpen.set(false);
       return;
     }
@@ -1600,13 +1519,6 @@ export class DashboardPostDetail {
       const geminiAnchor = this.geminiAnchor()?.nativeElement;
       if (!geminiAnchor?.contains(target)) {
         this.closeGeminiPopup();
-      }
-    }
-
-    if (this.platformMenuOpen()) {
-      const platformsAnchor = this.platformsAnchor()?.nativeElement;
-      if (!platformsAnchor?.contains(target)) {
-        this.platformMenuOpen.set(false);
       }
     }
 
@@ -1690,17 +1602,6 @@ export class DashboardPostDetail {
     return this.currentPostBodyForContext().trim().length > 0;
   }
 
-  protected togglePlatformMenu(event: Event): void {
-    event.stopPropagation();
-
-    if (this.isMetaSaving() || this.isActionLocked()) {
-      return;
-    }
-
-    this.statusMenuOpen.set(false);
-    this.platformMenuOpen.update((open) => !open);
-  }
-
   protected toggleStatusMenu(event: Event): void {
     event.stopPropagation();
 
@@ -1708,7 +1609,6 @@ export class DashboardPostDetail {
       return;
     }
 
-    this.platformMenuOpen.set(false);
     this.statusMenuOpen.update((open) => !open);
   }
 
@@ -1745,7 +1645,6 @@ export class DashboardPostDetail {
     }
 
     this.emojiPickerOpen.set(false);
-    this.platformMenuOpen.set(false);
     this.statusMenuOpen.set(false);
     this.clearSaveMessage();
     this.geminiError.set(null);
@@ -2186,29 +2085,6 @@ export class DashboardPostDetail {
     this.closeEdit(true);
   }
 
-  protected onTagToggle(tag: PlatformType): void {
-    const item = this.post();
-
-    if (!item || this.isActionLocked() || this.isMetaSaving()) {
-      return;
-    }
-
-    const nextTags = hasPostTag(item.tags, tag)
-      ? item.tags.filter((value) => value !== tag)
-      : normalizePostTags([...item.tags, tag]);
-
-    if (arePostTagsEqual(nextTags, item.tags)) {
-      return;
-    }
-
-    const previousTags = [...item.tags];
-    this.post.set({ ...item, tags: nextTags });
-    this.savePostMetadata(
-      { tags: nextTags.length > 0 ? nextTags : null },
-      { tags: previousTags }
-    );
-  }
-
   protected saveField(field: EditableField): void {
     const item = this.post();
     const control = this.form.controls[field];
@@ -2322,7 +2198,6 @@ export class DashboardPostDetail {
     this.includePostTextInChat.set(false);
     this.includePostTextInGenerate.set(false);
     this.isMetaSaving.set(false);
-    this.platformMenuOpen.set(false);
     this.statusMenuOpen.set(false);
     this.clearGeminiChatCloseTimeout();
     this.clearGeminiPopupCloseTimeout();
@@ -2350,7 +2225,6 @@ export class DashboardPostDetail {
       ...item,
       title: title || null,
       body: body || null,
-      tags: normalizePostTags(item.tags),
       status: item.status,
     });
     this.form.reset({ title, body });
@@ -2377,7 +2251,7 @@ export class DashboardPostDetail {
   }
 
   private persistAttachmentOrder(
-    postId: number,
+    postId: string,
     draft: PostAttachmentItem[],
     revertOnError: readonly PostAttachmentItem[]
   ): void {
@@ -2682,13 +2556,11 @@ export class DashboardPostDetail {
       }
 
       this.fileService
-        .downloadFile(id)
+        .getPreviewUrl(id)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-          next: (blob) => {
-            const objectUrl = URL.createObjectURL(blob);
-            this.attachmentPreviewObjectUrls.add(objectUrl);
-            this.attachmentPreviewUrls.update((current) => ({ ...current, [id]: objectUrl }));
+          next: (url) => {
+            this.attachmentPreviewUrls.update((current) => ({ ...current, [id]: url }));
           },
           error: () => {
             // ignore
@@ -2710,13 +2582,11 @@ export class DashboardPostDetail {
     }
 
     this.fileService
-      .downloadFile(file.id)
+      .getPreviewUrl(file.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (blob) => {
-          const objectUrl = URL.createObjectURL(blob);
-          this.attachmentPreviewObjectUrls.add(objectUrl);
-          this.attachmentPreviewUrls.update((current) => ({ ...current, [file.id]: objectUrl }));
+        next: (url) => {
+          this.attachmentPreviewUrls.update((current) => ({ ...current, [file.id]: url }));
         },
         error: () => {
           // placeholder stays
@@ -2725,15 +2595,11 @@ export class DashboardPostDetail {
   }
 
   private revokeAttachmentPreviewUrls(): void {
-    for (const objectUrl of this.attachmentPreviewObjectUrls) {
-      URL.revokeObjectURL(objectUrl);
-    }
-    this.attachmentPreviewObjectUrls.clear();
     this.attachmentPreviewUrls.set({});
   }
 
   private buildUpdatePayload(
-    overrides: Partial<Pick<UpdatePostPayload, 'title' | 'body' | 'status' | 'tags'>> = {}
+    overrides: Partial<Pick<UpdatePostPayload, 'title' | 'body' | 'status'>> = {}
   ): UpdatePostPayload {
     const item = this.post();
     if (!item) {
@@ -2752,24 +2618,17 @@ export class DashboardPostDetail {
         : this.editingField() === 'body' || this.geminiDraftActive()
           ? this.form.controls.body.value.trim()
           : item.body;
-    const tags =
-      overrides.tags !== undefined
-        ? overrides.tags
-        : item.tags.length > 0
-          ? normalizePostTags(item.tags)
-          : null;
 
     return {
       title,
       body: normalizeUpdatePostBody(this.clampBody(bodyValue)),
       status: overrides.status ?? item.status,
-      tags,
     };
   }
 
   private savePostMetadata(
-    overrides: Partial<Pick<UpdatePostPayload, 'status' | 'tags'>>,
-    snapshot?: { status?: PostStatus; tags?: PlatformType[] }
+    overrides: Partial<Pick<UpdatePostPayload, 'status'>>,
+    snapshot?: { status?: PostStatus }
   ): void {
     const item = this.post();
     if (!item) {
@@ -2795,7 +2654,6 @@ export class DashboardPostDetail {
                 ? {
                     ...current,
                     status: snapshot.status ?? current.status,
-                    tags: snapshot.tags ?? current.tags,
                   }
                 : current
             );

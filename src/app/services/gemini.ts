@@ -21,9 +21,9 @@ export class GeminiService {
   private readonly geminiUrl = new URL('Gemini', environment.backendUrl).toString();
   private readonly userPromptUrl = new URL('UserPrompt', environment.backendUrl).toString();
 
-  getConversation(postId: number): Observable<UserPromptConversationItem[]> {
+  getConversation(postId: string): Observable<UserPromptConversationItem[]> {
     return this.http.get<UserPromptConversationItem[]>(
-      `${this.userPromptUrl}/conversation/${postId}`,
+      `${this.userPromptUrl}/conversation/${encodeURIComponent(postId)}`,
     );
   }
 

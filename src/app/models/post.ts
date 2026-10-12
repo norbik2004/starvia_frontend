@@ -1,7 +1,6 @@
 export type UpdatePostPayload = {
   title: string;
   body: string | null;
-  tags: PlatformType[] | null;
   status: PostStatus;
 };
 
@@ -11,13 +10,15 @@ export type CreatePostPayload = {
 
 export type PostAttachmentItem = {
   id: number | null;
-  postId: number;
+  postId: string;
   userUploadedFileId: string;
   order: number;
 };
 
+// Title: validator 3-100, column max 75. Body: validator max 1000 (column allows 2000).
+export const POST_TITLE_MIN_LENGTH = 3;
 export const POST_TITLE_MAX_LENGTH = 75;
-export const POST_BODY_MAX_LENGTH = 2000;
+export const POST_BODY_MAX_LENGTH = 1000;
 
 export function normalizePostTitle(title: string | null | undefined): string {
   const unified = (title ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -71,11 +72,11 @@ export function parseHashtagSegments(text: string | null | undefined): HashtagTe
   return segments;
 }
 
+// Mirrors the backend `PostStatus` enum: Generated = 0, Draft = 1, Done = 2.
 export const POST_STATUS_OPTIONS = [
+  { value: 'Generated', label: 'Generated', icon: 'auto_awesome' },
   { value: 'Draft', label: 'Draft', icon: 'edit' },
-  { value: 'InProgress', label: 'In progress', icon: 'hourglass_empty' },
   { value: 'Done', label: 'Done', icon: 'check' },
-  { value: 'Archived', label: 'Archived', icon: 'archive' },
 ] as const;
 export const POST_STATUSES = POST_STATUS_OPTIONS.map((option) => option.value);
 export type PostStatus = (typeof POST_STATUSES)[number];
@@ -91,11 +92,20 @@ const POST_STATUS_BY_VALUE = new Map<string, PostStatus>(
   POST_STATUSES.map((status) => [status.toLowerCase(), status])
 );
 const POST_STATUS_BY_NUMBER: Record<number, PostStatus> = {
-  0: 'Draft',
-  1: 'InProgress',
+  0: 'Generated',
+  1: 'Draft',
   2: 'Done',
-  3: 'Archived',
 };
+const POST_STATUS_TO_NUMBER: Record<PostStatus, number> = {
+  Generated: 0,
+  Draft: 1,
+  Done: 2,
+};
+
+/** The posts API exchanges `PostStatus` as an integer enum. */
+export function postStatusToApiValue(status: PostStatus): number {
+  return POST_STATUS_TO_NUMBER[status];
+}
 const PLATFORM_VALUES = new Set<PlatformType>(PLATFORM_TYPES.map((platform) => platform.value));
 const PLATFORM_BY_LABEL = new Map<string, PlatformType>(
   PLATFORM_TYPES.map((platform) => [platform.label.toLowerCase(), platform.value])
@@ -116,12 +126,10 @@ export function getPostStatusIcon(status: PostStatus | string | null | undefined
 
 export function getPostStatusClass(status: PostStatus | string | null | undefined): string {
   switch (parsePostStatus(status)) {
-    case 'InProgress':
-      return 'post-status--in-progress';
+    case 'Generated':
+      return 'post-status--generated';
     case 'Done':
       return 'post-status--done';
-    case 'Archived':
-      return 'post-status--archived';
     case 'Draft':
     default:
       return 'post-status--draft';
@@ -230,7 +238,7 @@ function readNullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-function parsePostAttachment(value: unknown, fallbackPostId?: number): PostAttachmentItem | null {
+function parsePostAttachment(value: unknown, fallbackPostId?: string): PostAttachmentItem | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
@@ -241,7 +249,7 @@ function parsePostAttachment(value: unknown, fallbackPostId?: number): PostAttac
   const userUploadedFileId = record['userUploadedFileId'] ?? record['UserUploadedFileId'];
   const order = record['order'] ?? record['Order'];
 
-  if (typeof postId !== 'number' || !Number.isFinite(postId)) {
+  if (typeof postId !== 'string' || !postId.trim()) {
     return null;
   }
   if (typeof userUploadedFileId !== 'string' || !userUploadedFileId.trim()) {
@@ -259,7 +267,7 @@ function parsePostAttachment(value: unknown, fallbackPostId?: number): PostAttac
   };
 }
 
-export function parsePostAttachments(value: unknown, fallbackPostId?: number): PostAttachmentItem[] {
+export function parsePostAttachments(value: unknown, fallbackPostId?: string): PostAttachmentItem[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -276,25 +284,68 @@ export function parsePostItem(value: unknown): PostItem | null {
   }
 
   const record = value as Record<string, unknown>;
-  const id = record['id'] ?? record['Id'];
+  const id = parsePostId(record['id'] ?? record['Id'] ?? record['postId'] ?? record['PostId']);
 
-  if (typeof id !== 'number' || !Number.isFinite(id)) {
+  if (!id) {
     return null;
   }
 
-  const userId = record['userId'] ?? record['UserId'];
+  // `createdBy` identifies the author; the v1 API has no separate `userId`.
+  const createdBy = readNullableString(record['createdBy'] ?? record['CreatedBy']);
 
   return {
     id,
     title: readNullableString(record['title'] ?? record['Title']),
+    // The v1 API does not expose prompt text, tags or attachments; they stay empty.
     promptText: readNullableString(record['promptText'] ?? record['PromptText']),
-    userId: typeof userId === 'string' ? userId : String(userId ?? ''),
+    userId: createdBy ?? '',
+    createdBy,
     body: readNullableString(record['body'] ?? record['Body']),
     status: parsePostStatus(record['status'] ?? record['Status']),
     tags: parsePostTags(record['tags'] ?? record['Tags'] ?? record['tag'] ?? record['Tag']),
     createdAt: String(record['createdAt'] ?? record['CreatedAt'] ?? ''),
+    lastModifiedAt: readNullableString(record['lastModifiedAt'] ?? record['LastModifiedAt']),
     attachments: parsePostAttachments(record['attachments'] ?? record['Attachments'], id),
   };
+}
+
+/** Post ids are GUIDs (strings) in the v1 API. */
+export function parsePostId(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+
+  return null;
+}
+
+/**
+ * Reads the id out of an "add post" response. Depending on the endpoint wrapper the id can come
+ * back as `{ postId }`, `{ items: [{ postId }] }` or a bare string.
+ */
+export function parseCreatedPostId(value: unknown): string | null {
+  const direct = parsePostId(value);
+  if (direct) {
+    return direct;
+  }
+
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const fromRecord = parsePostId(
+    record['postId'] ?? record['PostId'] ?? record['id'] ?? record['Id']
+  );
+  if (fromRecord) {
+    return fromRecord;
+  }
+
+  const items = record['items'] ?? record['Items'];
+  if (Array.isArray(items) && items.length > 0) {
+    return parseCreatedPostId(items[0]);
+  }
+
+  return null;
 }
 
 export function parsePagedPostsResponse(value: unknown): PagedPostsResponse | null {
@@ -303,21 +354,113 @@ export function parsePagedPostsResponse(value: unknown): PagedPostsResponse | nu
   }
 
   const record = value as Record<string, unknown>;
-  const pageIndex = record['pageIndex'] ?? record['PageIndex'];
+  const pageIndex = record['page'] ?? record['Page'];
   const totalPages = record['totalPages'] ?? record['TotalPages'];
+  const totalCount = record['totalCount'] ?? record['TotalCount'];
   const items = record['items'] ?? record['Items'];
 
   if (typeof pageIndex !== 'number' || typeof totalPages !== 'number' || !Array.isArray(items)) {
     return null;
   }
 
+  const parsedItems = items.map(parsePostItem).filter((item): item is PostItem => item !== null);
+
   return {
     pageIndex,
     totalPages,
-    items: items.map(parsePostItem).filter((item): item is PostItem => item !== null),
-    hasPreviousPage: Boolean(record['hasPreviousPage'] ?? record['HasPreviousPage']),
-    hasNextPage: Boolean(record['hasNextPage'] ?? record['HasNextPage']),
+    totalCount: typeof totalCount === 'number' ? totalCount : parsedItems.length,
+    items: parsedItems,
+    hasPreviousPage: pageIndex > 1,
+    hasNextPage: pageIndex < totalPages,
   };
+}
+
+function isPostStatusFilterMatch(post: PostItem, filters: PostsFilterParams): boolean {
+  return !filters.status || post.status === filters.status;
+}
+
+/**
+ * The v1 API only supports plain paging, so filtering/sorting is applied locally to the
+ * fully loaded list of posts.
+ */
+export function hasLocalPostsQuery(filters: PostsFilterParams): boolean {
+  return (
+    !!filters.status ||
+    filters.hasPublication !== undefined ||
+    !!filters.titleContains ||
+    !!filters.bodyContains ||
+    filters.publishedOn !== undefined ||
+    !!filters.createdBefore ||
+    !!filters.createdAfter ||
+    !!filters.sortBy
+  );
+}
+
+export function filterAndSortPosts(
+  posts: readonly PostItem[],
+  filters: PostsFilterParams
+): PostItem[] {
+  const titleNeedle = filters.titleContains?.trim().toLowerCase();
+  const bodyNeedle = filters.bodyContains?.trim().toLowerCase();
+  const createdBefore = filters.createdBefore ? Date.parse(filters.createdBefore) : NaN;
+  const createdAfter = filters.createdAfter ? Date.parse(filters.createdAfter) : NaN;
+
+  const filtered = posts.filter((post) => {
+    if (!isPostStatusFilterMatch(post, filters)) {
+      return false;
+    }
+    if (filters.hasPublication !== undefined && (post.tags.length > 0) !== filters.hasPublication) {
+      return false;
+    }
+    if (titleNeedle && !(post.title ?? '').toLowerCase().includes(titleNeedle)) {
+      return false;
+    }
+    if (bodyNeedle && !(post.body ?? '').toLowerCase().includes(bodyNeedle)) {
+      return false;
+    }
+    if (filters.publishedOn !== undefined && !post.tags.includes(filters.publishedOn)) {
+      return false;
+    }
+
+    const created = Date.parse(post.createdAt);
+    if (!Number.isNaN(createdBefore) && !(created <= createdBefore)) {
+      return false;
+    }
+    if (!Number.isNaN(createdAfter) && !(created >= createdAfter)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (!filters.sortBy) {
+    return filtered;
+  }
+
+  const direction = filters.isAscending ? 1 : -1;
+  const timestamp = (value: string | null): number => {
+    const parsed = value ? Date.parse(value) : NaN;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+  const statusOrder = (post: PostItem): number => postStatusToApiValue(post.status);
+
+  return [...filtered].sort((left, right) => {
+    switch (filters.sortBy) {
+      case 'CreatedAt':
+        return direction * (timestamp(left.createdAt) - timestamp(right.createdAt));
+      case 'UpdatedAt':
+        return (
+          direction *
+          (timestamp(left.lastModifiedAt ?? left.createdAt) -
+            timestamp(right.lastModifiedAt ?? right.createdAt))
+        );
+      case 'Status':
+        return direction * (statusOrder(left) - statusOrder(right));
+      case 'Id':
+      default:
+        return direction * left.id.localeCompare(right.id);
+    }
+  });
 }
 
 export const POST_SORT_BY_OPTIONS = [
@@ -341,20 +484,28 @@ export type PostsFilterParams = {
 };
 
 export type PostItem = {
-  id: number;
+  /** GUID assigned by the API. */
+  id: string;
   title: string | null;
+  /** Not provided by the v1 API. */
   promptText: string | null;
+  /** Mirrors `createdBy`. */
   userId: string;
+  createdBy: string | null;
   body: string | null;
   status: PostStatus;
+  /** Not provided by the v1 API; kept client-side only. */
   tags: PlatformType[];
   createdAt: string;
+  lastModifiedAt: string | null;
+  /** Not provided by the v1 API. */
   attachments: PostAttachmentItem[];
 };
 
 export type PagedPostsResponse = {
   pageIndex: number;
   totalPages: number;
+  totalCount: number;
   items: PostItem[];
   hasPreviousPage: boolean;
   hasNextPage: boolean;
