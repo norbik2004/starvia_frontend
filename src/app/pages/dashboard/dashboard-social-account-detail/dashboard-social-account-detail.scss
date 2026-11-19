@@ -121,30 +121,6 @@
   }
 }
 
-.dashboard-route-status {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  margin: 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--mat-sys-error) 35%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--mat-sys-error) 7%, var(--route-card));
-  color: var(--mat-sys-error);
-  font-size: var(--text-body-sm);
-  font-weight: var(--font-weight-medium);
-
-  .material-icons {
-    flex-shrink: 0;
-    font-size: 1.25rem;
-  }
-
-  p {
-    margin: 0;
-    line-height: 1.45;
-  }
-}
-
 .social-account-detail-card {
   --platform-color: var(--sv-dark);
 
@@ -299,28 +275,6 @@
 
   &__hero-copy &__hint {
     color: rgb(255 255 255 / 0.68);
-  }
-
-  &__status {
-    display: flex;
-    align-items: center;
-    width: fit-content;
-    margin: 0;
-    padding: 0.55rem 0.8rem;
-    border-radius: var(--radius-pill);
-    font-weight: var(--font-weight-semibold);
-
-    &.account-panel__status--success {
-      border: 1px solid color-mix(in srgb, #4f7b32 32%, transparent);
-      background: color-mix(in srgb, var(--sv-accent) 24%, var(--route-card));
-      color: #376523;
-    }
-
-    &.account-panel__status--error {
-      border: 1px solid color-mix(in srgb, var(--mat-sys-error) 28%, transparent);
-      background: color-mix(in srgb, var(--mat-sys-error) 6%, var(--route-card));
-      color: var(--mat-sys-error);
-    }
   }
 
   &__fields {

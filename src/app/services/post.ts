@@ -10,12 +10,12 @@ import type {
   UpdatePostPayload,
 } from '../models/post';
 import {
-  filterAndSortPosts,
-  hasLocalPostsQuery,
   parseCreatedPostId,
   parsePagedPostsResponse,
   parsePostId,
   parsePostItem,
+  platformTypesToApiQueryValue,
+  postSortByToApiValue,
   postStatusToApiValue,
 } from '../models/post';
 
@@ -30,27 +30,26 @@ export class PostService {
   private readonly postsUrl = new URL('posts', environment.backendUrl).toString();
 
   /**
-   * `GET /v1/posts` only returns `{ id, title, createdAt, createdBy }` and supports `Page` and
-   * `PageSize` only. Items are enriched with `GET /v1/posts/{id}` (body, status, ...) and, when
-   * filters or sorting are requested, the full list is loaded and filtered/sorted/paged locally.
+   * `GET /v1/posts` filters (`Status`, `Search`), sorts (`SortBy`, `Descending`) and pages on the
+   * server. The list DTO has no body or attachments, so the items of the requested page (and only
+   * those) are enriched with `GET /v1/posts/{id}`.
    */
   getMyPosts(
     pageNumber: number,
     pageSize: number,
     filters: PostsFilterParams = {},
   ): Observable<PagedPostsResponse> {
-    if (!hasLocalPostsQuery(filters)) {
-      return this.fetchPostsPage(pageNumber, pageSize).pipe(
-        switchMap((page) =>
-          this.withDetails(page.items).pipe(map((items) => ({ ...page, items }))),
-        ),
-      );
-    }
-
-    return this.fetchAllPosts().pipe(
-      switchMap((items) => this.withDetails(items)),
-      map((items) => this.paginateLocally(filterAndSortPosts(items, filters), pageNumber, pageSize)),
+    return this.fetchPostsPage(pageNumber, pageSize, filters).pipe(
+      switchMap((page) => this.withDetails(page.items).pipe(map((items) => ({ ...page, items })))),
     );
+  }
+
+  /**
+   * Lightweight list (`id`, `title`, `createdAt`) of every post of the user — one request per 100
+   * posts, no per-post enrichment. Used by pickers that only need titles (e.g. the calendar).
+   */
+  getAllPostSummaries(): Observable<PostItem[]> {
+    return this.fetchAllPosts();
   }
 
   getPost(id: string): Observable<PostItem> {
@@ -68,7 +67,14 @@ export class PostService {
 
   createPost(payload: CreatePostPayload): Observable<PostItem> {
     return this.http
-      .post<unknown>(this.postsUrl, { title: payload.title }, { observe: 'response' })
+      .post<unknown>(
+        this.postsUrl,
+        {
+          title: payload.title,
+          platforms: payload.platforms,
+        },
+        { observe: 'response' },
+      )
       .pipe(
         map((response: HttpResponse<unknown>) => {
           const id = parseCreatedPostId(response.body) ?? this.idFromLocation(response);
@@ -89,6 +95,7 @@ export class PostService {
         title: payload.title,
         body: payload.body ?? '',
         status: postStatusToApiValue(payload.status),
+        platforms: payload.platforms,
       })
       .pipe(switchMap(() => this.getPost(id)));
   }
@@ -111,10 +118,30 @@ export class PostService {
     return parsePostId(lastSegment ? decodeURIComponent(lastSegment) : null);
   }
 
-  private fetchPostsPage(pageNumber: number, pageSize: number): Observable<PagedPostsResponse> {
-    const params = new HttpParams()
+  private fetchPostsPage(
+    pageNumber: number,
+    pageSize: number,
+    filters: PostsFilterParams = {},
+  ): Observable<PagedPostsResponse> {
+    let params = new HttpParams()
       .set('Page', String(pageNumber))
       .set('PageSize', String(pageSize));
+
+    if (filters.status) {
+      params = params.set('Status', String(postStatusToApiValue(filters.status)));
+    }
+    if (filters.platformTypes && filters.platformTypes.length > 0) {
+      params = params.set('platforms', platformTypesToApiQueryValue(filters.platformTypes));
+    }
+    const search = filters.search?.trim();
+    if (search) {
+      params = params.set('Search', search);
+    }
+    if (filters.sortBy) {
+      params = params
+        .set('SortBy', String(postSortByToApiValue(filters.sortBy)))
+        .set('Descending', String(filters.descending ?? true));
+    }
 
     return this.http.get<unknown>(this.postsUrl, { params }).pipe(
       map((response) => {
@@ -151,24 +178,5 @@ export class PostService {
       toArray(),
       map((entries) => entries.sort((left, right) => left.index - right.index).map((entry) => entry.post)),
     );
-  }
-
-  private paginateLocally(
-    items: readonly PostItem[],
-    pageNumber: number,
-    pageSize: number,
-  ): PagedPostsResponse {
-    const totalPages = Math.ceil(items.length / pageSize);
-    const pageIndex = Math.min(Math.max(1, pageNumber), Math.max(1, totalPages));
-    const start = (pageIndex - 1) * pageSize;
-
-    return {
-      pageIndex,
-      totalPages,
-      totalCount: items.length,
-      items: items.slice(start, start + pageSize),
-      hasPreviousPage: pageIndex > 1,
-      hasNextPage: pageIndex < totalPages,
-    };
   }
 }

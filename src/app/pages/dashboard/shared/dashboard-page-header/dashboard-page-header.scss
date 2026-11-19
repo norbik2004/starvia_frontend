@@ -1,0 +1,116 @@
+@use '../../dashboard-content-shell' as shell;
+
+:host {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-lg);
+  width: 100%;
+
+  &__copy {
+    display: grid;
+    gap: 0.4rem;
+    width: 100%;
+    max-width: 49rem;
+    min-width: 0;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    color: var(--sv-dark-soft);
+    font-family: var(--font-accent);
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-transform: none;
+  }
+
+  &__title {
+    @include shell.page-title;
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.75rem;
+    color: var(--sv-dark);
+    font-size: clamp(2.25rem, 5vw, 4.25rem);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+  }
+
+  &__title-mark {
+    display: inline-block;
+    color: var(--sv-dark-soft);
+    font-family: var(--font-accent);
+    font-size: clamp(1.45rem, 3vw, 2.3rem);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0;
+    line-height: 1;
+    transform: rotate(-2deg);
+  }
+
+  &__intro {
+    max-width: 44rem;
+    margin: 0.25rem 0 0;
+    color: var(--sv-ink-muted);
+    font-size: var(--text-body-sm);
+    line-height: 1.55;
+  }
+
+  &__aside {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: var(--space-md);
+    min-width: 0;
+
+    &:empty {
+      display: none;
+    }
+  }
+
+  &__scribble {
+    margin: 0 0 0.4rem;
+    padding: 0.25rem 0.85rem 0.35rem;
+    border-bottom: 3px solid var(--sv-accent);
+    color: var(--sv-dark);
+    font-family: var(--font-accent);
+    font-size: clamp(1.25rem, 2vw, 1.6rem);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    white-space: nowrap;
+    transform: rotate(1.5deg);
+  }
+}
+
+@media (max-width: 40rem) {
+  .page-header {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+
+    &__title {
+      font-size: clamp(2.2rem, 13vw, 3.15rem);
+    }
+
+    &__aside {
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: var(--space-sm);
+    }
+
+    &__scribble {
+      align-self: flex-start;
+      margin: 0;
+    }
+  }
+}

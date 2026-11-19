@@ -10,8 +10,10 @@ import {
   ConversationType,
   type AskGeminiRequest,
   type GeneratePostRequest,
+  type GeneratedPost,
   type UserPromptConversationItem,
   type UserPromptRequest,
+  parseGeneratedPost,
   parseGeneratedPostText,
 } from '../models/gemini';
 
@@ -20,6 +22,7 @@ export class GeminiService {
   private readonly http = inject(HttpClient);
   private readonly geminiUrl = new URL('Gemini', environment.backendUrl).toString();
   private readonly userPromptUrl = new URL('UserPrompt', environment.backendUrl).toString();
+  private readonly generatePostUrl = new URL('ai/posts/generate', environment.backendUrl).toString();
 
   getConversation(postId: string): Observable<UserPromptConversationItem[]> {
     return this.http.get<UserPromptConversationItem[]>(
@@ -27,13 +30,20 @@ export class GeminiService {
     );
   }
 
-  generatePost(request: GeneratePostRequest): Observable<string> {
-    return this.send({
+  /** `POST /v1/ai/posts/generate`: every call starts a new generation chat and returns the written post. */
+  generatePost(request: GeneratePostRequest): Observable<GeneratedPost> {
+    const body: Record<string, unknown> = {
       prompt: request.prompt,
       postId: request.postId,
-      conversationType: ConversationType.GeneratePost,
-      includePostText: request.includePostText,
-    });
+    };
+
+    if (request.brandProfileId) {
+      body['brandProfileId'] = request.brandProfileId;
+    }
+
+    return this.http
+      .post<unknown>(this.generatePostUrl, body)
+      .pipe(map((response) => parseGeneratedPost(response)));
   }
 
   askGemini(request: AskGeminiRequest): Observable<string> {

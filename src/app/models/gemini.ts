@@ -1,6 +1,11 @@
 export const GEMINI_PROMPT_MAX_LENGTH = 300;
 export const GEMINI_CHAT_PROMPT_MAX_LENGTH = GEMINI_PROMPT_MAX_LENGTH;
 
+/** Backend limit of the prompt sent to `POST /ai/posts/generate`. */
+export const GENERATE_POST_API_PROMPT_MAX_LENGTH = 4000;
+/** Limit of what the user types in the Generate panel. */
+export const GENERATE_POST_PROMPT_MAX_LENGTH = 1000;
+
 export enum ConversationType {
   GeneratePost = 'GeneratePost',
   AskGemini = 'AskGemini',
@@ -16,7 +21,20 @@ export type UserPromptRequest = {
 export type GeneratePostRequest = {
   prompt: string;
   postId: string;
-  includePostText?: boolean;
+  /** Optional brand profile used as generation context (`POST /ai/posts/generate`). */
+  brandProfileId?: string | null;
+};
+
+export type GeneratePostSubmit = {
+  prompt: string;
+  brandProfileId: string | null;
+};
+
+export type GeneratedPost = {
+  chatId: string;
+  messageId: string;
+  title: string;
+  body: string;
 };
 
 export type AskGeminiRequest = {
@@ -266,6 +284,28 @@ export function parseChatMessageBlocks(text: string): ChatMessageBlock[] {
   flushOrderedList();
 
   return blocks.length > 0 ? blocks : [{ type: 'paragraph', segments: parseChatTextSegments(text) }];
+}
+
+/** Reads the `POST /ai/posts/generate` response: `{ chatId, messageId, title, body, ... }`. */
+export function parseGeneratedPost(response: unknown): GeneratedPost {
+  if (response && typeof response === 'object') {
+    const record = response as Record<string, unknown>;
+    const chatId = record['chatId'];
+    const messageId = record['messageId'];
+    const title = record['title'];
+    const body = record['body'];
+
+    if (typeof body === 'string' && body.trim()) {
+      return {
+        chatId: typeof chatId === 'string' ? chatId : '',
+        messageId: typeof messageId === 'string' ? messageId : '',
+        title: typeof title === 'string' ? title.trim() : '',
+        body: body.trim(),
+      };
+    }
+  }
+
+  throw new Error('Invalid generation response.');
 }
 
 export function parseGeneratedPostText(response: unknown): string {

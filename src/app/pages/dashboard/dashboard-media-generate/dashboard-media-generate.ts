@@ -3,6 +3,8 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { NgClass } from '@angular/common';
 import { PageRevealDirective } from '../../../directives/page-reveal';
 import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
+import { DashboardPageHeader } from '../shared/dashboard-page-header/dashboard-page-header';
 import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { getPlatformBrandClass } from '../../../models/platform';
 import {
@@ -21,22 +23,20 @@ type GenerateMediaForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-media-generate',
-  imports: [ReactiveFormsModule, PageRevealDirective, DashboardPlatformLogo, NgClass, AutoExpandTextarea],
+  imports: [ReactiveFormsModule, PageRevealDirective, DashboardAlert, DashboardPageHeader, DashboardPlatformLogo, NgClass, AutoExpandTextarea],
   styleUrl: './dashboard-media-generate.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="dashboard-content-page dashboard-media-generate" aria-labelledby="dashboard-media-generate-title">
       <div class="dashboard-media-generate__intro" appPageReveal>
-        <header class="dashboard-media-generate__header">
-          <div class="dashboard-media-generate__header-copy">
-            <p class="section-eyebrow dashboard-media-generate__eyebrow">Media</p>
-            <h1 id="dashboard-media-generate-title" class="dashboard-media-generate__title">Generate</h1>
-          </div>
-          <p class="dashboard-media-generate__copy">
-            Create platform-ready visuals for LinkedIn, Facebook, and Instagram. Pick a format, describe
-            what you need, and Starvia will prepare media sized for your chosen network.
-          </p>
-        </header>
+        <app-dashboard-page-header
+          titleId="dashboard-media-generate-title"
+          eyebrow="Media"
+          title="Generuj"
+          titleMark="z pomysłu w obraz"
+          intro="Twórz grafiki gotowe na LinkedIn, Facebook i Instagram. Wybierz format, opisz, czego potrzebujesz, a Starvia przygotuje media w rozmiarze dopasowanym do wybranej sieci."
+          scribble="Zacznij od pomysłu."
+        />
       </div>
 
       <div class="dashboard-media-generate__layout" appPageReveal>
@@ -113,15 +113,11 @@ type GenerateMediaForm = FormGroup<{
             </div>
           </div>
 
-          @if (statusMessage()) {
-            <p
-              class="posts-status"
-              [class.posts-status--error]="statusError()"
-              role="status"
-            >
-              {{ statusMessage() }}
-            </p>
-          }
+          <app-dashboard-alert
+            [compact]="true"
+            [tone]="statusError() ? 'error' : 'info'"
+            [message]="statusMessage()"
+          />
 
           <div class="dashboard-media-generate__actions">
             <button
@@ -236,7 +232,7 @@ export class DashboardMediaGenerate {
     window.setTimeout(() => {
       this.isGenerating.set(false);
       this.statusMessage.set(
-        'Image generation is not connected yet. Your platform and format selection are ready for the upcoming API.'
+        'Generowanie obrazów nie jest jeszcze podłączone. Wybrana platforma i format będą gotowe dla przyszłego API.'
       );
     }, 650);
   }

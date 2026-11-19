@@ -1,23 +1,22 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PageRevealDirective } from '../../../directives/page-reveal';
+import { DashboardPageHeader } from '../shared/dashboard-page-header/dashboard-page-header';
 
 @Component({
   selector: 'app-dashboard-overview',
-  imports: [RouterLink, PageRevealDirective],
+  imports: [RouterLink, PageRevealDirective, DashboardPageHeader],
   styleUrl: './dashboard-overview.scss',
   template: `
     <section class="dashboard-overview" aria-labelledby="dashboard-overview-title" appPageReveal>
-      <header class="dashboard-overview__hero">
-        <div>
-          <p class="dashboard-overview__eyebrow">Twój workspace</p>
-          <h1 id="dashboard-overview-title" class="dashboard-overview__title">
-            Dzień dobry w Starvia.
-          </h1>
-          <p class="dashboard-overview__lead">
-            Zaplanuj treść, przygotuj media i trzymaj publikacje w jednym, spokojnym rytmie.
-          </p>
-        </div>
+      <app-dashboard-page-header
+        titleId="dashboard-overview-title"
+        eyebrow="Twój workspace"
+        title="Przegląd"
+        titleMark="dzień dobry"
+        intro="Zaplanuj treść, przygotuj media i trzymaj publikacje w jednym, spokojnym rytmie."
+        scribble="Spokojny rytm."
+      >
         <a
           routerLink="/dashboard/posts"
           [queryParams]="{ create: 'true' }"
@@ -26,7 +25,7 @@ import { PageRevealDirective } from '../../../directives/page-reveal';
           <span class="material-icons" aria-hidden="true">add</span>
           Utwórz post
         </a>
-      </header>
+      </app-dashboard-page-header>
 
       <div class="dashboard-overview__quick-grid" aria-label="Szybkie działania">
         <a routerLink="/dashboard/posts" class="dashboard-overview__quick-card">
@@ -34,6 +33,15 @@ import { PageRevealDirective } from '../../../directives/page-reveal';
           <span>
             <strong>Posty</strong>
             <small>Zarządzaj draftami i kolejką publikacji</small>
+          </span>
+          <span class="material-icons dashboard-overview__arrow" aria-hidden="true">arrow_forward</span>
+        </a>
+
+        <a routerLink="/dashboard/calendar" class="dashboard-overview__quick-card">
+          <span class="dashboard-overview__quick-icon material-icons" aria-hidden="true">calendar_month</span>
+          <span>
+            <strong>Kalendarz</strong>
+            <small>Planuj publikacje na właściwe dni i godziny</small>
           </span>
           <span class="material-icons dashboard-overview__arrow" aria-hidden="true">arrow_forward</span>
         </a>
@@ -52,6 +60,24 @@ import { PageRevealDirective } from '../../../directives/page-reveal';
           <span>
             <strong>Konta social</strong>
             <small>Połącz i kontroluj kanały publikacji</small>
+          </span>
+          <span class="material-icons dashboard-overview__arrow" aria-hidden="true">arrow_forward</span>
+        </a>
+
+        <a routerLink="/dashboard/brand-profiles" class="dashboard-overview__quick-card">
+          <span class="dashboard-overview__quick-icon material-icons" aria-hidden="true">storefront</span>
+          <span>
+            <strong>Profile marek</strong>
+            <small>Brief, ton komunikacji i domyślne generowanie</small>
+          </span>
+          <span class="material-icons dashboard-overview__arrow" aria-hidden="true">arrow_forward</span>
+        </a>
+
+        <a routerLink="/dashboard/ai-chat" class="dashboard-overview__quick-card">
+          <span class="dashboard-overview__quick-icon material-icons" aria-hidden="true">auto_awesome</span>
+          <span>
+            <strong>Czat AI</strong>
+            <small>Promptuj pomysły i zbieraj wątki rozmów</small>
           </span>
           <span class="material-icons dashboard-overview__arrow" aria-hidden="true">arrow_forward</span>
         </a>

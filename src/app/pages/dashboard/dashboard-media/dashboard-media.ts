@@ -26,6 +26,8 @@ import {
 } from '../../../models/user-uploaded-file';
 import { UserUploadedFileService } from '../../../services/user-uploaded-file';
 import { DisplayDatetimePipe } from '../../../pipes/display-datetime';
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
+import { DashboardPageHeader } from '../shared/dashboard-page-header/dashboard-page-header';
 import { DashboardPaginationPanel } from '../shared/dashboard-pagination-panel/dashboard-pagination-panel';
 import { showingFrom, showingTo, toPaginationPage } from '../shared/pagination';
 import { PageLoading } from '../../../components/page-loading/page-loading';
@@ -46,6 +48,8 @@ type MediaForm = FormGroup<{
   selector: 'app-dashboard-media',
   imports: [
     DisplayDatetimePipe,
+    DashboardAlert,
+    DashboardPageHeader,
     DashboardPaginationPanel,
     ReactiveFormsModule,
     MatTooltip,
@@ -61,14 +65,22 @@ type MediaForm = FormGroup<{
     <section class="dashboard-content-page dashboard-media" aria-labelledby="dashboard-media-title">
       <div appPageReveal>
       <div class="dashboard-media__intro">
-        <header class="dashboard-media__header">
-          <div class="dashboard-media__header-row">
-            <div class="dashboard-media__header-copy">
-              <p class="section-eyebrow dashboard-media__eyebrow">Media</p>
-              <h1 id="dashboard-media-title" class="dashboard-media__title">Library</h1>
-            </div>
-          </div>
-        </header>
+        <app-dashboard-page-header
+          titleId="dashboard-media-title"
+          eyebrow="Media"
+          title="Biblioteka"
+          titleMark="Twoje grafiki"
+          intro="Przesyłaj obrazy, dodawaj opisy i miej wszystkie materiały marki zawsze pod ręką."
+          scribble="Wszystko pod ręką."
+        />
+
+        <app-dashboard-alert [message]="errorMessage()" [retryable]="!result()" (retry)="loadFiles()" />
+        <app-dashboard-alert
+          [message]="uploadMessage()"
+          [tone]="uploadError() ? 'error' : 'success'"
+          [dismissible]="true"
+          (dismissed)="uploadMessage.set(null)"
+        />
 
         <label
           class="dashboard-media__upload"
@@ -103,19 +115,10 @@ type MediaForm = FormGroup<{
         </label>
       </div>
 
-      @if (uploadMessage()) {
-        <p class="posts-status" [class.posts-status--error]="uploadError()" role="status">
-          {{ uploadMessage() }}
-        </p>
-      }
       </div>
 
       @if (isLoading() && !result()) {
         <app-page-loading label="Loading media…" />
-      }
-
-      @if (errorMessage()) {
-        <p class="posts-status posts-status--error" role="alert">{{ errorMessage() }}</p>
       }
 
       @if (result(); as page) {
@@ -450,7 +453,7 @@ export class DashboardMedia {
           this.removeDeletedFile(fileId);
         },
         error: (error) => {
-          this.errorMessage.set(toApplicationError(error, 'Could not delete image.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się usunąć obrazu.').description);
         },
       });
   }
@@ -561,7 +564,7 @@ export class DashboardMedia {
           this.cancelRename();
         },
         error: (error) => {
-          this.descriptionError.set(toApplicationError(error, 'Could not save changes.').description);
+          this.descriptionError.set(toApplicationError(error, 'Nie udało się zapisać zmian.').description);
         },
       });
   }
@@ -662,13 +665,13 @@ export class DashboardMedia {
     const images = files.filter((file) => isSupportedImageFile(file));
     if (images.length === 0) {
       this.uploadError.set(true);
-      this.uploadMessage.set('Choose at least one image file to upload.');
+      this.uploadMessage.set('Wybierz co najmniej jeden plik graficzny do przesłania.');
       return;
     }
 
     if (images.length < files.length) {
       this.uploadError.set(true);
-      this.uploadMessage.set('Some files were skipped because only images are supported.');
+      this.uploadMessage.set('Część plików pominięto, bo obsługiwane są tylko obrazy.');
     } else {
       this.uploadError.set(false);
       this.uploadMessage.set(null);
@@ -683,19 +686,19 @@ export class DashboardMedia {
         next: (uploaded) => {
           this.uploadError.set(false);
           this.uploadMessage.set(
-            uploaded.length === 1 ? 'Image uploaded successfully.' : `${uploaded.length} images uploaded successfully.`
+            uploaded.length === 1 ? 'Obraz został przesłany.' : `Przesłano obrazy: ${uploaded.length}.`
           );
           this.form.patchValue({ pageNumber: 1 });
           this.loadFiles();
         },
         error: (error) => {
           this.uploadError.set(true);
-          this.uploadMessage.set(toApplicationError(error, 'Could not upload images.').description);
+          this.uploadMessage.set(toApplicationError(error, 'Nie udało się przesłać obrazów.').description);
         },
       });
   }
 
-  private loadFiles(): void {
+  protected loadFiles(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -718,7 +721,7 @@ export class DashboardMedia {
         },
         error: (error) => {
           this.result.set(null);
-          this.errorMessage.set(toApplicationError(error, 'Could not load media.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się wczytać mediów.').description);
         },
       });
   }

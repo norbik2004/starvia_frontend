@@ -1,6 +1,20 @@
+/**
+ * Platforms catalogue of the v1 API (`/v1/platforms`).
+ */
+
+/** Mirrors `StarviaBackend.Modules.Platforms.Core.Platforms.Enums.PlatformType`. */
+export enum PlatformType {
+  LinkedIn = 0,
+  Facebook = 1,
+  Instagram = 2,
+}
+
 export type Platform = {
-  id: number;
+  id: string;
+  platformType: PlatformType;
+  /** Display label derived from `platformType` (e.g. LinkedIn). */
   type: string;
+  isOnline: boolean;
 };
 
 export type PlatformCategory = {
@@ -10,44 +24,68 @@ export type PlatformCategory = {
   matcher: (platform: Platform) => boolean;
 };
 
-export const LINKEDIN_PLATFORM_ID = 1;
+/** @deprecated Prefer `PlatformType.LinkedIn`. */
+export const LINKEDIN_PLATFORM_ID = PlatformType.LinkedIn;
 
 export const PLATFORM_CATEGORIES: readonly PlatformCategory[] = [
   {
     key: 'professional',
     label: 'Professional networks',
     icon: 'work',
-    matcher: (platform) => platform.type.toLowerCase() === 'linkedin',
+    matcher: (platform) => platform.platformType === PlatformType.LinkedIn,
   },
   {
     key: 'social',
     label: 'Social networks',
     icon: 'people',
-    matcher: (platform) => ['facebook', 'instagram'].includes(platform.type.toLowerCase()),
+    matcher: (platform) =>
+      platform.platformType === PlatformType.Facebook ||
+      platform.platformType === PlatformType.Instagram,
   },
 ] as const;
 
-function tryParseJson(value: string): unknown {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return value;
-  }
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return value;
+export function getPlatformTypeLabel(platformType: PlatformType | number): string {
+  switch (platformType) {
+    case PlatformType.LinkedIn:
+      return 'LinkedIn';
+    case PlatformType.Facebook:
+      return 'Facebook';
+    case PlatformType.Instagram:
+      return 'Instagram';
+    default:
+      return `Platform ${platformType}`;
   }
 }
 
-function parsePlatformId(record: Record<string, unknown>): number | null {
-  const value = record['id'] ?? record['Id'];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function parsePlatformType(record: Record<string, unknown>): string | null {
-  const value = record['type'] ?? record['Type'];
+function readUuid(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function parsePlatformTypeValue(value: unknown): PlatformType | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 2) {
+    return value as PlatformType;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const trimmed = value.trim();
+    const asNumber = Number(trimmed);
+    if (Number.isFinite(asNumber) && asNumber >= 0 && asNumber <= 2) {
+      return asNumber as PlatformType;
+    }
+
+    switch (trimmed.toLowerCase()) {
+      case 'linkedin':
+        return PlatformType.LinkedIn;
+      case 'facebook':
+        return PlatformType.Facebook;
+      case 'instagram':
+        return PlatformType.Instagram;
+      default:
+        return null;
+    }
+  }
+
+  return null;
 }
 
 export function parsePlatform(value: unknown): Platform | null {
@@ -56,28 +94,41 @@ export function parsePlatform(value: unknown): Platform | null {
   }
 
   const record = value as Record<string, unknown>;
-  const id = parsePlatformId(record);
-  const type = parsePlatformType(record);
+  const id = readUuid(record['id'] ?? record['Id']);
+  const platformType = parsePlatformTypeValue(record['platformType'] ?? record['PlatformType']);
 
-  if (id === null || !type) {
+  if (!id || platformType === null) {
     return null;
   }
 
-  return { id, type };
+  return {
+    id,
+    platformType,
+    type: getPlatformTypeLabel(platformType),
+    isOnline: record['isOnline'] === true || record['IsOnline'] === true,
+  };
 }
 
 export function parsePlatformsResponse(value: unknown): Platform[] {
-  const normalized = typeof value === 'string' ? tryParseJson(value) : value;
+  if (Array.isArray(value)) {
+    return value.map(parsePlatform).filter((item): item is Platform => item !== null);
+  }
 
-  if (!Array.isArray(normalized)) {
+  if (!value || typeof value !== 'object') {
     return [];
   }
 
-  return normalized.map(parsePlatform).filter((item): item is Platform => item !== null);
+  const record = value as Record<string, unknown>;
+  const items = record['items'] ?? record['Items'];
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items.map(parsePlatform).filter((item): item is Platform => item !== null);
 }
 
 export function groupPlatformsByCategory(
-  platforms: readonly Platform[]
+  platforms: readonly Platform[],
 ): { category: PlatformCategory; platforms: Platform[] }[] {
   return PLATFORM_CATEGORIES.map((category) => ({
     category,
@@ -86,7 +137,7 @@ export function groupPlatformsByCategory(
 }
 
 export function isPlatformConnectable(platform: Platform): boolean {
-  return platform.id === LINKEDIN_PLATFORM_ID;
+  return platform.platformType === PlatformType.LinkedIn && platform.isOnline;
 }
 
 export function getPlatformBrandClass(type: string): string {

@@ -14,6 +14,8 @@ import { toApplicationError } from '../../../models/application-error';
 
 import {
 
+  PlatformType,
+
   getPlatformBrandClass,
 
   getPlatformDescription,
@@ -48,6 +50,9 @@ import { PageLoading } from '../../../components/page-loading/page-loading';
 
 import { PageRevealDirective } from '../../../directives/page-reveal';
 
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
+import { DashboardPageHeader } from '../shared/dashboard-page-header/dashboard-page-header';
+
 import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 
 import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-user-avatar';
@@ -64,6 +69,10 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
 
     PageRevealDirective,
 
+    DashboardAlert,
+
+    DashboardPageHeader,
+
     DashboardUserAvatar,
 
     DashboardPlatformLogo,
@@ -79,31 +88,26 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
   template: `
     <section class="dashboard-content-page dashboard-social-accounts" aria-labelledby="dashboard-social-accounts-title">
       <div appPageReveal>
-        <header class="dashboard-social-accounts__header">
-          <div class="dashboard-social-accounts__header-copy">
-            <p class="section-eyebrow dashboard-social-accounts__eyebrow">Workspace settings</p>
-            <h1 id="dashboard-social-accounts-title" class="dashboard-social-accounts__title">
-              Social accounts
-              <span class="dashboard-social-accounts__title-mark" aria-hidden="true">all together</span>
-            </h1>
-            <p class="dashboard-social-accounts__intro">
-              Connect the channels you use and keep every publishing identity within reach.
-            </p>
-          </div>
-          <p class="dashboard-social-accounts__scribble" aria-hidden="true">Grow from here.</p>
-        </header>
+        <app-dashboard-page-header
+          titleId="dashboard-social-accounts-title"
+          eyebrow="Ustawienia workspace'u"
+          title="Konta social"
+          titleMark="wszystkie razem"
+          intro="Połącz kanały, z których korzystasz, i miej każdą tożsamość publikacyjną w zasięgu ręki."
+          scribble="Rośnij stąd."
+        />
       </div>
 
       @if (isLoading()) {
         <app-page-loading label="Loading platforms…" />
       }
 
-      @if (loadError()) {
-        <div class="dashboard-route-status dashboard-route-status--error" role="alert">
-          <span class="material-icons" aria-hidden="true">cloud_off</span>
-          <p>{{ loadError() }}</p>
-        </div>
-      }
+      <app-dashboard-alert [message]="loadError()" [retryable]="true" (retry)="loadData()" />
+      <app-dashboard-alert
+        [message]="actionError()"
+        [dismissible]="true"
+        (dismissed)="actionError.set(null)"
+      />
 
       @if (!isLoading() && !loadError()) {
         <div class="dashboard-social-accounts__body" appPageReveal>
@@ -120,11 +124,13 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
               </div>
             </div>
 
-            @if (platformsMessage(); as message) {
-              <p class="account-panel__status account-panel__status--success" role="status">
-                {{ message }}
-              </p>
-            }
+            <app-dashboard-alert
+              [compact]="true"
+              tone="success"
+              [message]="platformsMessage()"
+              [dismissible]="true"
+              (dismissed)="platformsMessage.set(null)"
+            />
 
             @if (connectedAccounts().length > 0) {
               <div class="social-accounts__connected">
@@ -135,12 +141,12 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
                       <a
                         [routerLink]="['/dashboard/social-accounts', connection.id]"
                         class="social-account-card social-account-card--connected social-account-card--link"
-                        [ngClass]="platformBrandClass(connection.platformId)"
+                        [ngClass]="platformBrandClass(connection.platformType)"
                       >
                         <div class="social-account-card__identity">
                           <div class="social-account-card__visual">
                             <app-dashboard-platform-logo
-                              [platformType]="platformLabel(connection.platformId)"
+                              [platformType]="platformLabel(connection.platformType)"
                               size="md"
                             />
 
@@ -148,13 +154,13 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
                               <img
                                 class="social-account-card__photo"
                                 [src]="connection.profilePictureLink"
-                                [alt]="connection.accountUsername + ' profile photo'"
+                                [alt]="(connection.accountUsername ?? 'Konto') + ' profile photo'"
                                 (error)="onPlatformPhotoError(connection)"
                               />
                             } @else {
                               <app-dashboard-user-avatar
                                 size="md"
-                                [userName]="connection.accountUsername"
+                                [userName]="connection.accountUsername ?? 'Konto'"
                                 [profilePictureUrl]="null"
                               />
                             }
@@ -162,10 +168,10 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
 
                           <div class="social-account-card__copy">
                             <div class="social-account-card__headline">
-                              <h3 class="social-account-card__name">{{ platformLabel(connection.platformId) }}</h3>
+                              <h3 class="social-account-card__name">{{ platformLabel(connection.platformType) }}</h3>
                               <span class="social-account-card__badge">Connected</span>
                             </div>
-                            <p class="social-account-card__username">{{ connection.accountUsername }}</p>
+                            <p class="social-account-card__username">{{ connection.accountUsername ?? 'Konto' }}</p>
                             @if (connection.accountComment) {
                               <p class="social-account-card__comment">{{ connection.accountComment }}</p>
                             }
@@ -220,10 +226,12 @@ import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-u
                               (click)="connectLinkedIn()"
                             >
                               <span class="material-icons" aria-hidden="true">add_link</span>
-                              {{ isConnectingLinkedIn() ? 'Redirecting…' : 'Connect ' + platform.type }}
+                              {{ isConnectingLinkedIn() ? 'Przekierowanie…' : 'Połącz ' + platform.type }}
                             </button>
+                          } @else if (isLinkedInPlatform(platform) && !platform.isOnline) {
+                            <span class="social-account-card__soon">LinkedIn jest chwilowo niedostępny</span>
                           } @else {
-                            <span class="social-account-card__soon">Work in progress</span>
+                            <span class="social-account-card__soon">Wkrótce</span>
                           }
                         </div>
                       </article>
@@ -260,6 +268,10 @@ export class DashboardSocialAccounts {
 
   protected readonly getPlatformDescription = getPlatformDescription;
 
+  protected isLinkedInPlatform(platform: Platform): boolean {
+    return platform.platformType === PlatformType.LinkedIn;
+  }
+
 
 
   protected readonly availablePlatforms = signal<Platform[]>([]);
@@ -268,7 +280,9 @@ export class DashboardSocialAccounts {
 
   protected readonly platformCategories = computed(() => {
 
-    const connectedIds = new Set(this.connectedAccounts().map((account) => account.platformId));
+    const connectedTypes = new Set(
+      this.connectedAccounts().map((account) => account.platformType),
+    );
 
 
 
@@ -278,7 +292,9 @@ export class DashboardSocialAccounts {
 
         ...group,
 
-        platforms: group.platforms.filter((platform) => !connectedIds.has(platform.id)),
+        platforms: group.platforms.filter(
+          (platform) => !connectedTypes.has(platform.platformType),
+        ),
 
       }))
 
@@ -293,6 +309,9 @@ export class DashboardSocialAccounts {
   protected readonly isConnectingLinkedIn = signal(false);
 
   protected readonly loadError = signal<string | null>(null);
+
+  /** Failure of a user action (e.g. starting LinkedIn authorization); must not hide the page. */
+  protected readonly actionError = signal<string | null>(null);
 
   protected readonly platformsMessage = signal<string | null>(null);
 
@@ -328,22 +347,14 @@ export class DashboardSocialAccounts {
 
 
 
-  protected platformLabel(platformId: number): string {
-
-    const platform = this.availablePlatforms().find((item) => item.id === platformId);
-
-    return platform?.type ?? getPlatformLabel(platformId);
-
+  protected platformLabel(platformType: number): string {
+    return getPlatformLabel(platformType);
   }
 
 
 
-  protected platformBrandClass(platformId: number): string {
-
-    const platform = this.availablePlatforms().find((item) => item.id === platformId);
-
-    return platform ? getPlatformBrandClass(platform.type) : getConnectablePlatformBrandClass(platformId);
-
+  protected platformBrandClass(platformType: number): string {
+    return getConnectablePlatformBrandClass(platformType);
   }
 
 
@@ -384,7 +395,7 @@ export class DashboardSocialAccounts {
 
     this.isConnectingLinkedIn.set(true);
 
-    this.loadError.set(null);
+    this.actionError.set(null);
 
 
 
@@ -398,16 +409,16 @@ export class DashboardSocialAccounts {
 
         next: (url) => {
 
+          this.linkedInService.markConnectPending();
+
           this.document.defaultView?.location.assign(url);
 
         },
 
         error: (error) => {
 
-          this.loadError.set(
-
-            toApplicationError(error, 'Could not start LinkedIn authorization. Please try again.').description
-
+          this.actionError.set(
+            toApplicationError(error, 'Nie udało się rozpocząć autoryzacji LinkedIn. Spróbuj ponownie.').description
           );
 
         },
@@ -444,7 +455,7 @@ export class DashboardSocialAccounts {
 
 
 
-  private loadData(options: { silent?: boolean } = {}): void {
+  protected loadData(options: { silent?: boolean } = {}): void {
 
     if (!options.silent) {
 
@@ -482,9 +493,23 @@ export class DashboardSocialAccounts {
 
 
 
-          if (options.silent && connected.length > 0) {
+          const returnedFromLinkedIn = this.linkedInService.consumeConnectPending();
 
-            this.platformsMessage.set('Connected accounts updated.');
+          if (returnedFromLinkedIn) {
+
+            const hasLinkedIn = connected.some(
+              (account) => account.platformType === PlatformType.LinkedIn,
+            );
+
+            this.platformsMessage.set(
+              hasLinkedIn
+                ? 'Konto LinkedIn zostało połączone.'
+                : 'Wrócono z LinkedIn. Jeśli konto nie pojawiło się na liście, spróbuj połączyć je ponownie.',
+            );
+
+          } else if (options.silent && connected.length > 0) {
+
+            this.platformsMessage.set('Lista połączonych kont została zaktualizowana.');
 
           }
 
@@ -492,7 +517,11 @@ export class DashboardSocialAccounts {
 
         error: (error) => {
 
-          this.loadError.set(toApplicationError(error, 'Could not load platforms.').description);
+          if (options.silent && this.dataLoaded) {
+            return;
+          }
+
+          this.loadError.set(toApplicationError(error, 'Nie udało się wczytać platform.').description);
 
         },
 

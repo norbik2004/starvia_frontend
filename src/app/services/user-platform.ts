@@ -1,83 +1,115 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
+  USER_PLATFORM_DEFAULT_PAGE_SIZE,
+  parseCreatedUserPlatformId,
+  parsePagedUserPlatformsResponse,
   parseUserPlatform,
-  parseUserPlatformsResponse,
-  type UpdateUserPlatformRequest,
+  type AddUserPlatformPayload,
+  type BrowseUserPlatformsQuery,
+  type PagedUserPlatformsResponse,
   type UserPlatform,
 } from '../models/user-platform';
 
 @Injectable({ providedIn: 'root' })
 export class UserPlatformService {
   private readonly http = inject(HttpClient);
-  private readonly userPlatformsUrl = new URL(
-    'UserPlatform/user-platforms',
-    environment.backendUrl,
-  ).toString();
+  private readonly userPlatformsUrl = new URL('user-platforms', environment.backendUrl).toString();
 
-  private userPlatformUrl(id: number): string {
-    return new URL(`UserPlatform/${id}`, environment.backendUrl).toString();
+  private userPlatformUrl(userPlatformId: string): string {
+    return new URL(`user-platforms/${userPlatformId}`, environment.backendUrl).toString();
   }
 
-  getUserPlatforms(): Observable<UserPlatform[]> {
-    return this.http
-      .get(this.userPlatformsUrl, {
-        responseType: 'text',
-      })
-      .pipe(map((response) => parseUserPlatformsResponse(response)));
-  }
+  browse(query: BrowseUserPlatformsQuery = {}): Observable<PagedUserPlatformsResponse> {
+    let params = new HttpParams();
 
-  getUserPlatform(id: number): Observable<UserPlatform> {
-    return this.http
-      .get(this.userPlatformUrl(id), {
-        responseType: 'text',
-      })
-      .pipe(
-        map((response) => this.parseUserPlatformResponse(response)),
-        catchError(() =>
-          this.getUserPlatforms().pipe(
-            map((platforms) => {
-              const match = platforms.find((platform) => platform.id === id);
-              if (!match) {
-                throw new Error('User platform not found.');
-              }
-              return match;
-            }),
-          ),
-        ),
-      );
-  }
-
-  updateUserPlatform(id: number, request: UpdateUserPlatformRequest): Observable<string> {
-    return this.http.put(this.userPlatformUrl(id), request, {
-      headers: { 'Content-Type': 'application/json' },
-      responseType: 'text',
-    });
-  }
-
-  deleteUserPlatform(id: number): Observable<void> {
-    return this.http.delete<void>(this.userPlatformUrl(id));
-  }
-
-  private parseUserPlatformResponse(response: unknown): UserPlatform {
-    const normalized =
-      typeof response === 'string' && response.trim()
-        ? (() => {
-            try {
-              return JSON.parse(response);
-            } catch {
-              return response;
-            }
-          })()
-        : response;
-    const platform = parseUserPlatform(normalized);
-
-    if (!platform) {
-      throw new Error('Invalid user platform response.');
+    if (query.platformType != null) {
+      params = params.set('PlatformType', String(query.platformType));
+    }
+    if (query.ownerId) {
+      params = params.set('OwnerId', query.ownerId);
+    }
+    if (query.sortBy != null) {
+      params = params.set('SortBy', String(query.sortBy));
+    }
+    if (query.descending != null) {
+      params = params.set('Descending', String(query.descending));
+    }
+    if (query.page != null) {
+      params = params.set('Page', String(query.page));
+    }
+    if (query.pageSize != null) {
+      params = params.set('PageSize', String(query.pageSize));
+    }
+    if (query.search) {
+      params = params.set('Search', query.search);
     }
 
-    return platform;
+    return this.http.get<unknown>(this.userPlatformsUrl, { params }).pipe(
+      map((response) => {
+        const parsed = parsePagedUserPlatformsResponse(response);
+        if (!parsed) {
+          throw new Error('Nieprawidłowa odpowiedź serwera (połączone konta).');
+        }
+
+        return parsed;
+      }),
+    );
+  }
+
+  getById(userPlatformId: string): Observable<UserPlatform> {
+    return this.http.get<unknown>(this.userPlatformUrl(userPlatformId)).pipe(
+      map((response) => {
+        const platform = parseUserPlatform(response);
+        if (!platform) {
+          throw new Error('Nieprawidłowa odpowiedź serwera (połączone konto).');
+        }
+
+        return platform;
+      }),
+    );
+  }
+
+  /** @deprecated Prefer `getById`. */
+  getUserPlatform(userPlatformId: string): Observable<UserPlatform> {
+    return this.getById(userPlatformId);
+  }
+
+  add(payload: AddUserPlatformPayload): Observable<string> {
+    const body = new FormData();
+    body.append('PlatformId', payload.platformId);
+    body.append('AccountUserName', payload.accountUserName);
+    if (payload.accountComment != null && payload.accountComment !== '') {
+      body.append('AccountComment', payload.accountComment);
+    }
+
+    return this.http.post<unknown>(this.userPlatformsUrl, body).pipe(
+      map((response) => {
+        const id = parseCreatedUserPlatformId(response);
+        if (!id) {
+          throw new Error('Nieprawidłowa odpowiedź serwera (dodanie konta).');
+        }
+
+        return id;
+      }),
+    );
+  }
+
+  /**
+   * Convenience list for pickers / legacy callers.
+   * Uses browse with a large page size.
+   */
+  listAll(pageSize = 100): Observable<UserPlatform[]> {
+    return this.browse({
+      page: 1,
+      pageSize: Math.max(pageSize, USER_PLATFORM_DEFAULT_PAGE_SIZE),
+    }).pipe(map((result) => result.items));
+  }
+
+  /** @deprecated Prefer `listAll` or `browse`. */
+  getUserPlatforms(): Observable<UserPlatform[]> {
+    return this.listAll();
   }
 }

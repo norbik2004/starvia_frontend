@@ -3,34 +3,42 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-export type PostAttachmentsRequest = {
+export type AddPostAttachmentsRequest = {
   postId: string;
-  attachments: Array<{
-    userUploadedFileId: string;
-    order: number;
-  }>;
+  fileIds: string[];
+};
+
+export type UpdatePostAttachmentOrderRequest = {
+  postId: string;
+  postAttachmentId: string;
+  order: number;
+};
+
+export type RemovePostAttachmentRequest = {
+  postId: string;
+  postAttachmentId: string;
 };
 
 @Injectable({ providedIn: 'root' })
 export class PostAttachmentService {
   private readonly http = inject(HttpClient);
-  private readonly url = new URL('PostAttachment', environment.backendUrl).toString();
+  private readonly attachmentsUrl = new URL('post-attachments/attachments', environment.backendUrl).toString();
+  private readonly orderUrl = new URL('post-attachments/attachments/order', environment.backendUrl).toString();
 
-  create(payload: PostAttachmentsRequest): Observable<string> {
-    return this.http.post(this.url, payload, {
+  /** `POST /v1/post-attachments/attachments` — attaches uploaded files to a post. */
+  create(payload: AddPostAttachmentsRequest): Observable<string> {
+    return this.http.post(this.attachmentsUrl, payload, {
       responseType: 'text',
     });
   }
 
-  update(payload: PostAttachmentsRequest): Observable<string> {
-    return this.http.put(this.url, payload, {
-      responseType: 'text',
-    });
+  /** `PUT /v1/post-attachments/attachments/order` — moves a single attachment to a new position. */
+  updateOrder(payload: UpdatePostAttachmentOrderRequest): Observable<void> {
+    return this.http.put<void>(this.orderUrl, payload);
   }
 
-  delete(postAttachmentId: number): Observable<void> {
-    return this.http.delete<void>(this.url, {
-      params: { postAttachmentId },
-    });
+  /** `DELETE /v1/post-attachments/attachments` — removes an attachment from a post. */
+  delete(payload: RemovePostAttachmentRequest): Observable<void> {
+    return this.http.request<void>('DELETE', this.attachmentsUrl, { body: payload });
   }
 }

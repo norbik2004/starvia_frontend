@@ -1,11 +1,33 @@
-import { Component, ElementRef, HostListener, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  HostListener,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { toApplicationError } from '../../../models/application-error';
-import { normalizePostTitle, POST_TITLE_MAX_LENGTH, POST_TITLE_MIN_LENGTH } from '../../../models/post';
+import {
+  normalizePostPlatforms,
+  normalizePostTitle,
+  POST_TITLE_MAX_LENGTH,
+  POST_TITLE_MIN_LENGTH,
+  type PlatformType as PostPlatformType,
+} from '../../../models/post';
+import { type Platform } from '../../../models/platform';
+import { PlatformService } from '../../../services/platform';
 import { PostService } from '../../../services/post';
 import { DrawerMotionDirective } from '../../../layout/shared/drawer-motion';
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
+import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 
 type CreatePostForm = FormGroup<{
   title: FormControl<string>;
@@ -13,7 +35,7 @@ type CreatePostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-create',
-  imports: [ReactiveFormsModule, DrawerMotionDirective],
+  imports: [ReactiveFormsModule, DrawerMotionDirective, DashboardAlert, DashboardPlatformLogo],
   styleUrl: './dashboard-post-create.scss',
   template: `
     <button
@@ -22,7 +44,7 @@ type CreatePostForm = FormGroup<{
       appDrawerMotion="backdrop"
       [drawerMotionState]="open() ? 'open' : closing() ? 'closing' : 'closed'"
       [attr.aria-hidden]="!open()"
-      aria-label="Close new post panel"
+      aria-label="Zamknij panel nowego posta"
       (click)="cancel()"
     ></button>
 
@@ -39,13 +61,13 @@ type CreatePostForm = FormGroup<{
     >
       <header class="post-create-drawer__head">
         <div>
-          <p class="post-create-drawer__eyebrow">New content</p>
-          <h1 id="post-create-title" class="post-create-drawer__title">Create a post</h1>
+          <p class="post-create-drawer__eyebrow">Nowa treść</p>
+          <h1 id="post-create-title" class="post-create-drawer__title">Utwórz post</h1>
         </div>
         <button
           type="button"
           class="post-create-drawer__close"
-          aria-label="Close new post panel"
+          aria-label="Zamknij panel nowego posta"
           [disabled]="isCreating()"
           (click)="cancel()"
         >
@@ -56,15 +78,13 @@ type CreatePostForm = FormGroup<{
       <form class="post-create-drawer__form" [formGroup]="form" (ngSubmit)="submit()">
         <div class="post-create-drawer__body">
           <p id="post-create-description" class="post-create-drawer__description">
-            Start with a clear title. You can add the content, media and publication details in the next step.
+            Zacznij od jasnego tytułu i wybierz platformy docelowe. Treść oraz media dodasz w następnym kroku.
           </p>
 
-          @if (errorMessage()) {
-            <p class="post-create-drawer__status" role="alert">{{ errorMessage() }}</p>
-          }
+          <app-dashboard-alert [compact]="true" [message]="errorMessage()" />
 
           <div class="field">
-            <label class="field__label" for="create-post-title">Post title</label>
+            <label class="field__label" for="create-post-title">Tytuł posta</label>
             <textarea
               #titleInput
               id="create-post-title"
@@ -73,21 +93,21 @@ type CreatePostForm = FormGroup<{
               rows="5"
               maxlength="{{ titleMaxLength }}"
               autocomplete="off"
-              placeholder="What do you want to write about?"
+              placeholder="O czym chcesz napisać?"
               aria-describedby="create-post-title-hint create-post-title-error"
               (input)="onTitleInput()"
             ></textarea>
             <div class="field__meta">
               <div aria-live="polite">
                 @if (form.controls.title.touched && form.controls.title.hasError('required')) {
-                  <p id="create-post-title-error" class="field__error" role="alert">Title is required.</p>
+                  <p id="create-post-title-error" class="field__error" role="alert">Tytuł jest wymagany.</p>
                 } @else if (form.controls.title.touched && form.controls.title.hasError('minlength')) {
                   <p id="create-post-title-error" class="field__error" role="alert">
-                    Title must be at least {{ titleMinLength }} characters.
+                    Tytuł musi mieć co najmniej {{ titleMinLength }} znaków.
                   </p>
                 } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
                   <p id="create-post-title-error" class="field__error" role="alert">
-                    Title cannot exceed {{ titleMaxLength }} characters.
+                    Tytuł może mieć maksymalnie {{ titleMaxLength }} znaków.
                   </p>
                 }
               </div>
@@ -95,6 +115,45 @@ type CreatePostForm = FormGroup<{
                 {{ form.controls.title.value.length }}/{{ titleMaxLength }}
               </span>
             </div>
+          </div>
+
+          <div class="field post-create-drawer__platforms" role="group" aria-labelledby="create-post-platforms-label">
+            <span id="create-post-platforms-label" class="field__label">Platformy</span>
+
+            @if (platformsLoading()) {
+              <p class="post-create-drawer__platforms-hint">Wczytywanie platform…</p>
+            } @else if (availablePlatforms().length === 0) {
+              <p class="post-create-drawer__platforms-hint" role="alert">
+                {{ platformsError() ?? 'Brak platform w katalogu.' }}
+              </p>
+            } @else {
+              <div class="post-create-drawer__platform-list">
+                @for (platform of availablePlatforms(); track platform.platformType) {
+                  <button
+                    type="button"
+                    class="post-create-drawer__platform-chip"
+                    [class.is-selected]="isPlatformSelected(platform.platformType)"
+                    [attr.aria-pressed]="isPlatformSelected(platform.platformType)"
+                    [disabled]="isCreating()"
+                    (click)="togglePlatform(platform.platformType)"
+                  >
+                    <app-dashboard-platform-logo
+                      [platformType]="platform.type"
+                      size="sm"
+                      [compact]="true"
+                    />
+                    <span>{{ platform.type }}</span>
+                  </button>
+                }
+              </div>
+              @if (platformsTouched() && selectedPlatforms().length === 0) {
+                <p class="field__error" role="alert">Wybierz co najmniej jedną platformę.</p>
+              } @else {
+                <p class="post-create-drawer__platforms-hint">
+                  Wybierz jedną lub więcej platform, na które trafi ten post.
+                </p>
+              }
+            }
           </div>
         </div>
 
@@ -105,11 +164,15 @@ type CreatePostForm = FormGroup<{
             [disabled]="isCreating()"
             (click)="cancel()"
           >
-            Cancel
+            Anuluj
           </button>
-          <button type="submit" class="btn btn--primary" [disabled]="isCreating() || form.invalid">
+          <button
+            type="submit"
+            class="btn btn--primary"
+            [disabled]="isCreating() || form.invalid || !canSubmitPlatforms()"
+          >
             <span class="material-icons" aria-hidden="true">add</span>
-            {{ isCreating() ? 'Creating…' : 'Create post' }}
+            {{ isCreating() ? 'Tworzenie…' : 'Utwórz post' }}
           </button>
         </footer>
       </form>
@@ -118,7 +181,9 @@ type CreatePostForm = FormGroup<{
 })
 export class DashboardPostCreate {
   private readonly postService = inject(PostService);
+  private readonly platformService = inject(PlatformService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly titleInput = viewChild<ElementRef<HTMLTextAreaElement>>('titleInput');
   private readonly drawer = viewChild<ElementRef<HTMLElement>>('drawer');
 
@@ -142,6 +207,13 @@ export class DashboardPostCreate {
 
   protected readonly isCreating = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly availablePlatforms = signal<Platform[]>([]);
+  protected readonly selectedPlatforms = signal<PostPlatformType[]>([]);
+  protected readonly platformsLoading = signal(false);
+  protected readonly platformsError = signal<string | null>(null);
+  protected readonly platformsTouched = signal(false);
+
+  private platformsLoaded = false;
 
   private readonly focusWhenOpened = effect((onCleanup) => {
     if (!this.open()) {
@@ -150,6 +222,9 @@ export class DashboardPostCreate {
 
     this.form.reset({ title: '' });
     this.errorMessage.set(null);
+    this.platformsTouched.set(false);
+    this.ensurePlatformsLoaded();
+    this.resetSelectedPlatforms();
     const frame = requestAnimationFrame(() => this.titleInput()?.nativeElement.focus());
     onCleanup(() => cancelAnimationFrame(frame));
   });
@@ -174,26 +249,48 @@ export class DashboardPostCreate {
     this.applyClampedInput(this.form.controls.title, this.clampTitle.bind(this), this.titleInput()?.nativeElement);
   }
 
+  protected isPlatformSelected(platformType: number): boolean {
+    return this.selectedPlatforms().includes(platformType as PostPlatformType);
+  }
+
+  protected togglePlatform(platformType: number): void {
+    this.platformsTouched.set(true);
+    const typed = platformType as PostPlatformType;
+    this.selectedPlatforms.update((current) => {
+      if (current.includes(typed)) {
+        return current.filter((item) => item !== typed);
+      }
+      return normalizePostPlatforms([...current, typed]);
+    });
+  }
+
+  protected canSubmitPlatforms(): boolean {
+    return !this.platformsLoading() && this.selectedPlatforms().length > 0;
+  }
+
   protected submit(): void {
-    if (this.form.invalid) {
+    this.platformsTouched.set(true);
+
+    if (this.form.invalid || !this.canSubmitPlatforms()) {
       this.form.markAllAsTouched();
       return;
     }
 
     const title = this.clampTitle(this.form.controls.title.value.trim());
+    const platforms = normalizePostPlatforms(this.selectedPlatforms());
 
     this.isCreating.set(true);
     this.errorMessage.set(null);
 
     this.postService
-      .createPost({ title })
+      .createPost({ title, platforms })
       .pipe(finalize(() => this.isCreating.set(false)))
       .subscribe({
         next: (created) => {
           void this.router.navigate(['/dashboard/posts', created.id]);
         },
         error: (error) => {
-          this.errorMessage.set(toApplicationError(error, 'Could not create post.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się utworzyć posta.').description);
         },
       });
   }
@@ -204,10 +301,68 @@ export class DashboardPostCreate {
     }
   }
 
+  private ensurePlatformsLoaded(): void {
+    if (this.platformsLoaded || this.platformsLoading()) {
+      return;
+    }
+
+    this.platformsLoading.set(true);
+    this.platformsError.set(null);
+
+    // Catalogue from DB — do not filter by online/offline.
+    this.platformService
+      .getPlatforms()
+      .pipe(
+        finalize(() => this.platformsLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (platforms) => {
+          this.platformsLoaded = true;
+          this.availablePlatforms.set(this.uniqueByType(platforms));
+          this.resetSelectedPlatforms();
+        },
+        error: (error) => {
+          this.platformsError.set(
+            toApplicationError(error, 'Nie udało się wczytać platform.').description,
+          );
+          this.availablePlatforms.set([]);
+          this.selectedPlatforms.set([]);
+        },
+      });
+  }
+
+  private resetSelectedPlatforms(): void {
+    const available = this.availablePlatforms();
+    if (available.length === 0) {
+      this.selectedPlatforms.set([]);
+      return;
+    }
+
+    // Prefer LinkedIn when present; otherwise first catalogue entry.
+    const linkedIn = available.find((platform) => platform.platformType === 0);
+    this.selectedPlatforms.set([(linkedIn ?? available[0]).platformType as PostPlatformType]);
+  }
+
+  private uniqueByType(platforms: readonly Platform[]): Platform[] {
+    const seen = new Set<number>();
+    const unique: Platform[] = [];
+
+    for (const platform of platforms) {
+      if (seen.has(platform.platformType)) {
+        continue;
+      }
+      seen.add(platform.platformType);
+      unique.push(platform);
+    }
+
+    return unique.sort((left, right) => left.platformType - right.platformType);
+  }
+
   private applyClampedInput(
     control: FormControl<string>,
     clamp: (value: string) => string,
-    textarea?: HTMLTextAreaElement
+    textarea?: HTMLTextAreaElement,
   ): void {
     const next = clamp(control.value);
     if (next === control.value) {
@@ -233,8 +388,8 @@ export class DashboardPostCreate {
   private keepFocusInDrawer(event: KeyboardEvent): void {
     const focusable = Array.from(
       this.drawer()?.nativeElement.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), textarea:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
-      ) ?? []
+        'button:not(:disabled), textarea:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
     );
 
     if (focusable.length === 0) {

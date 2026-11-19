@@ -17,7 +17,7 @@ import {
   type AutoExpandTextareaResizeOptions,
 } from './resize-auto-expand-textarea';
 
-export type AutoExpandTextareaVariant = 'field' | 'gemini' | 'gemini-chat';
+export type AutoExpandTextareaVariant = 'field' | 'gemini' | 'gemini-chat' | 'gemini-panel';
 
 @Component({
   selector: 'app-auto-expand-textarea',

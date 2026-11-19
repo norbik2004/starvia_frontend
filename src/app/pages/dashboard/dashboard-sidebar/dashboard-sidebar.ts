@@ -31,17 +31,20 @@ type DashboardNavItem = {
 };
 
 const NAV_ITEMS: readonly DashboardNavItem[] = [
-  { label: 'Overview', icon: 'dashboard', route: '/dashboard', exact: true },
-  { label: 'Social accounts', icon: 'link', route: '/dashboard/social-accounts' },
+  { label: 'Przegląd', icon: 'dashboard', route: '/dashboard', exact: true },
+  { label: 'Konta społecznościowe', icon: 'link', route: '/dashboard/social-accounts' },
+  { label: 'Profile marek', icon: 'storefront', route: '/dashboard/brand-profiles' },
   {
     label: 'Media',
     icon: 'image',
     children: [
-      { label: 'Library', icon: 'photo', route: '/dashboard/media', exact: true },
-      { label: 'Generate', icon: 'brush', route: '/dashboard/media/generate' },
+      { label: 'Biblioteka', icon: 'photo', route: '/dashboard/media', exact: true },
+      { label: 'Generuj', icon: 'brush', route: '/dashboard/media/generate' },
     ],
   },
-  { label: 'Posts', icon: 'notes', route: '/dashboard/posts' },
+  { label: 'Posty', icon: 'notes', route: '/dashboard/posts' },
+  { label: 'Kalendarz', icon: 'calendar_month', route: '/dashboard/calendar' },
+  { label: 'Czat AI', icon: 'auto_awesome', route: '/dashboard/ai-chat' },
 ] as const;
 
 
@@ -59,12 +62,12 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
     <aside
       class="dashboard-sidebar"
       [class.is-menu-open]="menuOpen() || menuClosing()"
-      aria-label="Dashboard"
+      aria-label="Panel"
     >
 
       <div class="dashboard-sidebar__mobile-bar">
 
-        <a routerLink="/dashboard" class="brand" aria-label="Starvia dashboard" (click)="closeMenu()">
+        <a routerLink="/dashboard" class="brand" aria-label="Panel Starvia" (click)="closeMenu()">
 
           <span class="brand__icon-wrap">
 
@@ -106,7 +109,7 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
         >
 
-          <span class="sr-only">{{ menuOpen() ? 'Close menu' : 'Open menu' }}</span>
+          <span class="sr-only">{{ menuOpen() ? 'Zamknij menu' : 'Otwórz menu' }}</span>
 
           <span class="menu-icon" [class.is-open]="menuOpen()" aria-hidden="true"></span>
 
@@ -128,9 +131,9 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
         <div class="dashboard-sidebar__drawer-head">
 
-          <p class="dashboard-sidebar__eyebrow">Workspace</p>
+          <p class="dashboard-sidebar__eyebrow">Przestrzeń robocza</p>
 
-          <button type="button" class="dashboard-sidebar__close" aria-label="Close menu" (click)="closeMenu()">
+          <button type="button" class="dashboard-sidebar__close" aria-label="Zamknij menu" (click)="closeMenu()">
 
             <span class="close-icon" aria-hidden="true"></span>
 
@@ -148,7 +151,7 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
             class="dashboard-sidebar__brand dashboard-sidebar__brand--desktop"
 
-            aria-label="Starvia dashboard"
+            aria-label="Panel Starvia"
 
             (click)="closeMenu()"
 
@@ -180,11 +183,11 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
 
 
-          <p class="dashboard-sidebar__eyebrow dashboard-sidebar__eyebrow--desktop">Workspace</p>
+          <p class="dashboard-sidebar__eyebrow dashboard-sidebar__eyebrow--desktop">Przestrzeń robocza</p>
 
 
 
-          <nav class="dashboard-sidebar__nav" aria-label="Dashboard navigation">
+          <nav class="dashboard-sidebar__nav" aria-label="Nawigacja panelu">
 
             <ul class="dashboard-sidebar__list">
 
@@ -275,66 +278,41 @@ const NAV_ITEMS: readonly DashboardNavItem[] = [
 
 
         <div class="dashboard-sidebar__footer">
-
-          <div class="dashboard-sidebar__user-row">
-
+          <a
+            routerLink="/dashboard/account"
+            routerLinkActive="is-active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="dashboard-sidebar__user"
+            aria-label="Moje konto"
+            (click)="closeMenu()"
+          >
             @if (account(); as profile) {
               <app-dashboard-user-avatar
                 [userName]="profile.userName"
                 [profilePictureUrl]="profile.profilePictureUrl"
               />
             } @else {
-              <app-dashboard-user-avatar userName="Account" />
+              <app-dashboard-user-avatar userName="Konto" />
             }
 
-            <div class="dashboard-sidebar__identity">
-
-              <span class="dashboard-sidebar__name">{{ account()?.userName ?? 'Account' }}</span>
-
+            <span class="dashboard-sidebar__identity">
+              <span class="dashboard-sidebar__name">{{ account()?.userName ?? 'Konto' }}</span>
               @if (account()?.email; as email) {
-
                 <span class="dashboard-sidebar__email">{{ email }}</span>
-
               }
+            </span>
+          </a>
 
-            </div>
-
-          </div>
-
-
-
-          <div class="dashboard-sidebar__user-actions">
-
-            <a
-              routerLink="/dashboard/account"
-              routerLinkActive="is-active"
-              [routerLinkActiveOptions]="{ exact: true }"
-              class="dashboard-sidebar__action"
-              (click)="closeMenu()"
-            >
-              <span class="material-icons dashboard-sidebar__action-icon" aria-hidden="true">person</span>
-              Account
-            </a>
-
-            <button
-
-              type="button"
-
-              class="dashboard-sidebar__action dashboard-sidebar__action--danger"
-
-              [disabled]="isLoggingOut()"
-
-              (click)="logout()"
-
-            >
-
-              <span class="material-icons dashboard-sidebar__action-icon" aria-hidden="true">logout</span>
-              {{ isLoggingOut() ? 'Logging out…' : 'Log out' }}
-
-            </button>
-
-          </div>
-
+          <button
+            type="button"
+            class="dashboard-sidebar__logout"
+            [disabled]="isLoggingOut()"
+            [attr.aria-label]="isLoggingOut() ? 'Wylogowywanie…' : 'Wyloguj się'"
+            [attr.title]="isLoggingOut() ? 'Wylogowywanie…' : 'Wyloguj się'"
+            (click)="logout()"
+          >
+            <span class="material-icons dashboard-sidebar__logout-icon" aria-hidden="true">logout</span>
+          </button>
         </div>
 
       </div>
@@ -565,7 +543,7 @@ export class DashboardSidebar implements OnDestroy {
       this.menuOpen.set(true);
       document.body.classList.add('dashboard-nav-open');
       this.clearBodyBackdrop();
-      this.unmountBodyBackdrop = mountDrawerBodyBackdrop('Close menu', () => this.closeMenu());
+      this.unmountBodyBackdrop = mountDrawerBodyBackdrop('Zamknij menu', () => this.closeMenu());
       return;
     }
 

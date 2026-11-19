@@ -58,6 +58,44 @@ textarea {
   padding: 0.5rem 0.8rem;
 }
 
+// Multi-line prompt box of the "Generate" panel: a soft rounded rectangle that grows up to a limit,
+// then scrolls. Uses the app palette (charcoal + lime) instead of the chat green.
+.auto-expand-textarea--gemini-panel {
+  min-height: 5.5rem;
+  max-height: 12rem;
+  padding: 0.75rem 0.9rem;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--sv-dark) 14%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  scrollbar-width: thin;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 78%, transparent);
+  }
+
+  &:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--sv-dark) 28%, transparent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--sv-accent) 62%, var(--sv-dark));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-accent) 42%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
 .auto-expand-textarea--field {
   min-height: 2.5rem;
   padding: 0.5rem 0.6rem;

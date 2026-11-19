@@ -10,6 +10,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { toApplicationError } from '../../../models/application-error';
 import { DisplayDatetimePipe } from '../../../pipes/display-datetime';
 import {
+  DEFAULT_POST_PLATFORMS,
   normalizePostTitle,
   normalizePostBody,
   parseHashtagSegments,
@@ -28,13 +29,18 @@ import {
 } from '../../../models/post';
 import { GeminiService } from '../../../services/gemini';
 import { AuthService } from '../../../services/auth';
-import { getUserInitials, type UserAccount } from '../../../models/user-account';
-import { parseChatMessageBlocks, mapConversationToChatMessages, GEMINI_PROMPT_MAX_LENGTH, GEMINI_CHAT_PROMPT_MAX_LENGTH, type GeminiChatMessage } from '../../../models/gemini';
+import { type UserAccount } from '../../../models/user-account';
 import { PostService } from '../../../services/post';
 import { PostAttachmentService } from '../../../services/post-attachment';
 import { UserUploadedFileService } from '../../../services/user-uploaded-file';
 import { UserPlatformService } from '../../../services/user-platform';
-import { LINKEDIN_PLATFORM_ID, type UserPlatform } from '../../../models/user-platform';
+import { LinkedInService } from '../../../services/linkedin';
+import { PostPublicationService } from '../../../services/post-publication';
+import { LINKEDIN_PLATFORM_TYPE, type UserPlatform } from '../../../models/user-platform';
+import {
+  postPublicationStatusLabel,
+  type PostPublication,
+} from '../../../models/post-publication';
 import type { PagedUserUploadedFilesResponse, UserUploadedFileItem } from '../../../models/user-uploaded-file';
 import {
   DEFAULT_POSTS_LIST_QUERY,
@@ -47,11 +53,13 @@ import { POST_BODY_EMOJIS } from '../shared/post-body-emojis';
 import { createTypewriter } from '../shared/typewriter-text';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
+import { drawerMotionDelay } from '../../../layout/shared/drawer-motion';
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
 import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
 import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { DashboardImageLightbox } from '../shared/dashboard-image-lightbox/dashboard-image-lightbox';
 import { DashboardLinkedinPostPreview } from '../shared/dashboard-linkedin-post-preview/dashboard-linkedin-post-preview';
-import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
+import { DashboardPostGenerate } from '../dashboard-post-generate/dashboard-post-generate';
 import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
 import {
   postMetaChipAnimation,
@@ -66,8 +74,6 @@ type AttachmentLightboxPreview = {
 };
 
 const SAVE_MESSAGE_DURATION_MS = 5000;
-const GEMINI_CHAT_CLOSE_MS = 200;
-const GEMINI_POPUP_CLOSE_MS = GEMINI_CHAT_CLOSE_MS;
 const EDIT_CLOSE_MS = 220;
 const STATUS_PULSE_MS = 320;
 const ATTACHMENTS_PICKER_CLOSE_MS = 280;
@@ -79,7 +85,7 @@ type PostForm = FormGroup<{
 
 @Component({
   selector: 'app-dashboard-post-detail',
-  imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, DragDropModule, PageLoading, PageRevealDirective, DashboardDeleteButton, DashboardPlatformLogo, DashboardImageLightbox, DashboardLinkedinPostPreview, AutoExpandTextarea],
+  imports: [RouterLink, DatePipe, DisplayDatetimePipe, NgClass, ReactiveFormsModule, MatTooltip, MatButtonModule, NgTemplateOutlet, DragDropModule, PageLoading, PageRevealDirective, DashboardAlert, DashboardDeleteButton, DashboardPlatformLogo, DashboardImageLightbox, DashboardLinkedinPostPreview, DashboardPostGenerate],
   animations: [postMetaChipAnimation, postMetaPanelAnimation],
   styleUrl: './dashboard-post-detail.scss',
   template: `
@@ -213,14 +219,14 @@ type PostForm = FormGroup<{
                   </p>
                   <div class="dashboard-edit-meta__error" aria-live="polite">
                     @if (form.controls.title.touched && form.controls.title.hasError('required')) {
-                      <p id="post-title-error" class="field__error" role="alert">Title is required.</p>
+                      <p id="post-title-error" class="field__error" role="alert">Tytuł jest wymagany.</p>
                     } @else if (form.controls.title.touched && form.controls.title.hasError('minlength')) {
                       <p id="post-title-error" class="field__error" role="alert">
-                        Title must be at least {{ titleMinLength }} characters.
+                        Tytuł musi mieć co najmniej {{ titleMinLength }} znaków.
                       </p>
                     } @else if (form.controls.title.touched && form.controls.title.hasError('maxlength')) {
                       <p id="post-title-error" class="field__error" role="alert">
-                        Title cannot exceed {{ titleMaxLength }} characters.
+                        Tytuł może mieć maksymalnie {{ titleMaxLength }} znaków.
                       </p>
                     }
                   </div>
@@ -253,9 +259,11 @@ type PostForm = FormGroup<{
         <app-page-loading label="Loading post…" />
       }
 
-      @if (errorMessage()) {
-        <p class="posts-status posts-status--error" role="alert">{{ errorMessage() }}</p>
-      }
+      <app-dashboard-alert
+        [message]="errorMessage()"
+        [dismissible]="!!post()"
+        (dismissed)="errorMessage.set(null)"
+      />
 
       @if (post(); as item) {
         <div class="post-detail__sections" appPageReveal>
@@ -278,143 +286,27 @@ type PostForm = FormGroup<{
                 <p class="post-detail__card-hint">What will be published</p>
               </div>
               <div class="post-detail__card-actions">
-                <div class="post-detail__gemini-anchor" #geminiAnchor>
+                <div class="post-detail__gemini-anchor">
                   <button
                     type="button"
                     class="post-detail__gemini-btn"
-                    [class.post-detail__gemini-btn--active]="geminiPopupOpen() || geminiPopupClosing()"
+                    [class.post-detail__gemini-btn--active]="generateDrawerOpen() || generateDrawerClosing()"
                     [class.post-detail__gemini-btn--busy]="isGenerating() || isTyping()"
                     matTooltip="Generate with AI"
                     matTooltipPosition="below"
                     [matTooltipDisabled]="tooltipsDisabled()"
                     aria-label="Generate content with AI"
-                    [attr.aria-expanded]="geminiPopupOpen() || geminiPopupClosing()"
-                    aria-controls="post-gemini-popup"
+                    [attr.aria-expanded]="generateDrawerOpen() || generateDrawerClosing()"
+                    [attr.aria-busy]="isGenerating() || isTyping()"
+                    aria-controls="post-generate-title"
                     [disabled]="!canUseGemini()"
-                    (click)="toggleGeminiPopup($event)"
+                    (click)="toggleGenerateDrawer($event)"
                   >
                     <span class="post-detail__gemini-btn-icon" aria-hidden="true">
                       <span class="material-icons">auto_awesome</span>
                     </span>
                     <span class="post-detail__gemini-btn-label">Generate</span>
                   </button>
-
-                  @if (geminiPopupOpen() || geminiPopupClosing()) {
-                    <button
-                      type="button"
-                      class="gemini-popup-backdrop"
-                      [class.gemini-popup-backdrop--closing]="geminiPopupClosing()"
-                      aria-label="Close AI panel"
-                      (click)="closeGeminiPopup()"
-                    ></button>
-                    <div
-                      id="post-gemini-popup"
-                      class="gemini-popup"
-                      [class.gemini-popup--closing]="geminiPopupClosing()"
-                      role="dialog"
-                      aria-label="Generate content with Starvia AI"
-                      (click)="$event.stopPropagation()"
-                    >
-                      <header class="gemini-popup__head">
-                        <div class="gemini-popup__head-copy">
-                          <span class="gemini-popup__badge" aria-hidden="true">
-                            <span class="material-icons">auto_awesome</span>
-                          </span>
-                          <p class="gemini-popup__title">Starvia AI</p>
-                        </div>
-                        <button
-                          type="button"
-                          class="gemini-popup__close"
-                          aria-label="Close generate panel"
-                          (click)="closeGeminiPopup()"
-                        >
-                          <span class="material-icons" aria-hidden="true">close</span>
-                        </button>
-                      </header>
-
-                      @if (geminiError()) {
-                        <p class="field__error gemini-popup__error" role="alert">{{ geminiError() }}</p>
-                      }
-                      @if (hasExistingBodyContent()) {
-                        <div class="gemini-popup__replace-notice" role="note">
-                          <span class="material-icons" aria-hidden="true">info</span>
-                          <p>
-                            Your current post content will be
-                            <strong>replaced</strong>
-                            by the generated draft.
-                          </p>
-                        </div>
-                      }
-
-                      <div class="gemini-popup__composer">
-                        @if (hasPostContentToAttach()) {
-                          <div class="gemini-chatbot__composer-toolbar gemini-popup__composer-toolbar">
-                            <label
-                              class="gemini-chatbot__attach"
-                              matTooltip="Includes post content so Starvia AI can refine the existing draft."
-                              matTooltipPosition="above"
-                              [matTooltipDisabled]="tooltipsDisabled()"
-                            >
-                              <input
-                                type="checkbox"
-                                class="gemini-chatbot__attach-input"
-                                [checked]="includePostTextInGenerate()"
-                                [disabled]="!canUseGemini()"
-                                (change)="onIncludePostTextInGenerateChange($event)"
-                              />
-                              <span class="gemini-chatbot__attach-chip">
-                                <span class="material-icons" aria-hidden="true">description</span>
-                                Include content
-                              </span>
-                            </label>
-                          </div>
-                        }
-                        <div class="gemini-prompt-input-row">
-                          <app-auto-expand-textarea
-                            #geminiPromptInput
-                            id="post-gemini-prompt"
-                            variant="gemini"
-                            [value]="geminiPrompt()"
-                            [maxLength]="geminiPromptMaxLength"
-                            [enterSubmits]="true"
-                            placeholder="Describe what Starvia AI should write…"
-                            [disabled]="!canUseGemini()"
-                            (valueChange)="onGeminiPromptValueChange($event)"
-                            (enter)="generateWithGemini()"
-                          />
-                          @if (!hasExistingBodyContent()) {
-                            <button
-                              type="button"
-                              class="gemini-prompt-send"
-                              aria-label="Generate with AI"
-                              [disabled]="!canSendGeminiGenerate()"
-                              (click)="generateWithGemini()"
-                            >
-                              <span class="material-icons" aria-hidden="true">auto_awesome</span>
-                            </button>
-                          }
-                        </div>
-                        <p
-                          class="gemini-prompt-meta"
-                          [class.gemini-prompt-meta--limit]="geminiPrompt().length >= geminiPromptMaxLength"
-                          aria-live="polite"
-                        >
-                          {{ geminiPrompt().length }}/{{ geminiPromptMaxLength }}
-                        </p>
-                        @if (hasExistingBodyContent()) {
-                          <button
-                            type="button"
-                            class="gemini-popup__replace-btn"
-                            [disabled]="!canSendGeminiGenerate()"
-                            (click)="generateWithGemini()"
-                          >
-                            <span class="material-icons" aria-hidden="true">auto_awesome</span>
-                            Replace &amp; generate
-                          </button>
-                        }
-                      </div>
-                    </div>
-                  }
                 </div>
                 @if (editingField() !== 'body' && !geminiDraftActive()) {
                   <ng-container
@@ -429,23 +321,16 @@ type PostForm = FormGroup<{
                 class="dashboard-edit-panel"
                 [class.dashboard-edit-panel--closing]="editClosing()"
                 [class.dashboard-edit-panel--ai-writing]="isGenerating() || isTyping()"
-                [class.dashboard-edit-panel--typing]="isTyping()"
                 [formGroup]="form"
               >
                 <div class="post-detail__body-editor">
                   @if (isGenerating()) {
-                    <div class="post-detail__ai-generating" aria-live="polite">
-                      <div class="post-detail__ai-generating-orbit" aria-hidden="true">
-                        <span class="post-detail__ai-generating-core">
-                          <span class="material-icons">auto_awesome</span>
-                        </span>
-                        <span class="post-detail__ai-generating-ring"></span>
-                      </div>
-                      <div class="post-detail__ai-generating-bars" aria-hidden="true">
-                        <span></span><span></span><span></span><span></span><span></span>
-                      </div>
-                      <p class="post-detail__ai-generating-label">Ai is drafting your post…</p>
-                      <span class="sr-only">Generating content</span>
+                    <div class="post-detail__ai-generating" role="status" aria-live="polite">
+                      <span class="material-icons" aria-hidden="true">auto_awesome</span>
+                      <span>Writing your post</span>
+                      <span class="post-detail__ai-writing-hint__dots" aria-hidden="true">
+                        <span></span><span></span><span></span>
+                      </span>
                     </div>
                   }
                   <div
@@ -500,7 +385,7 @@ type PostForm = FormGroup<{
                     <div class="dashboard-edit-meta__error" aria-live="polite">
                       @if (form.controls.body.touched && form.controls.body.hasError('maxlength')) {
                         <p id="post-body-error" class="field__error" role="alert">
-                          Content cannot exceed {{ bodyMaxLength }} characters.
+                          Treść może mieć maksymalnie {{ bodyMaxLength }} znaków.
                         </p>
                       } @else if (geminiDraftActive() && geminiError()) {
                         <p class="field__error gemini-field-error" role="alert">{{ geminiError() }}</p>
@@ -603,8 +488,19 @@ type PostForm = FormGroup<{
           <section class="post-detail__card post-detail__card--attachments" aria-labelledby="post-detail-attachments">
             <div class="post-detail__card-head post-detail__card-head--row">
               <div class="post-detail__card-head-copy">
-                <p id="post-detail-attachments" class="post-detail__card-label">Attachments</p>
-                <p class="post-detail__card-hint">Select images from Media. Drag to reorder.</p>
+                <p id="post-detail-attachments" class="post-detail__card-label">
+                  Attachments
+                  @if (attachmentOrderDraft().length > 0) {
+                    <span class="post-detail__attachments-count">{{ attachmentOrderDraft().length }}</span>
+                  }
+                </p>
+                <p class="post-detail__card-hint">
+                  @if (attachmentOrderDraft().length > 1) {
+                    Drag images to change their order.
+                  } @else {
+                    Images from your Media library.
+                  }
+                </p>
               </div>
               <div class="post-detail__card-actions">
                 <button
@@ -614,17 +510,26 @@ type PostForm = FormGroup<{
                   [disabled]="isLoading() || isSaving() || isMetaSaving() || isDeleting() || isActionLocked()"
                   (click)="openAttachmentsPicker($event)"
                 >
-                  <span class="post-detail__attachments-add-btn-icon" aria-hidden="true">
-                    <span class="material-icons">add_photo_alternate</span>
-                  </span>
+                  <span class="material-icons" aria-hidden="true">add</span>
                   <span class="post-detail__attachments-add-btn-label">Add images</span>
                 </button>
               </div>
             </div>
 
-            <div class="post-detail__card-body post-detail__attachments-body">
+            <div class="post-detail__attachments-body">
               @if (attachmentOrderDraft().length === 0) {
-                <p class="post-detail__attachments-empty">No images attached yet.</p>
+                <button
+                  type="button"
+                  class="post-detail__attachments-empty"
+                  [disabled]="isLoading() || isSaving() || isMetaSaving() || isDeleting() || isActionLocked()"
+                  (click)="openAttachmentsPicker($event)"
+                >
+                  <span class="post-detail__attachments-empty-icon" aria-hidden="true">
+                    <span class="material-icons">add_photo_alternate</span>
+                  </span>
+                  <span class="post-detail__attachments-empty-title">No images yet</span>
+                  <span class="post-detail__attachments-empty-text">Choose images from Media to add them here</span>
+                </button>
               } @else {
                 <div
                   class="post-detail__attachments-grid"
@@ -643,45 +548,43 @@ type PostForm = FormGroup<{
                     >
                       <button
                         type="button"
-                        class="post-detail__attachment-drag-handle"
-                        cdkDragHandle
-                        [disabled]="isAttachmentBusy() || isActionLocked() || attachmentOrderDraft().length < 2 || isSavingAttachmentOrder()"
-                        [attr.aria-label]="'Drag attachment ' + (index + 1)"
+                        class="post-detail__attachment-preview-btn"
+                        [attr.aria-label]="'Preview attachment ' + (index + 1)"
+                        (click)="openAttachmentPreview(att)"
                       >
-                        <span class="material-icons" aria-hidden="true">drag_indicator</span>
-                      </button>
-                      <div class="post-detail__attachment-preview-wrap">
-                        @if (att.id !== null) {
-                          <div class="post-detail__attachment-delete-overlay">
-                            <app-dashboard-delete-button
-                              size="sm"
-                              tone="dark"
-                              ariaLabel="Remove attachment"
-                              tooltip="Remove attachment"
-                              [active]="deleteConfirmAttachmentId() === att.id"
-                              [disabled]="isAttachmentBusy() || isActionLocked()"
-                              [ariaExpanded]="deleteConfirmAttachmentId() === att.id"
-                              ariaControls="dashboard-delete-sheet-title"
-                              (clicked)="requestDeleteAttachment(att, $event)"
-                            />
-                          </div>
+                        @if (attachmentPreviewUrl(att.userUploadedFileId); as src) {
+                          <img class="post-detail__attachment-img" [src]="src" alt="" loading="lazy" />
+                        } @else {
+                          <span class="post-detail__attachment-placeholder" aria-hidden="true">
+                            <span class="material-icons">image</span>
+                          </span>
                         }
+                      </button>
+                      <span class="post-detail__attachment-order" aria-hidden="true">{{ index + 1 }}</span>
+                      <div class="post-detail__attachment-tools">
                         <button
                           type="button"
-                          class="post-detail__attachment-preview-btn"
-                          [attr.aria-label]="'Preview attachment ' + (index + 1)"
-                          (click)="openAttachmentPreview(att)"
+                          class="post-detail__attachment-tool post-detail__attachment-drag-handle"
+                          cdkDragHandle
+                          [disabled]="isAttachmentBusy() || isActionLocked() || attachmentOrderDraft().length < 2 || isSavingAttachmentOrder()"
+                          [attr.aria-label]="'Drag attachment ' + (index + 1)"
                         >
-                          @if (attachmentPreviewUrl(att.userUploadedFileId); as src) {
-                            <img class="post-detail__attachment-img" [src]="src" alt="" loading="lazy" />
-                          } @else {
-                            <span class="post-detail__attachment-placeholder" aria-hidden="true">
-                              <span class="material-icons">image</span>
-                            </span>
-                          }
+                          <span class="material-icons" aria-hidden="true">drag_indicator</span>
                         </button>
+                        @if (att.id !== null) {
+                          <app-dashboard-delete-button
+                            size="sm"
+                            tone="dark"
+                            ariaLabel="Remove attachment"
+                            tooltip="Remove attachment"
+                            [active]="deleteConfirmAttachmentId() === att.id"
+                            [disabled]="isAttachmentBusy() || isActionLocked()"
+                            [ariaExpanded]="deleteConfirmAttachmentId() === att.id"
+                            ariaControls="dashboard-delete-sheet-title"
+                            (clicked)="requestDeleteAttachment(att, $event)"
+                          />
+                        }
                       </div>
-                      <span class="post-detail__attachment-order" aria-label="Attachment order">{{ index + 1 }}</span>
                     </div>
                   }
                 </div>
@@ -698,21 +601,15 @@ type PostForm = FormGroup<{
                 (click)="$event.stopPropagation()"
               >
                 <header class="post-attachments-picker__head">
-                  <div class="post-attachments-picker__head-copy">
-                    <span class="post-attachments-picker__badge" aria-hidden="true">
-                      <span class="material-icons">photo_library</span>
-                    </span>
-                    <div class="post-attachments-picker__head-text">
-                      <p class="post-attachments-picker__title">Media</p>
-                      <p class="post-attachments-picker__hint">
-                        Select images to attach
-                        @if (selectedAttachmentIds().size > 0) {
-                          <span class="post-attachments-picker__selected">
-                            · <strong>{{ selectedAttachmentIds().size }}</strong> selected
-                          </span>
-                        }
-                      </p>
-                    </div>
+                  <div class="post-attachments-picker__head-text">
+                    <p class="post-attachments-picker__title">Choose from Media</p>
+                    <p class="post-attachments-picker__hint">
+                      @if (selectedAttachmentIds().size > 0) {
+                        <strong>{{ selectedAttachmentIds().size }}</strong> selected
+                      } @else {
+                        Tap images to select them
+                      }
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -724,9 +621,7 @@ type PostForm = FormGroup<{
                   </button>
                 </header>
 
-                @if (attachmentsPickerError()) {
-                  <p class="field__error post-attachments-picker__error" role="alert">{{ attachmentsPickerError() }}</p>
-                }
+                <app-dashboard-alert [compact]="true" [message]="attachmentsPickerError()" />
 
                 @if (attachmentsPickerLoading() && !attachmentsMediaPage()) {
                   <p class="post-attachments-picker__status">Loading media…</p>
@@ -739,13 +634,12 @@ type PostForm = FormGroup<{
                     <div class="post-attachments-picker__slider" aria-label="Media picker slider">
                       <button
                         type="button"
-                        class="post-attachments-picker__btn post-attachments-picker__btn--secondary post-attachments-picker__nav"
+                        class="post-attachments-picker__nav post-attachments-picker__nav--prev"
                         [disabled]="attachmentsPickerLoading() || !attachmentsPickerCanPrev()"
                         aria-label="Previous media images"
                         (click)="attachmentsPickerPrev()"
                       >
                         <span class="material-icons" aria-hidden="true">chevron_left</span>
-                        Prev
                       </button>
 
                       <div
@@ -788,12 +682,11 @@ type PostForm = FormGroup<{
 
                       <button
                         type="button"
-                        class="post-attachments-picker__btn post-attachments-picker__btn--secondary post-attachments-picker__nav"
+                        class="post-attachments-picker__nav post-attachments-picker__nav--next"
                         [disabled]="attachmentsPickerLoading() || !attachmentsPickerCanNext()"
                         aria-label="Next media images"
                         (click)="attachmentsPickerNext()"
                       >
-                        Next
                         <span class="material-icons" aria-hidden="true">chevron_right</span>
                       </button>
                     </div>
@@ -803,25 +696,103 @@ type PostForm = FormGroup<{
                     <div class="post-attachments-picker__actions">
                       <button
                         type="button"
-                        class="post-attachments-picker__btn post-attachments-picker__btn--primary"
-                        [disabled]="isAttaching() || attachmentsPickerLoading() || selectedAttachmentIds().size === 0"
-                        (click)="attachSelectedMedia()"
-                      >
-                        {{ isAttaching() ? 'Attaching…' : 'Attach selected' }}
-                      </button>
-                      <button
-                        type="button"
-                        class="post-attachments-picker__btn post-attachments-picker__btn--secondary"
+                        class="post-attachments-picker__btn post-attachments-picker__btn--ghost"
                         [disabled]="isAttaching()"
                         (click)="closeAttachmentsPicker()"
                       >
                         Cancel
+                      </button>
+                      <button
+                        type="button"
+                        class="post-attachments-picker__btn post-attachments-picker__btn--primary"
+                        [disabled]="isAttaching() || attachmentsPickerLoading() || selectedAttachmentIds().size === 0"
+                        (click)="attachSelectedMedia()"
+                      >
+                        @if (isAttaching()) {
+                          Attaching…
+                        } @else if (selectedAttachmentIds().size > 0) {
+                          Attach {{ selectedAttachmentIds().size }} {{ selectedAttachmentIds().size === 1 ? 'image' : 'images' }}
+                        } @else {
+                          Attach
+                        }
                       </button>
                     </div>
                   </footer>
                 }
               </div>
             }
+          </section>
+
+          <section class="post-detail__card post-detail__card--linkedin-publish" aria-labelledby="post-detail-linkedin-publish">
+            <div class="post-detail__card-head post-detail__card-head--row">
+              <div class="post-detail__card-head-copy">
+                <p id="post-detail-linkedin-publish" class="post-detail__card-label">LinkedIn</p>
+                <p class="post-detail__card-hint">Opublikuj treść na połączonym koncie LinkedIn</p>
+              </div>
+
+              @if (linkedInAccount(); as linkedIn) {
+                <button
+                  type="button"
+                  class="btn btn--primary btn--raised-primary btn--compact"
+                  [disabled]="isPublishingToLinkedIn() || !canPublishToLinkedIn()"
+                  (click)="publishToLinkedIn()"
+                >
+                  <span class="material-icons" aria-hidden="true">send</span>
+                  {{ isPublishingToLinkedIn() ? 'Publikowanie…' : 'Opublikuj na LinkedIn' }}
+                </button>
+              } @else {
+                <a routerLink="/dashboard/social-accounts" class="btn btn--secondary btn--compact">
+                  <span class="material-icons" aria-hidden="true">add_link</span>
+                  Połącz LinkedIn
+                </a>
+              }
+            </div>
+
+            <div class="post-detail__card-body">
+              <app-dashboard-alert
+                [compact]="true"
+                [tone]="linkedinPublishTone()"
+                [message]="linkedinPublishMessage()"
+                [dismissible]="true"
+                (dismissed)="linkedinPublishMessage.set(null)"
+              />
+
+              @if (linkedInAccount(); as linkedIn) {
+                <p class="post-detail__linkedin-account">
+                  Konto:
+                  <strong>{{ linkedIn.accountUsername ?? 'LinkedIn' }}</strong>
+                </p>
+              }
+
+              @if (!canPublishToLinkedIn() && linkedInAccount() && !isPublishingToLinkedIn()) {
+                <p class="post-detail__linkedin-hint">Dodaj treść posta, zanim opublikujesz na LinkedIn.</p>
+              }
+
+              @if (linkedinPublications().length > 0) {
+                <ul class="post-detail__publications" aria-label="Publikacje LinkedIn">
+                  @for (publication of linkedinPublications(); track publication.id) {
+                    <li class="post-detail__publication">
+                      <span
+                        class="post-detail__publication-status"
+                        [attr.data-status]="publication.status"
+                      >
+                        {{ publicationStatusLabel(publication.status) }}
+                      </span>
+                      <span class="post-detail__publication-meta">
+                        @if (publication.publishedAt) {
+                          {{ publication.publishedAt | displayDatetime }}
+                        } @else if (publication.createdAt) {
+                          {{ publication.createdAt | displayDatetime }}
+                        }
+                        @if (publication.externalPostId) {
+                          · ID: {{ publication.externalPostId }}
+                        }
+                      </span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
           </section>
 
           <section class="post-detail__card post-detail__card--previews" aria-labelledby="post-detail-previews">
@@ -858,316 +829,16 @@ type PostForm = FormGroup<{
       />
     }
 
-    @if (post()) {
-      <div class="gemini-chatbot" [class.gemini-chatbot--open]="geminiChatOpen() || geminiChatClosing()">
-        @if (geminiChatOpen() || geminiChatClosing()) {
-          <section
-            id="post-gemini-chatbot"
-            class="gemini-chatbot__panel"
-            [class.gemini-chatbot__panel--closing]="geminiChatClosing()"
-            role="dialog"
-            aria-label="Starvia AI chat"
-            aria-labelledby="post-detail-chat"
-          >
-            <header class="gemini-chatbot__head">
-              <div class="gemini-chatbot__head-copy">
-                <span class="gemini-chatbot__badge" aria-hidden="true">
-                  <span class="material-icons">auto_awesome</span>
-                </span>
-                <p id="post-detail-chat" class="gemini-chatbot__title">Starvia AI</p>
-              </div>
-              <button
-                type="button"
-                class="gemini-chatbot__close"
-                aria-label="Close chat"
-                (click)="closeGeminiChat()"
-              >
-                <span class="material-icons" aria-hidden="true">close</span>
-              </button>
-            </header>
-
-            <div
-              #geminiChatMessagesEl
-              class="gemini-chatbot__messages"
-              aria-live="polite"
-              (scroll)="onGeminiChatScroll($event)"
-            >
-              @if (geminiChatMessages().length === 0 && !isAskGeminiLoading() && !isAskGeminiHistoryLoading()) {
-                <p class="gemini-chatbot__empty">
-                  Ask Starvia AI about tone, structure, hashtags, or how to improve this post.
-                </p>
-              }
-
-              @for (message of geminiChatMessages(); track message.id) {
-                <article
-                  class="gemini-chatbot__message"
-                  [class.gemini-chatbot__message--user]="message.role === 'user'"
-                  [class.gemini-chatbot__message--assistant]="message.role === 'assistant'"
-                  [attr.aria-label]="message.role === 'user' ? 'Your message' : 'Starvia response'"
-                >
-                  @if (message.role === 'assistant') {
-                    <span class="gemini-chatbot__avatar gemini-chatbot__avatar--starvia" aria-hidden="true">
-                      <img
-                        class="gemini-chatbot__avatar-logo"
-                        src="/starvia-logo.png"
-                        alt=""
-                        width="22"
-                        height="22"
-                        decoding="async"
-                      />
-                    </span>
-                  }
-
-                  <div class="gemini-chatbot__message-body">
-                    @if (message.attachedPostText) {
-                      <span class="gemini-chatbot__attachment">
-                        <span class="material-icons" aria-hidden="true">description</span>
-                        Content attached
-                      </span>
-                    }
-                    <div class="gemini-chatbot__message-content">
-                      @if (chatMessageBlocks(message.text).length === 0 && message.isTyping) {
-                        <p class="gemini-chatbot__message-text">
-                          <span class="post-detail__typing-cursor" aria-hidden="true"></span>
-                        </p>
-                      }
-                      @for (block of chatMessageBlocks(message.text); track $index; let isLastBlock = $last) {
-                        @switch (block.type) {
-                          @case ('heading') {
-                            <h4 class="gemini-chatbot__heading">
-                              @for (segment of block.segments; track $index) {
-                                @if (segment.bold) {
-                                  <strong>{{ segment.text }}</strong>
-                                } @else {
-                                  <span>{{ segment.text }}</span>
-                                }
-                              }
-                              @if (isLastBlock && message.isTyping) {
-                                <span class="post-detail__typing-cursor" aria-hidden="true"></span>
-                              }
-                            </h4>
-                          }
-                          @case ('list') {
-                            <ul class="gemini-chatbot__list">
-                              @for (item of block.items; track $index; let isLastItem = $last) {
-                                <li class="gemini-chatbot__list-item">
-                                  @for (segment of item; track $index) {
-                                    @if (segment.bold) {
-                                      <strong>{{ segment.text }}</strong>
-                                    } @else {
-                                      <span>{{ segment.text }}</span>
-                                    }
-                                  }
-                                  @if (isLastBlock && isLastItem && message.isTyping) {
-                                    <span class="post-detail__typing-cursor" aria-hidden="true"></span>
-                                  }
-                                </li>
-                              }
-                            </ul>
-                          }
-                          @case ('ordered-list') {
-                            <ol class="gemini-chatbot__olist">
-                              @for (item of block.items; track $index; let itemIndex = $index; let isLastItem = $last) {
-                                <li class="gemini-chatbot__olist-item">
-                                  <span class="gemini-chatbot__olist-num" aria-hidden="true">{{
-                                    itemIndex + 1
-                                  }}</span>
-                                  <p class="gemini-chatbot__olist-title">
-                                    @for (segment of item.title; track $index) {
-                                      @if (segment.bold) {
-                                        <strong>{{ segment.text }}</strong>
-                                      } @else {
-                                        <span>{{ segment.text }}</span>
-                                      }
-                                    }
-                                    @if (
-                                      isLastBlock &&
-                                      isLastItem &&
-                                      message.isTyping &&
-                                      !item.body.length &&
-                                      !item.bullets.length
-                                    ) {
-                                      <span class="post-detail__typing-cursor" aria-hidden="true"></span>
-                                    }
-                                  </p>
-                                  @if (item.body.length) {
-                                    <p class="gemini-chatbot__olist-body">
-                                      @for (segment of item.body; track $index) {
-                                        @if (segment.bold) {
-                                          <strong>{{ segment.text }}</strong>
-                                        } @else {
-                                          <span>{{ segment.text }}</span>
-                                        }
-                                      }
-                                      @if (
-                                        isLastBlock &&
-                                        isLastItem &&
-                                        message.isTyping &&
-                                        !item.bullets.length
-                                      ) {
-                                        <span class="post-detail__typing-cursor" aria-hidden="true"></span>
-                                      }
-                                    </p>
-                                  }
-                                  @if (item.bullets.length) {
-                                    <ul class="gemini-chatbot__list gemini-chatbot__list--nested">
-                                      @for (bullet of item.bullets; track $index; let isLastBullet = $last) {
-                                        <li class="gemini-chatbot__list-item">
-                                          @for (segment of bullet; track $index) {
-                                            @if (segment.bold) {
-                                              <strong>{{ segment.text }}</strong>
-                                            } @else {
-                                              <span>{{ segment.text }}</span>
-                                            }
-                                          }
-                                          @if (isLastBlock && isLastItem && isLastBullet && message.isTyping) {
-                                            <span class="post-detail__typing-cursor" aria-hidden="true"></span>
-                                          }
-                                        </li>
-                                      }
-                                    </ul>
-                                  }
-                                </li>
-                              }
-                            </ol>
-                          }
-                          @default {
-                            <p class="gemini-chatbot__message-text">
-                              @for (segment of block.segments; track $index) {
-                                @if (segment.bold) {
-                                  <strong>{{ segment.text }}</strong>
-                                } @else {
-                                  <span>{{ segment.text }}</span>
-                                }
-                              }
-                              @if (isLastBlock && message.isTyping) {
-                                <span class="post-detail__typing-cursor" aria-hidden="true"></span>
-                              }
-                            </p>
-                          }
-                        }
-                      }
-                    </div>
-                  </div>
-
-                  @if (message.role === 'user') {
-                    <span class="gemini-chatbot__avatar gemini-chatbot__avatar--user" aria-hidden="true">
-                      {{ userInitials() }}
-                    </span>
-                  }
-                </article>
-              }
-
-              @if (isAskGeminiLoading() || isAskGeminiHistoryLoading()) {
-                <div class="gemini-chatbot__thinking" aria-live="polite">
-                  <span class="gemini-chatbot__avatar gemini-chatbot__avatar--starvia" aria-hidden="true">
-                    <img
-                      class="gemini-chatbot__avatar-logo"
-                      src="/starvia-logo.png"
-                      alt=""
-                      width="22"
-                      height="22"
-                      decoding="async"
-                    />
-                  </span>
-                  <div class="gemini-chatbot__thinking-body">
-                    <div class="gemini-chatbot__thinking-dots" aria-hidden="true">
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                    </div>
-                    <p class="gemini-chatbot__thinking-label">Starvia AI is thinking…</p>
-                    <span class="sr-only">Waiting for response</span>
-                  </div>
-                </div>
-              }
-
-              <div #geminiChatScrollAnchor class="gemini-chatbot__scroll-anchor" aria-hidden="true"></div>
-            </div>
-
-            @if (geminiChatError()) {
-              <p class="field__error gemini-chatbot__error" role="alert">{{ geminiChatError() }}</p>
-            }
-
-            <div class="gemini-chatbot__composer">
-              <div class="gemini-chatbot__composer-toolbar">
-                <label
-                  class="gemini-chatbot__attach"
-                  matTooltip="Includes post content so Starvia AI can give more relevant answers."
-                  matTooltipPosition="above"
-                  [matTooltipDisabled]="tooltipsDisabled() || !hasPostContentToAttach()"
-                >
-                  <input
-                    type="checkbox"
-                    class="gemini-chatbot__attach-input"
-                    [checked]="includePostTextInChat()"
-                    [disabled]="!canUseGeminiChat() || !hasPostContentToAttach()"
-                    (change)="onIncludePostTextInChatChange($event)"
-                  />
-                  <span class="gemini-chatbot__attach-chip">
-                    <span class="material-icons" aria-hidden="true">description</span>
-                    Include content
-                  </span>
-                </label>
-                <p
-                  class="gemini-prompt-meta gemini-prompt-meta--inline"
-                  [class.gemini-prompt-meta--limit]="geminiChatPrompt().length >= geminiChatPromptMaxLength"
-                  aria-live="polite"
-                >
-                  {{ geminiChatPrompt().length }}/{{ geminiChatPromptMaxLength }}
-                </p>
-              </div>
-
-              <div class="gemini-prompt-input-row">
-                <app-auto-expand-textarea
-                  #geminiChatPromptInput
-                  id="post-gemini-chat-prompt"
-                  variant="gemini-chat"
-                  [value]="geminiChatPrompt()"
-                  [maxLength]="geminiChatPromptMaxLength"
-                  [enterSubmits]="true"
-                  placeholder="Ask anything about this post…"
-                  [disabled]="!canUseGeminiChat()"
-                  (valueChange)="onGeminiChatPromptValueChange($event)"
-                  (enter)="sendGeminiChatMessage()"
-                />
-                <button
-                  type="button"
-                  class="gemini-prompt-send gemini-prompt-send--chat"
-                  aria-label="Send message to Gemini"
-                  [disabled]="!canSendGeminiChat()"
-                  (click)="sendGeminiChatMessage()"
-                >
-                  <span class="material-icons" aria-hidden="true">arrow_upward</span>
-                </button>
-              </div>
-            </div>
-          </section>
-        }
-
-        @if (!geminiChatOpen() && !geminiChatClosing()) {
-          <button
-            type="button"
-            class="gemini-chatbot__launcher"
-            [attr.aria-expanded]="false"
-            aria-controls="post-gemini-chatbot"
-            aria-label="Open Ask AI chat"
-            [disabled]="!post()"
-            (click)="toggleGeminiChat()"
-          >
-            <img
-              class="gemini-chatbot__launcher-logo"
-              src="/starvia-logo.png"
-              alt=""
-              aria-hidden="true"
-              width="22"
-              height="22"
-            />
-            <span class="gemini-chatbot__launcher-label">Ask AI</span>
-          </button>
-        }
-      </div>
-    }
+    <app-dashboard-post-generate
+      [open]="generateDrawerOpen()"
+      [closing]="generateDrawerClosing()"
+      [busy]="isGenerating()"
+      [hasExistingBody]="hasExistingBodyContent()"
+      [errorMessage]="geminiError()"
+      [initialPrompt]="geminiPrompt()"
+      (closed)="closeGenerateDrawer()"
+      (submitted)="generateWithGemini($event)"
+    />
 
     <ng-template #hashtagText let-text="text">
       @for (segment of hashtagSegments(text); track $index) {
@@ -1227,6 +898,8 @@ export class DashboardPostDetail {
   private readonly postAttachmentService = inject(PostAttachmentService);
   private readonly fileService = inject(UserUploadedFileService);
   private readonly userPlatformService = inject(UserPlatformService);
+  private readonly linkedInService = inject(LinkedInService);
+  private readonly postPublicationService = inject(PostPublicationService);
   private readonly deleteConfirm = inject(DashboardDeleteConfirmService);
   private readonly geminiService = inject(GeminiService);
   private readonly authService = inject(AuthService);
@@ -1235,12 +908,7 @@ export class DashboardPostDetail {
   private readonly bodyInput = viewChild<ElementRef<HTMLTextAreaElement>>('bodyInput');
   private readonly bodyHighlight = viewChild<ElementRef<HTMLDivElement>>('bodyHighlight');
   private readonly emojiAnchor = viewChild<ElementRef<HTMLElement>>('emojiAnchor');
-  private readonly geminiAnchor = viewChild<ElementRef<HTMLElement>>('geminiAnchor');
   private readonly statusAnchor = viewChild<ElementRef<HTMLElement>>('statusAnchor');
-  private readonly geminiPromptInput = viewChild<AutoExpandTextarea>('geminiPromptInput');
-  private readonly geminiChatPromptInput = viewChild<AutoExpandTextarea>('geminiChatPromptInput');
-  private readonly geminiChatMessagesEl = viewChild<ElementRef<HTMLElement>>('geminiChatMessagesEl');
-  private readonly geminiChatScrollAnchor = viewChild<ElementRef<HTMLElement>>('geminiChatScrollAnchor');
   private readonly attachmentsTriggerEl = viewChild<ElementRef<HTMLElement>>('attachmentsTriggerEl');
   private readonly attachmentsPickerEl = viewChild<ElementRef<HTMLElement>>('attachmentsPickerEl');
   private readonly attachmentsPickerCarouselEl = viewChild<ElementRef<HTMLElement>>('attachmentsPickerCarouselEl');
@@ -1249,25 +917,16 @@ export class DashboardPostDetail {
   private bodyInputObserver: ResizeObserver | undefined;
   private bodyBeforeGemini = '';
   private wasEditingBodyBeforeGemini = false;
-  private geminiChatMessageId = 0;
-  private cancelChatTypewriter: (() => void) | undefined;
-  private geminiChatStickToBottom = true;
-  private geminiChatScrollRaf: number | null = null;
-  private geminiChatCloseTimeout: ReturnType<typeof setTimeout> | undefined;
-  private geminiPopupCloseTimeout: ReturnType<typeof setTimeout> | undefined;
+  private generateDrawerCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private attachmentsPickerCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private editCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   private statusPulseTimeout: ReturnType<typeof setTimeout> | undefined;
-  private geminiChatHistoryLoaded = false;
 
   protected readonly titleMaxLength = POST_TITLE_MAX_LENGTH;
   protected readonly titleMinLength = POST_TITLE_MIN_LENGTH;
   protected readonly bodyMaxLength = POST_BODY_MAX_LENGTH;
   protected readonly contentEmojis = POST_BODY_EMOJIS;
   protected readonly hashtagSegments = parseHashtagSegments;
-  protected readonly geminiPromptMaxLength = GEMINI_PROMPT_MAX_LENGTH;
-  protected readonly geminiChatPromptMaxLength = GEMINI_CHAT_PROMPT_MAX_LENGTH;
-  protected readonly chatMessageBlocks = parseChatMessageBlocks;
   protected readonly postStatusOptions = POST_STATUS_OPTIONS;
   protected readonly postStatusClass = getPostStatusClass;
   protected readonly postStatusIcon = getPostStatusIcon;
@@ -1289,6 +948,11 @@ export class DashboardPostDetail {
   protected readonly post = signal<PostItem | null>(null);
   protected readonly account = signal<UserAccount | null>(null);
   protected readonly linkedInAccount = signal<UserPlatform | null>(null);
+  protected readonly linkedinPublications = signal<PostPublication[]>([]);
+  protected readonly isPublishingToLinkedIn = signal(false);
+  protected readonly linkedinPublishMessage = signal<string | null>(null);
+  protected readonly linkedinPublishTone = signal<'success' | 'error'>('success');
+  protected readonly publicationStatusLabel = postPublicationStatusLabel;
   protected readonly editingField = signal<EditableField | null>(null);
   protected readonly editClosing = signal(false);
   protected readonly editReadEnterField = signal<EditableField | null>(null);
@@ -1314,23 +978,13 @@ export class DashboardPostDetail {
   protected readonly hasNextEmojiPage = computed(
     () => (this.emojiPage() + 1) * this.emojiPageSize < this.contentEmojis.length
   );
-  protected readonly geminiPopupOpen = signal(false);
-  protected readonly geminiPopupClosing = signal(false);
+  protected readonly generateDrawerOpen = signal(false);
+  protected readonly generateDrawerClosing = signal(false);
   protected readonly geminiDraftActive = signal(false);
   protected readonly geminiPrompt = signal('');
   protected readonly isGenerating = signal(false);
   protected readonly isTyping = signal(false);
   protected readonly geminiError = signal<string | null>(null);
-  protected readonly geminiChatOpen = signal(false);
-  protected readonly geminiChatClosing = signal(false);
-  protected readonly geminiChatMessages = signal<GeminiChatMessage[]>([]);
-  protected readonly geminiChatPrompt = signal('');
-  protected readonly geminiChatError = signal<string | null>(null);
-  protected readonly isAskGeminiLoading = signal(false);
-  protected readonly isAskGeminiHistoryLoading = signal(false);
-  protected readonly isAskGeminiTyping = signal(false);
-  protected readonly includePostTextInChat = signal(false);
-  protected readonly includePostTextInGenerate = signal(false);
   protected readonly bodyHighlightText = signal('');
   protected readonly bodyHasSelection = signal(false);
   protected readonly tooltipsDisabled = signal(this.isMobileViewport());
@@ -1340,7 +994,7 @@ export class DashboardPostDetail {
 
   // Attachments (select from Media)
   protected readonly isDeletingAttachment = signal(false);
-  protected readonly deleteConfirmAttachmentId = signal<number | null>(null);
+  protected readonly deleteConfirmAttachmentId = signal<string | null>(null);
   protected readonly attachmentsPickerOpen = signal(false);
   protected readonly attachmentsPickerClosing = signal(false);
   protected readonly attachmentsPickerLoading = signal(false);
@@ -1402,18 +1056,27 @@ export class DashboardPostDetail {
       .filter((src): src is string => !!src);
   });
 
+  protected readonly canPublishToLinkedIn = computed(() => {
+    const item = this.post();
+    const linkedIn = this.linkedInAccount();
+    if (!item || !linkedIn || this.isPublishingToLinkedIn()) {
+      return false;
+    }
+
+    const body = this.platformPreviewBody()?.trim() ?? '';
+    return body.length > 0;
+  });
+
   constructor() {
     this.destroyRef.onDestroy(() => {
       this.clearSaveMessage();
       this.stopGeminiTypewriter();
-      this.stopChatTypewriter();
-      this.clearGeminiChatCloseTimeout();
-      this.clearGeminiPopupCloseTimeout();
+      this.clearGenerateDrawerCloseTimeout();
       this.clearAttachmentsPickerCloseTimeout();
       this.clearEditCloseTimeout();
       this.clearStatusPulseTimeout();
       this.disconnectBodyInputObserver();
-      document.body.classList.remove('post-gemini-popup-open');
+      document.body.classList.remove('post-create-open');
       this.revokeAttachmentPreviewUrls();
     });
 
@@ -1438,7 +1101,7 @@ export class DashboardPostDetail {
       .pipe(catchError(() => of([])), takeUntilDestroyed())
       .subscribe((platforms) => {
         const linkedIn =
-          platforms.find((platform) => platform.platformId === LINKEDIN_PLATFORM_ID) ?? null;
+          platforms.find((platform) => platform.platformType === LINKEDIN_PLATFORM_TYPE) ?? null;
         this.linkedInAccount.set(linkedIn);
       });
 
@@ -1461,23 +1124,62 @@ export class DashboardPostDetail {
         })
       )
       .subscribe({
-        next: (item) => this.setPost(item),
+        next: (item) => {
+          this.setPost(item);
+          this.loadLinkedInPublications(item.id);
+        },
         error: (error) => {
           this.post.set(null);
-          this.errorMessage.set(toApplicationError(error, 'Could not load post.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się wczytać posta.').description);
         },
+      });
+  }
+
+  protected publishToLinkedIn(): void {
+    const item = this.post();
+    const linkedIn = this.linkedInAccount();
+    if (!item || !linkedIn || !this.canPublishToLinkedIn()) {
+      return;
+    }
+
+    this.isPublishingToLinkedIn.set(true);
+    this.linkedinPublishMessage.set(null);
+
+    this.linkedInService
+      .publishPost({ postId: item.id, userPlatformId: linkedIn.id })
+      .pipe(finalize(() => this.isPublishingToLinkedIn.set(false)))
+      .subscribe({
+        next: () => {
+          this.linkedinPublishTone.set('success');
+          this.linkedinPublishMessage.set('Post został opublikowany na LinkedIn.');
+          this.loadLinkedInPublications(item.id);
+        },
+        error: (error) => {
+          this.linkedinPublishTone.set('error');
+          this.linkedinPublishMessage.set(
+            toApplicationError(error, 'Nie udało się opublikować posta na LinkedIn.').description,
+          );
+        },
+      });
+  }
+
+  private loadLinkedInPublications(postId: string): void {
+    this.postPublicationService
+      .browse({ postId })
+      .pipe(catchError(() => of([])))
+      .subscribe((publications) => {
+        this.linkedinPublications.set(
+          publications
+            .slice()
+            .sort((a, b) => String(b.publishedAt ?? b.createdAt).localeCompare(String(a.publishedAt ?? a.createdAt))),
+        );
       });
   }
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
-    if (this.geminiPopupOpen() && !this.geminiPopupClosing()) {
-      this.closeGeminiPopup();
-      return;
-    }
-
-    if (this.geminiChatOpen()) {
-      this.closeGeminiChat();
+    if (this.generateDrawerOpen() && !this.generateDrawerClosing()) {
+      this.closeGenerateDrawer();
       return;
     }
 
@@ -1514,13 +1216,6 @@ export class DashboardPostDetail {
   @HostListener('document:click', ['$event'])
   protected onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node;
-
-    if (this.geminiPopupOpen() && !this.geminiPopupClosing()) {
-      const geminiAnchor = this.geminiAnchor()?.nativeElement;
-      if (!geminiAnchor?.contains(target)) {
-        this.closeGeminiPopup();
-      }
-    }
 
     if (this.statusMenuOpen()) {
       const statusAnchor = this.statusAnchor()?.nativeElement;
@@ -1581,27 +1276,6 @@ export class DashboardPostDetail {
     );
   }
 
-  protected canUseGeminiChat(): boolean {
-    return (
-      this.canUseGemini() &&
-      !this.isAskGeminiLoading() &&
-      !this.isAskGeminiHistoryLoading() &&
-      !this.isAskGeminiTyping()
-    );
-  }
-
-  protected canSendGeminiChat(): boolean {
-    return this.canUseGeminiChat() && this.geminiChatPrompt().trim().length > 0;
-  }
-
-  protected canSendGeminiGenerate(): boolean {
-    return this.canUseGemini() && this.geminiPrompt().trim().length > 0;
-  }
-
-  protected hasPostContentToAttach(): boolean {
-    return this.currentPostBodyForContext().trim().length > 0;
-  }
-
   protected toggleStatusMenu(event: Event): void {
     event.stopPropagation();
 
@@ -1627,20 +1301,19 @@ export class DashboardPostDetail {
     this.savePostMetadata({ status }, { status: previousStatus });
   }
 
-  protected toggleGeminiPopup(event: Event): void {
+  protected toggleGenerateDrawer(event: Event): void {
     event.stopPropagation();
 
     if (!this.canUseGemini()) {
       return;
     }
 
-    if (this.geminiPopupOpen()) {
-      this.closeGeminiPopup();
+    if (this.generateDrawerOpen() || this.generateDrawerClosing()) {
+      this.closeGenerateDrawer();
       return;
     }
 
-    const item = this.post();
-    if (!item) {
+    if (!this.post()) {
       return;
     }
 
@@ -1648,30 +1321,11 @@ export class DashboardPostDetail {
     this.statusMenuOpen.set(false);
     this.clearSaveMessage();
     this.geminiError.set(null);
-    this.setGeminiPopupOpen(true);
-
-    queueMicrotask(() => {
-      this.geminiPromptInput()?.focus({ preventScroll: true });
-    });
+    this.setGenerateDrawerOpen(true);
   }
 
-  protected closeGeminiPopup(): void {
-    if (!this.geminiPopupOpen() || this.geminiPopupClosing()) {
-      return;
-    }
-
-    this.geminiPopupClosing.set(true);
-    this.clearGeminiPopupCloseTimeout();
-    this.geminiPopupCloseTimeout = setTimeout(() => {
-      this.setGeminiPopupOpen(false);
-      this.geminiPopupClosing.set(false);
-      this.geminiPopupCloseTimeout = undefined;
-    }, GEMINI_POPUP_CLOSE_MS);
-  }
-
-  protected onGeminiPromptValueChange(value: string): void {
-    this.geminiPrompt.set(value);
-    this.geminiError.set(null);
+  protected closeGenerateDrawer(): void {
+    this.startGenerateDrawerClose();
   }
 
   protected hasExistingBodyContent(): boolean {
@@ -1679,17 +1333,16 @@ export class DashboardPostDetail {
     return !!item && this.clampBody(item.body).trim().length > 0;
   }
 
-  protected generateWithGemini(): void {
+  protected generateWithGemini(payload: { prompt: string; brandProfileId: string | null }): void {
     const item = this.post();
-    const prompt = this.geminiPrompt().trim();
+    const prompt = payload.prompt.trim();
 
     if (!item || !prompt || !this.canUseGemini()) {
       return;
     }
 
-    const includePostText = this.includePostTextInGenerate() && this.hasPostContentToAttach();
-
-    this.closeGeminiPopup();
+    this.geminiPrompt.set(prompt);
+    this.startGenerateDrawerClose();
     this.geminiError.set(null);
     this.beginGeminiDraft();
     this.isGenerating.set(true);
@@ -1698,176 +1351,17 @@ export class DashboardPostDetail {
       .generatePost({
         prompt,
         postId: item.id,
-        includePostText,
+        brandProfileId: payload.brandProfileId,
       })
       .pipe(finalize(() => this.isGenerating.set(false)))
       .subscribe({
-        next: (text) => {
-          this.typeGeminiIntoBody(this.clampBody(text));
+        next: (generated) => {
+          this.geminiPrompt.set('');
+          this.typeGeminiIntoBody(this.clampBody(generated.body));
         },
         error: (error) => {
-          this.geminiError.set(toApplicationError(error, 'Could not generate content.').description);
+          this.geminiError.set(toApplicationError(error, 'Nie udało się wygenerować treści.').description);
           this.abortGeminiDraft(true);
-        },
-      });
-  }
-
-  protected userInitials(): string {
-    const userName = this.account()?.userName;
-    return userName ? getUserInitials(userName) : '?';
-  }
-
-  protected toggleGeminiChat(): void {
-    if (this.geminiChatOpen() || this.geminiChatClosing()) {
-      this.closeGeminiChat();
-      return;
-    }
-
-    this.geminiChatClosing.set(false);
-    this.geminiChatOpen.set(true);
-    this.geminiChatStickToBottom = true;
-    this.loadGeminiChatHistory();
-    this.scheduleGeminiChatPromptLayout({ focus: true });
-    queueMicrotask(() => this.scrollGeminiChatToBottom(true));
-  }
-
-  protected closeGeminiChat(): void {
-    if (!this.geminiChatOpen() || this.geminiChatClosing()) {
-      return;
-    }
-
-    this.geminiChatClosing.set(true);
-    this.clearGeminiChatCloseTimeout();
-    this.geminiChatCloseTimeout = setTimeout(() => {
-      this.geminiChatOpen.set(false);
-      this.geminiChatClosing.set(false);
-      this.geminiChatCloseTimeout = undefined;
-      this.resetGeminiChatSession();
-    }, GEMINI_CHAT_CLOSE_MS);
-  }
-
-  private loadGeminiChatHistory(): void {
-    const item = this.post();
-    if (!item || this.geminiChatHistoryLoaded) {
-      return;
-    }
-
-    this.geminiChatHistoryLoaded = true;
-    this.isAskGeminiHistoryLoading.set(true);
-    this.geminiChatError.set(null);
-
-    this.geminiService
-      .getConversation(item.id)
-      .pipe(finalize(() => this.isAskGeminiHistoryLoading.set(false)))
-      .subscribe({
-        next: (items) => {
-          if (!this.geminiChatOpen()) {
-            return;
-          }
-
-          const messages = mapConversationToChatMessages(items);
-          this.geminiChatMessages.set(messages);
-          this.geminiChatMessageId =
-            messages.length > 0 ? Math.max(...messages.map((message) => message.id)) : 0;
-          queueMicrotask(() => this.scrollGeminiChatToBottom(true));
-        },
-        error: (error) => {
-          if (!this.geminiChatOpen()) {
-            return;
-          }
-
-          this.geminiChatError.set(
-            toApplicationError(error, 'Could not load conversation history.').description
-          );
-        },
-      });
-  }
-
-  private resetGeminiChatSession(): void {
-    this.geminiChatHistoryLoaded = false;
-    this.isAskGeminiHistoryLoading.set(false);
-    this.geminiChatMessages.set([]);
-    this.geminiChatMessageId = 0;
-    this.geminiChatPrompt.set('');
-    this.geminiChatError.set(null);
-    this.isAskGeminiLoading.set(false);
-    this.isAskGeminiTyping.set(false);
-    this.stopChatTypewriter();
-  }
-
-  protected onGeminiChatPromptValueChange(value: string): void {
-    this.geminiChatPrompt.set(value);
-    this.geminiChatError.set(null);
-  }
-
-  protected onIncludePostTextInChatChange(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.includePostTextInChat.set(checked && this.hasPostContentToAttach());
-  }
-
-  protected onIncludePostTextInGenerateChange(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.includePostTextInGenerate.set(checked && this.hasPostContentToAttach());
-  }
-
-  protected onGeminiChatScroll(event: Event): void {
-    const container = event.target as HTMLElement;
-    const threshold = 64;
-    this.geminiChatStickToBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
-  }
-
-  protected sendGeminiChatMessage(): void {
-    const item = this.post();
-    const prompt = this.geminiChatPrompt().trim();
-    const includePostText = this.includePostTextInChat() && this.hasPostContentToAttach();
-
-    if (!item || !prompt || !this.canSendGeminiChat()) {
-      return;
-    }
-
-    this.geminiChatError.set(null);
-    this.geminiChatPrompt.set('');
-    this.geminiChatStickToBottom = true;
-    this.scheduleGeminiChatPromptLayout();
-    this.geminiChatMessages.update((messages) => [
-      ...messages,
-      {
-        id: ++this.geminiChatMessageId,
-        role: 'user',
-        text: prompt,
-        attachedPostText: includePostText,
-      },
-    ]);
-    this.scrollGeminiChatToBottom(true);
-    this.isAskGeminiLoading.set(true);
-    this.scrollGeminiChatToBottom(true);
-
-    this.geminiService
-      .askGemini({
-        prompt,
-        postId: item.id,
-        includePostText: includePostText || undefined,
-      })
-      .pipe(finalize(() => this.isAskGeminiLoading.set(false)))
-      .subscribe({
-        next: (text) => {
-          const messageId = ++this.geminiChatMessageId;
-          this.geminiChatMessages.update((messages) => [
-            ...messages,
-            {
-              id: messageId,
-              role: 'assistant',
-              text: '',
-              isTyping: true,
-            },
-          ]);
-          this.scrollGeminiChatToBottom(true);
-          this.typeGeminiChatResponse(messageId, text);
-        },
-        error: (error) => {
-          this.geminiChatError.set(toApplicationError(error, 'Could not get a response from Gemini.').description);
-          this.scrollGeminiChatToBottom(true);
         },
       });
   }
@@ -1920,7 +1414,7 @@ export class DashboardPostDetail {
         },
         error: (error) => {
           this.deleteConfirmOpen.set(false);
-          this.errorMessage.set(toApplicationError(error, 'Could not delete post.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się usunąć posta.').description);
         },
       });
   }
@@ -2115,7 +1609,7 @@ export class DashboardPostDetail {
           });
         },
         error: (error) => {
-          this.errorMessage.set(toApplicationError(error, 'Could not save post.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się zapisać posta.').description);
         },
       });
   }
@@ -2149,29 +1643,38 @@ export class DashboardPostDetail {
     return typeof window !== 'undefined' && window.matchMedia('(max-width: 48rem)').matches;
   }
 
-  private setGeminiPopupOpen(open: boolean): void {
+  private setGenerateDrawerOpen(open: boolean): void {
     if (open) {
-      this.geminiPopupClosing.set(false);
-      this.clearGeminiPopupCloseTimeout();
+      this.clearGenerateDrawerCloseTimeout();
+      this.generateDrawerClosing.set(false);
     }
 
-    this.geminiPopupOpen.set(open);
-    if (open) {
-      this.scheduleGeminiPromptLayout();
-    }
-    this.syncGeminiPopupBodyLock();
+    this.generateDrawerOpen.set(open);
+    document.body.classList.toggle('post-create-open', open);
   }
 
-  private syncGeminiPopupBodyLock(): void {
-    if (typeof window === 'undefined') {
+  private startGenerateDrawerClose(): void {
+    if (!this.generateDrawerOpen() || this.generateDrawerClosing()) {
       return;
     }
 
-    document.body.classList.toggle(
-      'post-gemini-popup-open',
-      (this.geminiPopupOpen() || this.geminiPopupClosing()) &&
-        window.matchMedia('(max-width: 48rem)').matches
-    );
+    this.generateDrawerOpen.set(false);
+    this.generateDrawerClosing.set(true);
+    this.clearGenerateDrawerCloseTimeout();
+    this.generateDrawerCloseTimeout = setTimeout(() => {
+      this.generateDrawerClosing.set(false);
+      document.body.classList.remove('post-create-open');
+      this.generateDrawerCloseTimeout = undefined;
+    }, drawerMotionDelay());
+  }
+
+  private clearGenerateDrawerCloseTimeout(): void {
+    if (this.generateDrawerCloseTimeout === undefined) {
+      return;
+    }
+
+    clearTimeout(this.generateDrawerCloseTimeout);
+    this.generateDrawerCloseTimeout = undefined;
   }
 
   private resetView(): void {
@@ -2183,36 +1686,26 @@ export class DashboardPostDetail {
     this.post.set(null);
     this.editingField.set(null);
     this.deleteConfirmOpen.set(false);
-    this.setGeminiPopupOpen(false);
+    this.clearGenerateDrawerCloseTimeout();
+    this.generateDrawerOpen.set(false);
+    this.generateDrawerClosing.set(false);
+    document.body.classList.remove('post-create-open');
     this.geminiDraftActive.set(false);
     this.isGenerating.set(false);
     this.isTyping.set(false);
     this.geminiError.set(null);
-    this.geminiChatMessages.set([]);
-    this.geminiChatPrompt.set('');
     this.geminiPrompt.set('');
-    this.geminiChatError.set(null);
-    this.isAskGeminiLoading.set(false);
-    this.isAskGeminiHistoryLoading.set(false);
-    this.isAskGeminiTyping.set(false);
-    this.includePostTextInChat.set(false);
-    this.includePostTextInGenerate.set(false);
     this.isMetaSaving.set(false);
     this.statusMenuOpen.set(false);
-    this.clearGeminiChatCloseTimeout();
-    this.clearGeminiPopupCloseTimeout();
-    this.geminiChatOpen.set(false);
-    this.geminiChatClosing.set(false);
-    this.geminiPopupClosing.set(false);
-    this.geminiChatHistoryLoaded = false;
-    this.geminiChatMessageId = 0;
-    this.geminiChatStickToBottom = true;
-    this.stopChatTypewriter();
     this.bodyBeforeGemini = '';
     this.wasEditingBodyBeforeGemini = false;
     this.isDeleting.set(false);
     this.isSavingAttachmentOrder.set(false);
     this.attachmentOrderDraft.set([]);
+    this.linkedinPublications.set([]);
+    this.isPublishingToLinkedIn.set(false);
+    this.linkedinPublishMessage.set(null);
+    this.linkedinPublishTone.set('success');
     this.clearSaveMessage();
     this.form.reset({ title: '', body: '' });
     this.bodyHighlightText.set('');
@@ -2244,30 +1737,30 @@ export class DashboardPostDetail {
     }
 
     const previousOrder = [...this.attachmentOrderDraft()];
+    const moved = previousOrder[event.previousIndex];
+    const target = previousOrder[event.currentIndex];
+    if (!moved || moved.id === null || !target) {
+      return;
+    }
+
     const draft = [...previousOrder];
     moveItemInArray(draft, event.previousIndex, event.currentIndex);
     this.attachmentOrderDraft.set(draft);
-    this.persistAttachmentOrder(item.id, draft, previousOrder);
+    // The API moves a single attachment to the `order` of the slot it is dropped on.
+    this.persistAttachmentOrder(item.id, moved.id, target.order, previousOrder);
   }
 
   private persistAttachmentOrder(
     postId: string,
-    draft: PostAttachmentItem[],
+    postAttachmentId: string,
+    order: number,
     revertOnError: readonly PostAttachmentItem[]
   ): void {
     this.isSavingAttachmentOrder.set(true);
     this.errorMessage.set(null);
 
-    const payload = {
-      postId,
-      attachments: draft.map((attachment, index) => ({
-        userUploadedFileId: attachment.userUploadedFileId,
-        order: index,
-      })),
-    };
-
     this.postAttachmentService
-      .update(payload)
+      .updateOrder({ postId, postAttachmentId, order })
       .pipe(finalize(() => this.isSavingAttachmentOrder.set(false)))
       .subscribe({
         next: () => {
@@ -2277,13 +1770,13 @@ export class DashboardPostDetail {
             },
             error: (error) => {
               this.attachmentOrderDraft.set([...revertOnError]);
-              this.errorMessage.set(toApplicationError(error, 'Could not refresh post.').description);
+              this.errorMessage.set(toApplicationError(error, 'Nie udało się odświeżyć posta.').description);
             },
           });
         },
         error: (error) => {
           this.attachmentOrderDraft.set([...revertOnError]);
-          this.errorMessage.set(toApplicationError(error, 'Could not save attachment order.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się zapisać kolejności załączników.').description);
         },
       });
   }
@@ -2443,7 +1936,7 @@ export class DashboardPostDetail {
       });
   }
 
-  private performDeleteAttachment(postAttachmentId: number): void {
+  private performDeleteAttachment(postAttachmentId: string): void {
     const item = this.post();
     if (!item || this.isDeletingAttachment()) {
       return;
@@ -2454,7 +1947,7 @@ export class DashboardPostDetail {
     this.clearSaveMessage();
 
     this.postAttachmentService
-      .delete(postAttachmentId)
+      .delete({ postId: item.id, postAttachmentId })
       .pipe(finalize(() => this.isDeletingAttachment.set(false)))
       .subscribe({
         next: () => {
@@ -2464,12 +1957,12 @@ export class DashboardPostDetail {
               this.showSaveMessage('Attachment removed.');
             },
             error: (error) => {
-              this.errorMessage.set(toApplicationError(error, 'Could not refresh post.').description);
+              this.errorMessage.set(toApplicationError(error, 'Nie udało się odświeżyć posta.').description);
             },
           });
         },
         error: (error) => {
-          this.errorMessage.set(toApplicationError(error, 'Could not remove attachment.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się usunąć załącznika.').description);
         },
       });
   }
@@ -2493,20 +1986,8 @@ export class DashboardPostDetail {
     this.isAttaching.set(true);
     this.attachmentsPickerError.set(null);
 
-    const existingMaxOrder = (item.attachments ?? []).reduce(
-      (max, attachment) => Math.max(max, attachment.order),
-      0
-    );
-    const payload = {
-      postId: item.id,
-      attachments: selected.map((userUploadedFileId, index) => ({
-        userUploadedFileId,
-        order: existingMaxOrder + index + 1,
-      })),
-    };
-
     this.postAttachmentService
-      .create(payload)
+      .create({ postId: item.id, fileIds: selected })
       .pipe(finalize(() => this.isAttaching.set(false)))
       .subscribe({
         next: () => {
@@ -2517,12 +1998,12 @@ export class DashboardPostDetail {
               this.closeAttachmentsPicker();
             },
             error: (error) => {
-              this.attachmentsPickerError.set(toApplicationError(error, 'Could not refresh post.').description);
+              this.attachmentsPickerError.set(toApplicationError(error, 'Nie udało się odświeżyć posta.').description);
             },
           });
         },
         error: (error) => {
-          this.attachmentsPickerError.set(toApplicationError(error, 'Could not attach images.').description);
+          this.attachmentsPickerError.set(toApplicationError(error, 'Nie udało się dodać obrazów do posta.').description);
         },
       });
   }
@@ -2543,7 +2024,7 @@ export class DashboardPostDetail {
         },
         error: (error) => {
           this.attachmentsMediaPage.set(null);
-          this.attachmentsPickerError.set(toApplicationError(error, 'Could not load media.').description);
+          this.attachmentsPickerError.set(toApplicationError(error, 'Nie udało się wczytać mediów.').description);
         },
       });
   }
@@ -2599,7 +2080,7 @@ export class DashboardPostDetail {
   }
 
   private buildUpdatePayload(
-    overrides: Partial<Pick<UpdatePostPayload, 'title' | 'body' | 'status'>> = {}
+    overrides: Partial<Pick<UpdatePostPayload, 'title' | 'body' | 'status' | 'platforms'>> = {},
   ): UpdatePostPayload {
     const item = this.post();
     if (!item) {
@@ -2619,10 +2100,18 @@ export class DashboardPostDetail {
           ? this.form.controls.body.value.trim()
           : item.body;
 
+    const platforms =
+      overrides.platforms !== undefined
+        ? overrides.platforms
+        : item.platforms.length > 0
+          ? item.platforms
+          : [...DEFAULT_POST_PLATFORMS];
+
     return {
       title,
       body: normalizeUpdatePostBody(this.clampBody(bodyValue)),
       status: overrides.status ?? item.status,
+      platforms: [...platforms],
     };
   }
 
@@ -2659,7 +2148,7 @@ export class DashboardPostDetail {
             );
           }
 
-          this.errorMessage.set(toApplicationError(error, 'Could not save post details.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się zapisać szczegółów posta.').description);
         },
       });
   }
@@ -2754,126 +2243,6 @@ export class DashboardPostDetail {
     return normalizePostBody(value).slice(0, POST_BODY_MAX_LENGTH);
   }
 
-  private currentPostBodyForContext(): string {
-    const item = this.post();
-    if (!item) {
-      return '';
-    }
-
-    if (this.editingField() === 'body' || this.geminiDraftActive()) {
-      return this.clampBody(this.form.controls.body.value);
-    }
-
-    return this.clampBody(item.body);
-  }
-
-  private clearGeminiChatCloseTimeout(): void {
-    if (this.geminiChatCloseTimeout === undefined) {
-      return;
-    }
-
-    clearTimeout(this.geminiChatCloseTimeout);
-    this.geminiChatCloseTimeout = undefined;
-  }
-
-  private clearGeminiPopupCloseTimeout(): void {
-    if (this.geminiPopupCloseTimeout === undefined) {
-      return;
-    }
-
-    clearTimeout(this.geminiPopupCloseTimeout);
-    this.geminiPopupCloseTimeout = undefined;
-  }
-
-  private scheduleGeminiPromptLayout(options: { focus?: boolean } = {}): void {
-    this.geminiPromptInput()?.scheduleLayout(options);
-  }
-
-  private scheduleGeminiChatPromptLayout(options: { focus?: boolean } = {}): void {
-    this.geminiChatPromptInput()?.scheduleLayout(options);
-  }
-
-  private scrollGeminiChatToBottom(force = false): void {
-    if (!force && !this.geminiChatStickToBottom) {
-      return;
-    }
-
-    if (this.geminiChatScrollRaf !== null) {
-      return;
-    }
-
-    this.geminiChatScrollRaf = requestAnimationFrame(() => {
-      this.geminiChatScrollRaf = requestAnimationFrame(() => {
-        this.geminiChatScrollRaf = null;
-
-        const container = this.geminiChatMessagesEl()?.nativeElement;
-        const anchor = this.geminiChatScrollAnchor()?.nativeElement;
-
-        if (!container) {
-          return;
-        }
-
-        if (anchor) {
-          const targetTop = anchor.offsetTop + anchor.offsetHeight - container.clientHeight;
-          container.scrollTop = Math.max(0, targetTop);
-          return;
-        }
-
-        container.scrollTop = container.scrollHeight;
-      });
-    });
-  }
-
-  private stopChatTypewriter(): void {
-    this.cancelChatTypewriter?.();
-    this.cancelChatTypewriter = undefined;
-    this.isAskGeminiTyping.set(false);
-  }
-
-  private updateGeminiChatMessage(messageId: number, text: string, isTyping: boolean): void {
-    this.geminiChatMessages.update((messages) =>
-      messages.map((message) =>
-        message.id === messageId ? { ...message, text, isTyping } : message
-      )
-    );
-  }
-
-  private typeGeminiChatResponse(messageId: number, fullText: string): void {
-    this.stopChatTypewriter();
-
-    const prefersReducedMotion =
-      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion) {
-      this.updateGeminiChatMessage(messageId, fullText, false);
-      this.scrollGeminiChatToBottom();
-      return;
-    }
-
-    this.isAskGeminiTyping.set(true);
-    this.geminiChatStickToBottom = true;
-
-    let scrollEvery = 0;
-
-    this.cancelChatTypewriter = createTypewriter(
-      fullText,
-      (partial) => {
-        this.updateGeminiChatMessage(messageId, partial, true);
-        scrollEvery += 1;
-        if (scrollEvery % 2 === 0 || partial.length >= fullText.length) {
-          this.scrollGeminiChatToBottom();
-        }
-      },
-      () => {
-        this.updateGeminiChatMessage(messageId, fullText, false);
-        this.isAskGeminiTyping.set(false);
-        this.cancelChatTypewriter = undefined;
-        this.scrollGeminiChatToBottom();
-      },
-      { intervalMs: 42 }
-    );
-  }
-
   private showSaveMessage(message: string): void {
     this.clearSaveMessage();
     this.saveMessage.set(message);
@@ -2916,7 +2285,7 @@ export class DashboardPostDetail {
     requestAnimationFrame(() => this.resizeBodyInput());
   }
 
-  private abortGeminiDraft(reopenPopup: boolean): void {
+  private abortGeminiDraft(reopenDrawer: boolean): void {
     this.stopGeminiTypewriter();
     this.isGenerating.set(false);
     this.isTyping.set(false);
@@ -2936,13 +2305,15 @@ export class DashboardPostDetail {
     if (this.wasEditingBodyBeforeGemini) {
       this.form.controls.body.markAsDirty();
       requestAnimationFrame(() => this.resizeBodyInput());
+      if (reopenDrawer) {
+        this.setGenerateDrawerOpen(true);
+      }
       return;
     }
 
     this.closeEdit(true, () => {
-      if (reopenPopup) {
-        this.setGeminiPopupOpen(true);
-        queueMicrotask(() => this.geminiPromptInput()?.focus({ preventScroll: true }));
+      if (reopenDrawer) {
+        this.setGenerateDrawerOpen(true);
       }
     });
   }

@@ -113,20 +113,6 @@ html:has(body.auth-page) {
   scrollbar-gutter: auto;
 }
 
-@media (max-width: 48rem) {
-  body.posts-filters-open {
-    overflow: hidden;
-  }
-
-  body.posts-filters-open .dashboard-layout__main {
-    z-index: var(--drawer-z-panel-raised);
-  }
-
-  body.post-gemini-popup-open {
-    overflow: hidden;
-  }
-}
-
 .page-section {
   scroll-margin-top: var(--header-offset);
 }

@@ -2,180 +2,134 @@ import { NgClass } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, take } from 'rxjs';
+import { debounceTime, filter, finalize, map, take, type Subscription } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { toApplicationError } from '../../../models/application-error';
 import { DisplayDatetimePipe } from '../../../pipes/display-datetime';
-import { PLATFORM_TYPES, POST_SORT_BY_OPTIONS, POST_STATUS_OPTIONS, getPlatformTypeLabel, getPlatformTypeName, getPostStatusLabel, getPostStatusClass, getPostStatusIcon, parseHashtagSegments, type PagedPostsResponse, type PostAttachmentItem, type PostItem, type PlatformType, type PostSortBy } from '../../../models/post';
+import {
+  PLATFORM_TYPES,
+  POST_SORT_BY_OPTIONS,
+  POST_STATUS_OPTIONS,
+  getPlatformTypeLabel,
+  getPlatformTypeName,
+  getPostStatusLabel,
+  getPostStatusClass,
+  getPostStatusIcon,
+  normalizePostPlatforms,
+  parseHashtagSegments,
+  type PagedPostsResponse,
+  type PlatformType,
+  type PostAttachmentItem,
+  type PostItem,
+} from '../../../models/post';
 import { PostService } from '../../../services/post';
 import { UserUploadedFileService } from '../../../services/user-uploaded-file';
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
+import { DashboardPageHeader } from '../shared/dashboard-page-header/dashboard-page-header';
 import { DashboardPaginationPanel } from '../shared/dashboard-pagination-panel/dashboard-pagination-panel';
 import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { toPaginationPage } from '../shared/pagination';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
 import { DashboardPostCreate } from '../dashboard-post-create/dashboard-post-create';
-import { DrawerMotionDirective, drawerMotionDelay } from '../../../layout/shared/drawer-motion';
+import { drawerMotionDelay } from '../../../layout/shared/drawer-motion';
 import {
   DEFAULT_POSTS_LIST_QUERY,
+  POSTS_SEARCH_MAX_LENGTH,
+  arePlatformTypeFiltersEqual,
   hasActiveFilters,
   parsePostsListQuery,
   postsListQueryToFilterParams,
   postsListQueryToParams,
-  type HasPublicationFilter,
-  type PlatformFilter,
   type PostsListQuery,
   type SortByFilter,
-  type SortOrder,
+  type SortDirection,
   type StatusFilter,
 } from './posts-list-query';
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 const POST_CARD_VISIBLE_ATTACHMENTS = 4;
-
-type FilterMenuId = 'sortBy' | 'status' | 'hasPublication' | 'publishedOn';
-
-const PUBLICATION_OPTIONS = [
-  { value: '' as HasPublicationFilter, label: 'Any', icon: 'remove' },
-  { value: 'true' as HasPublicationFilter, label: 'Published', icon: 'language' },
-  { value: 'false' as HasPublicationFilter, label: 'Not published', icon: 'visibility_off' },
-] as const;
+const SEARCH_DEBOUNCE_MS = 350;
 
 type PostsForm = FormGroup<{
   pageNumber: FormControl<number>;
   pageSize: FormControl<number>;
-  sortOrder: FormControl<SortOrder>;
-  sortBy: FormControl<SortByFilter>;
+  search: FormControl<string>;
   status: FormControl<StatusFilter>;
-  hasPublication: FormControl<HasPublicationFilter>;
-  titleContains: FormControl<string>;
-  bodyContains: FormControl<string>;
-  publishedOn: FormControl<PlatformFilter>;
-  createdAfter: FormControl<string>;
-  createdBefore: FormControl<string>;
+  platformTypes: FormControl<PlatformType[]>;
+  sortBy: FormControl<SortByFilter>;
+  order: FormControl<SortDirection>;
 }>;
 
 @Component({
   selector: 'app-dashboard-posts',
-  imports: [NgClass, ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardPaginationPanel, DashboardPlatformLogo, PageLoading, PageRevealDirective, DashboardPostCreate, DrawerMotionDirective],
+  imports: [NgClass, ReactiveFormsModule, DisplayDatetimePipe, RouterLink, DashboardAlert, DashboardPageHeader, DashboardPaginationPanel, DashboardPlatformLogo, PageLoading, PageRevealDirective, DashboardPostCreate],
   styleUrl: './dashboard-posts.scss',
   template: `
     <section class="dashboard-content-page dashboard-posts" aria-labelledby="dashboard-posts-title">
-      <div appPageReveal>
+      <div appPageReveal class="dashboard-posts__top">
       <div class="dashboard-posts__intro">
-        <header class="dashboard-posts__header">
-          <div class="dashboard-posts__header-row">
-            <div class="dashboard-posts__header-copy">
-              <p class="section-eyebrow dashboard-posts__eyebrow">Content</p>
-              <h1 id="dashboard-posts-title" class="dashboard-posts__title">Posts</h1>
-            </div>
-            <button
-              #addPostButton
-              type="button"
-              class="dashboard-posts__add-btn"
-              (click)="openCreateDrawer()"
-            >
-              <span class="material-icons dashboard-posts__add-icon" aria-hidden="true">add</span>
-              Add post
-            </button>
-          </div>
-        </header>
+        <app-dashboard-page-header
+          titleId="dashboard-posts-title"
+          eyebrow="Treści"
+          title="Posty"
+          titleMark="pod kontrolą"
+          intro="Twórz, filtruj i planuj publikacje w jednym miejscu."
+          scribble="Pisz, planuj, publikuj."
+        />
 
-        <div class="posts-filters__toolbar">
-          <button
-            type="button"
-            class="posts-filters__toggle"
-            [class.is-active]="filtersOpen()"
-            [attr.aria-expanded]="filtersOpen()"
-            aria-controls="posts-filters-panel"
-            (click)="toggleFilters()"
-          >
-            <span class="material-icons posts-filters__toggle-icon" aria-hidden="true">tune</span>
-            Filters
-            @if (filtersActive()) {
-              <span class="posts-filters__active-badge" aria-label="Filters active">Active</span>
-            }
-          </button>
-        </div>
-
-        <button
-          type="button"
-          class="posts-filters__backdrop"
-          appDrawerMotion="backdrop"
-          [drawerMotionState]="filtersOpen() ? 'open' : filtersClosing() ? 'closing' : 'closed'"
-          [drawerMotionMobileOnly]="true"
-          aria-label="Close filters"
-          (click)="closeFilters()"
-        ></button>
-
-        <form
-          id="posts-filters-panel"
-          class="posts-filters"
-          appDrawerMotion="panel"
-          [drawerMotionState]="filtersOpen() ? 'open' : filtersClosing() ? 'closing' : 'closed'"
-          [drawerMotionMobileOnly]="true"
-          [class.is-open]="filtersOpen()"
-          [formGroup]="form"
-          (ngSubmit)="applyFilters()"
-          aria-label="Filter posts"
-        >
-          <div class="posts-filters__drawer-head">
-            <h2 class="posts-filters__drawer-title">Filters</h2>
-            <button type="button" class="posts-filters__close" aria-label="Close filters" (click)="closeFilters()">
-              <span class="close-icon" aria-hidden="true"></span>
-            </button>
-          </div>
-
-          <header class="posts-filters__panel-head">
-            <div>
-              <p class="posts-filters__panel-eyebrow">Refine your workspace</p>
-              <h2 class="posts-filters__panel-title">Find the right posts faster.</h2>
-            </div>
-            @if (filtersActive()) {
-              <span class="posts-filters__panel-status">
-                <span class="material-icons" aria-hidden="true">check</span>
-                Filters applied
-              </span>
-            }
-          </header>
-
-          <div class="posts-filters__grid">
-            <div class="posts-filters__row posts-filters__row--meta">
-            <div class="field field--compact">
-              <span class="field__label" id="filter-sort-by-label">Sort</span>
-              <div class="posts-filter-menu" [class.is-open]="openFilterMenu() === 'sortBy'">
+        <div class="posts-query">
+          <div class="posts-query__bar">
+            <div class="posts-search">
+              <span class="material-icons posts-search__icon" aria-hidden="true">search</span>
+              <input
+                id="posts-search"
+                class="posts-search__input"
+                type="text"
+                inputmode="search"
+                autocomplete="off"
+                placeholder="Szukaj po tytule…"
+                aria-label="Szukaj postów po tytule"
+                [formControl]="form.controls.search"
+                [attr.maxlength]="searchMaxLength"
+                (keydown.enter)="searchNow($event)"
+                (keydown.escape)="clearSearch($event)"
+              />
+              @if (form.controls.search.value) {
                 <button
                   type="button"
-                  id="filter-sort-by"
-                  class="posts-filter-menu__trigger field__input"
-                  [attr.aria-expanded]="openFilterMenu() === 'sortBy'"
-                  aria-haspopup="listbox"
-                  aria-controls="filter-sort-by-menu"
-                  aria-labelledby="filter-sort-by-label"
-                  (click)="toggleFilterMenu('sortBy', $event)"
+                  class="posts-search__clear"
+                  aria-label="Wyczyść wyszukiwanie"
+                  (click)="clearSearch()"
                 >
+                  <span class="material-icons" aria-hidden="true">close</span>
+                </button>
+              }
+            </div>
+
+            <div class="posts-sort">
+              <div class="posts-filter-menu" [class.is-open]="sortMenuOpen()">
+                <button
+                  type="button"
+                  id="posts-sort-trigger"
+                  class="posts-filter-menu__trigger posts-sort__trigger"
+                  [attr.aria-expanded]="sortMenuOpen()"
+                  aria-haspopup="listbox"
+                  aria-controls="posts-sort-menu"
+                  (click)="toggleSortMenu($event)"
+                >
+                  <span class="posts-sort__prefix">Sortuj:</span>
                   <span class="material-icons posts-filter-menu__icon" aria-hidden="true">{{ sortByTriggerIcon() }}</span>
                   <span class="posts-filter-menu__label">{{ sortByTriggerLabel() }}</span>
                   <span class="material-icons posts-filter-menu__chevron" aria-hidden="true">expand_more</span>
                 </button>
-                @if (openFilterMenu() === 'sortBy') {
+                @if (sortMenuOpen()) {
                   <div
-                    id="filter-sort-by-menu"
+                    id="posts-sort-menu"
                     class="posts-filter-menu__panel"
                     role="listbox"
-                    aria-labelledby="filter-sort-by-label"
+                    aria-labelledby="posts-sort-trigger"
                     (click)="$event.stopPropagation()"
                   >
-                    <button
-                      type="button"
-                      class="posts-filter-menu__option"
-                      role="option"
-                      [class.is-active]="!form.controls.sortBy.value"
-                      [attr.aria-selected]="!form.controls.sortBy.value"
-                      (click)="selectSortBy('')"
-                    >
-                      <span class="material-icons posts-filter-menu__icon" aria-hidden="true">swap_vert</span>
-                      <span>Default</span>
-                    </button>
                     @for (option of sortByOptions; track option.value) {
                       <button
                         type="button"
@@ -192,272 +146,139 @@ type PostsForm = FormGroup<{
                   </div>
                 }
               </div>
+
+              <button
+                type="button"
+                class="posts-sort__direction"
+                [attr.aria-label]="'Kierunek sortowania: ' + sortDirectionLabel() + '. Kliknij, aby odwrócić.'"
+                [attr.title]="'Odwróć kolejność'"
+                (click)="toggleSortOrder()"
+              >
+                <span class="material-icons" aria-hidden="true">
+                  {{ form.controls.order.value === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                </span>
+                <span class="posts-sort__direction-label">{{ sortDirectionLabel() }}</span>
+              </button>
             </div>
 
-            <div class="field field--compact field--sort-order">
-              <span class="field__label" id="filter-sort-order-label">Order</span>
-              <div class="posts-sort-order" role="group" aria-labelledby="filter-sort-order-label">
-                <button
-                  type="button"
-                  class="posts-sort-order__btn"
-                  [class.is-active]="form.controls.sortOrder.value === 'newest'"
-                  [disabled]="!form.controls.sortBy.value || isLoading()"
-                  aria-label="Descending"
-                  (click)="setSortOrder('newest')"
-                >
-                  <span class="material-icons" aria-hidden="true">arrow_downward</span>
-                </button>
-                <button
-                  type="button"
-                  class="posts-sort-order__btn"
-                  [class.is-active]="form.controls.sortOrder.value === 'oldest'"
-                  [disabled]="!form.controls.sortBy.value || isLoading()"
-                  aria-label="Ascending"
-                  (click)="setSortOrder('oldest')"
-                >
-                  <span class="material-icons" aria-hidden="true">arrow_upward</span>
-                </button>
-              </div>
-            </div>
+            <button
+              #addPostButton
+              type="button"
+              class="dashboard-posts__add-btn"
+              (click)="openCreateDrawer()"
+            >
+              <span class="material-icons dashboard-posts__add-icon" aria-hidden="true">add</span>
+              Dodaj post
+            </button>
+          </div>
 
-            <div class="field field--compact">
-              <span class="field__label" id="filter-status-label">Status</span>
-              <div class="posts-filter-menu" [class.is-open]="openFilterMenu() === 'status'">
+          <div class="posts-query__filters">
+            <div class="posts-query__filter-groups">
+              <div class="posts-chips" role="group" aria-label="Filtruj według statusu">
                 <button
                   type="button"
-                  id="filter-status"
-                  class="posts-filter-menu__trigger field__input"
-                  [attr.aria-expanded]="openFilterMenu() === 'status'"
-                  aria-haspopup="listbox"
-                  aria-controls="filter-status-menu"
-                  aria-labelledby="filter-status-label"
-                  (click)="toggleFilterMenu('status', $event)"
+                  class="posts-chip"
+                  [class.is-active]="!form.controls.status.value"
+                  [attr.aria-pressed]="!form.controls.status.value"
+                  (click)="selectStatus('')"
                 >
-                  <span class="material-icons posts-filter-menu__icon" aria-hidden="true">{{ statusTriggerIcon() }}</span>
-                  <span class="posts-filter-menu__label">{{ statusTriggerLabel() }}</span>
-                  <span class="material-icons posts-filter-menu__chevron" aria-hidden="true">expand_more</span>
+                  Wszystkie
                 </button>
-                @if (openFilterMenu() === 'status') {
-                  <div
-                    id="filter-status-menu"
-                    class="posts-filter-menu__panel"
-                    role="listbox"
-                    aria-labelledby="filter-status-label"
-                    (click)="$event.stopPropagation()"
+                @for (status of postStatusOptions; track status.value) {
+                  <button
+                    type="button"
+                    class="posts-chip"
+                    [class.is-active]="form.controls.status.value === status.value"
+                    [attr.aria-pressed]="form.controls.status.value === status.value"
+                    (click)="selectStatus(status.value)"
                   >
-                    <button
-                      type="button"
-                      class="posts-filter-menu__option"
-                      role="option"
-                      [class.is-active]="!form.controls.status.value"
-                      [attr.aria-selected]="!form.controls.status.value"
-                      (click)="selectStatus('')"
-                    >
-                      <span class="material-icons posts-filter-menu__icon" aria-hidden="true">list</span>
-                      <span>Any status</span>
-                    </button>
-                    @for (status of postStatusOptions; track status.value) {
-                      <button
-                        type="button"
-                        class="posts-filter-menu__option"
-                        role="option"
-                        [class.is-active]="form.controls.status.value === status.value"
-                        [attr.aria-selected]="form.controls.status.value === status.value"
-                        (click)="selectStatus(status.value)"
-                      >
-                        <span class="material-icons posts-filter-menu__icon" aria-hidden="true">{{ status.icon }}</span>
-                        <span>{{ status.label }}</span>
-                      </button>
-                    }
-                  </div>
+                    <span class="material-icons posts-chip__icon" aria-hidden="true">{{ status.icon }}</span>
+                    {{ status.label }}
+                  </button>
                 }
               </div>
-            </div>
 
-            <div class="field field--compact">
-              <span class="field__label" id="filter-has-publication-label">Publication</span>
-              <div class="posts-filter-menu" [class.is-open]="openFilterMenu() === 'hasPublication'">
+              <div
+                class="posts-filter-menu posts-platform-picker"
+                [class.is-open]="platformMenuOpen()"
+                [class.has-selection]="form.controls.platformTypes.value.length > 0"
+              >
                 <button
                   type="button"
-                  id="filter-has-publication"
-                  class="posts-filter-menu__trigger field__input"
-                  [attr.aria-expanded]="openFilterMenu() === 'hasPublication'"
+                  id="posts-platform-trigger"
+                  class="posts-filter-menu__trigger posts-platform-picker__trigger"
+                  [attr.aria-expanded]="platformMenuOpen()"
                   aria-haspopup="listbox"
-                  aria-controls="filter-has-publication-menu"
-                  aria-labelledby="filter-has-publication-label"
-                  (click)="toggleFilterMenu('hasPublication', $event)"
+                  aria-controls="posts-platform-menu"
+                  (click)="togglePlatformMenu($event)"
                 >
-                  <span class="material-icons posts-filter-menu__icon" aria-hidden="true">{{ publicationTriggerIcon() }}</span>
-                  <span class="posts-filter-menu__label">{{ publicationTriggerLabel() }}</span>
+                  <span class="material-icons posts-filter-menu__icon" aria-hidden="true">hub</span>
+                  <span class="posts-filter-menu__label">{{ platformPickerLabel() }}</span>
                   <span class="material-icons posts-filter-menu__chevron" aria-hidden="true">expand_more</span>
                 </button>
-                @if (openFilterMenu() === 'hasPublication') {
+                @if (platformMenuOpen()) {
                   <div
-                    id="filter-has-publication-menu"
-                    class="posts-filter-menu__panel"
+                    id="posts-platform-menu"
+                    class="posts-filter-menu__panel posts-platform-picker__panel"
                     role="listbox"
-                    aria-labelledby="filter-has-publication-label"
+                    aria-multiselectable="true"
+                    aria-labelledby="posts-platform-trigger"
                     (click)="$event.stopPropagation()"
                   >
-                    @for (option of publicationOptions; track option.value) {
+                    @for (platform of platformTypeOptions; track platform.value) {
                       <button
                         type="button"
                         class="posts-filter-menu__option"
                         role="option"
-                        [class.is-active]="form.controls.hasPublication.value === option.value"
-                        [attr.aria-selected]="form.controls.hasPublication.value === option.value"
-                        (click)="selectPublication(option.value)"
+                        [class.is-active]="isPlatformTypeSelected(platform.value)"
+                        [attr.aria-selected]="isPlatformTypeSelected(platform.value)"
+                        (click)="togglePlatformType(platform.value)"
                       >
-                        <span class="material-icons posts-filter-menu__icon" aria-hidden="true">{{ option.icon }}</span>
-                        <span>{{ option.label }}</span>
-                      </button>
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-
-            <div class="field field--compact">
-              <span class="field__label" id="filter-platform-label">Platform</span>
-              <div class="posts-filter-menu" [class.is-open]="openFilterMenu() === 'publishedOn'">
-                <button
-                  type="button"
-                  id="filter-platform"
-                  class="posts-filter-menu__trigger field__input"
-                  [attr.aria-expanded]="openFilterMenu() === 'publishedOn'"
-                  aria-haspopup="listbox"
-                  aria-controls="filter-platform-menu"
-                  aria-labelledby="filter-platform-label"
-                  (click)="toggleFilterMenu('publishedOn', $event)"
-                >
-                  @if (platformTriggerType(); as platformType) {
-                    <app-dashboard-platform-logo
-                      class="posts-filter-menu__platform-logo"
-                      [platformType]="platformType"
-                      size="xs"
-                      [compact]="true"
-                    />
-                  } @else {
-                    <span class="material-icons posts-filter-menu__icon" aria-hidden="true">apps</span>
-                  }
-                  <span class="posts-filter-menu__label">{{ platformTriggerLabel() }}</span>
-                  <span class="material-icons posts-filter-menu__chevron" aria-hidden="true">expand_more</span>
-                </button>
-                @if (openFilterMenu() === 'publishedOn') {
-                  <div
-                    id="filter-platform-menu"
-                    class="posts-filter-menu__panel"
-                    role="listbox"
-                    aria-labelledby="filter-platform-label"
-                    (click)="$event.stopPropagation()"
-                  >
-                    <button
-                      type="button"
-                      class="posts-filter-menu__option"
-                      role="option"
-                      [class.is-active]="form.controls.publishedOn.value === ''"
-                      [attr.aria-selected]="form.controls.publishedOn.value === ''"
-                      (click)="selectPlatform('')"
-                    >
-                      <span class="material-icons posts-filter-menu__icon" aria-hidden="true">apps</span>
-                      <span>Any platform</span>
-                    </button>
-                    @for (platform of platformTypes; track platform.value) {
-                      <button
-                        type="button"
-                        class="posts-filter-menu__option"
-                        role="option"
-                        [class.is-active]="form.controls.publishedOn.value === platformFilterValue(platform.value)"
-                        [attr.aria-selected]="form.controls.publishedOn.value === platformFilterValue(platform.value)"
-                        (click)="selectPlatform(platformFilterValue(platform.value))"
-                      >
-                        <app-dashboard-platform-logo
-                          class="posts-filter-menu__platform-logo"
-                          [platformType]="platform.type"
-                          size="xs"
-                          [compact]="true"
-                        />
+                        <span
+                          class="posts-platform-picker__check material-icons"
+                          aria-hidden="true"
+                        >
+                          {{ isPlatformTypeSelected(platform.value) ? 'check_box' : 'check_box_outline_blank' }}
+                        </span>
+                        <span class="posts-filter-menu__platform-logo">
+                          <app-dashboard-platform-logo
+                            [platformType]="platform.type"
+                            size="xs"
+                            [compact]="true"
+                          />
+                        </span>
                         <span>{{ platform.label }}</span>
                       </button>
                     }
+                    @if (form.controls.platformTypes.value.length > 0) {
+                      <button
+                        type="button"
+                        class="posts-platform-picker__clear"
+                        (click)="clearPlatformTypes()"
+                      >
+                        Wyczyść platformy
+                      </button>
+                    }
                   </div>
                 }
               </div>
             </div>
+
+            @if (filtersActive()) {
+              <button type="button" class="posts-query__reset" (click)="clearFilters()">
+                <span class="material-icons" aria-hidden="true">filter_alt_off</span>
+                Wyczyść filtry
+              </button>
+            }
           </div>
-
-          <div class="posts-filters__row posts-filters__row--search">
-            <div class="field field--grow">
-              <label class="field__label" for="filter-title">Title contains</label>
-              <input
-                id="filter-title"
-                class="field__input"
-                type="text"
-                formControlName="titleContains"
-                autocomplete="off"
-                placeholder="Search title…"
-              />
-            </div>
-
-            <div class="field field--grow">
-              <label class="field__label" for="filter-body">Body contains</label>
-              <input
-                id="filter-body"
-                class="field__input"
-                type="text"
-                formControlName="bodyContains"
-                autocomplete="off"
-                placeholder="Search content…"
-              />
-            </div>
-
-            <div class="field field--compact field--date">
-              <label class="field__label" for="filter-created-after">Created after</label>
-              <input
-                id="filter-created-after"
-                class="field__input"
-                type="date"
-                formControlName="createdAfter"
-              />
-            </div>
-
-            <div class="field field--compact field--date">
-              <label class="field__label" for="filter-created-before">Created before</label>
-              <input
-                id="filter-created-before"
-                class="field__input"
-                type="date"
-                formControlName="createdBefore"
-              />
-            </div>
-          </div>
-          </div>
-
-          <div class="posts-filters__actions">
-            <button type="submit" class="btn btn--primary" [disabled]="isLoading()">
-              <span class="material-icons" aria-hidden="true">check</span>
-              Apply filters
-            </button>
-            <button
-              type="button"
-              class="btn btn--secondary"
-              [disabled]="isLoading() || !filtersActive()"
-              (click)="clearFilters()"
-            >
-              <span class="material-icons" aria-hidden="true">close</span>
-              Clear filters
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
 
-      @if (errorMessage()) {
-        <p class="posts-status posts-status--error" role="alert">{{ errorMessage() }}</p>
-      }
+      <app-dashboard-alert [message]="errorMessage()" [retryable]="true" (retry)="loadPosts()" />
       </div>
 
       @if (isLoading() && !result()) {
-        <app-page-loading label="Loading posts…" />
+        <app-page-loading label="Ładowanie postów…" />
       }
 
       @if (result(); as page) {
@@ -465,16 +286,21 @@ type PostsForm = FormGroup<{
         @if (page.items.length === 0) {
           <div class="posts-empty">
             <p class="posts-status">
-              {{ filtersActive() ? 'No posts match your filters.' : 'No posts yet.' }}
+              {{ filtersActive() ? 'Żaden post nie pasuje do wybranych filtrów.' : 'Nie masz jeszcze żadnych postów.' }}
             </p>
-            @if (!filtersActive()) {
+            @if (filtersActive()) {
+              <button type="button" class="posts-empty__reset" (click)="clearFilters()">
+                <span class="material-icons" aria-hidden="true">filter_alt_off</span>
+                Wyczyść filtry
+              </button>
+            } @else {
               <button
                 type="button"
                 class="dashboard-posts__add-btn dashboard-posts__add-btn--empty"
                 (click)="openCreateDrawer()"
               >
                 <span class="material-icons dashboard-posts__add-icon" aria-hidden="true">add</span>
-                Create your first post
+                Utwórz pierwszy post
               </button>
             }
           </div>
@@ -482,10 +308,11 @@ type PostsForm = FormGroup<{
           <div class="dashboard-list-board" [class.dashboard-list-board--loading]="isLoading()">
             <div class="dashboard-list-board__head">
               <p class="dashboard-list-board__summary" aria-live="polite">
-                Showing
+                Wyświetlane
                 <strong>{{ showingFrom(page) }}–{{ showingTo(page) }}</strong>
-                @if (page.totalPages > 0) {
-                  · Page <strong>{{ page.pageIndex }}</strong> of <strong>{{ page.totalPages }}</strong>
+                z <strong>{{ page.totalCount }}</strong>
+                @if (page.totalPages > 1) {
+                  · Strona <strong>{{ page.pageIndex }}</strong> z <strong>{{ page.totalPages }}</strong>
                 }
               </p>
             </div>
@@ -500,14 +327,14 @@ type PostsForm = FormGroup<{
                   [state]="postsReturnState()"
                 >
                   <div class="post-card__head">
-                    <h2 class="post-card__title">{{ post.title || 'Untitled' }}</h2>
+                    <h2 class="post-card__title">{{ post.title || 'Bez tytułu' }}</h2>
                     <div class="post-card__badges">
-                      @if (post.tags.length > 0) {
-                        <div class="post-card__platforms" aria-label="Platforms">
-                          @for (tag of post.tags; track tag) {
-                            <span class="post-card__platform-logo" [attr.aria-label]="platformTypeLabel(tag)">
+                      @if (post.platforms.length > 0) {
+                        <div class="post-card__platforms" aria-label="Platformy">
+                          @for (platform of post.platforms; track platform) {
+                            <span class="post-card__platform-logo" [attr.aria-label]="platformTypeLabel(platform)">
                               <app-dashboard-platform-logo
-                                [platformType]="platformTypeName(tag)"
+                                [platformType]="platformTypeName(platform)"
                                 size="xs"
                                 [compact]="true"
                               />
@@ -539,10 +366,10 @@ type PostsForm = FormGroup<{
                     </p>
                   }
                   @else {
-                    <p class="post-card__body post-card__body--empty">No content yet.</p>
+                    <p class="post-card__body post-card__body--empty">Brak treści.</p>
                   }
                   @if (post.attachments.length > 0) {
-                    <div class="post-card__attachments" aria-label="Attached images">
+                    <div class="post-card__attachments" aria-label="Załączone obrazy">
                       @for (att of visibleAttachments(post.attachments); track att.userUploadedFileId) {
                         <span class="post-card__attachment-thumb" aria-hidden="true">
                           @if (attachmentPreviewUrl(att.userUploadedFileId); as src) {
@@ -587,8 +414,8 @@ type PostsForm = FormGroup<{
             [pageSize]="form.controls.pageSize.value"
             [pageSizeOptions]="pageSizeOptions"
             [disabled]="isLoading()"
-            ariaLabel="Posts pagination"
-            pageSizeLabel="Rows"
+            ariaLabel="Paginacja postów"
+            pageSizeLabel="Na stronie"
             pageSizeSelectId="posts-page-size"
             (pageChange)="goToPage($event)"
             (pageSizeChange)="onPageSizeChange($event)"
@@ -617,14 +444,14 @@ export class DashboardPosts {
 
   protected readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
   protected readonly postStatusOptions = POST_STATUS_OPTIONS;
+  protected readonly platformTypeOptions = PLATFORM_TYPES;
   protected readonly postStatusLabel = getPostStatusLabel;
   protected readonly postStatusClass = getPostStatusClass;
   protected readonly postStatusIcon = getPostStatusIcon;
   protected readonly platformTypeLabel = getPlatformTypeLabel;
   protected readonly platformTypeName = getPlatformTypeName;
-  protected readonly platformTypes = PLATFORM_TYPES;
   protected readonly sortByOptions = POST_SORT_BY_OPTIONS;
-  protected readonly publicationOptions = PUBLICATION_OPTIONS;
+  protected readonly searchMaxLength = POSTS_SEARCH_MAX_LENGTH;
   protected readonly hashtagSegments = parseHashtagSegments;
   protected readonly toPaginationPage = toPaginationPage;
 
@@ -637,28 +464,27 @@ export class DashboardPosts {
       nonNullable: true,
       validators: [Validators.required, Validators.min(1), Validators.max(100)],
     }),
-    sortOrder: new FormControl<SortOrder>('newest', { nonNullable: true }),
-    sortBy: new FormControl<SortByFilter>('', { nonNullable: true }),
-    status: new FormControl<StatusFilter>('', { nonNullable: true }),
-    hasPublication: new FormControl<HasPublicationFilter>('', { nonNullable: true }),
-    titleContains: new FormControl('', { nonNullable: true }),
-    bodyContains: new FormControl('', { nonNullable: true }),
-    publishedOn: new FormControl<PlatformFilter>('', { nonNullable: true }),
-    createdAfter: new FormControl('', { nonNullable: true }),
-    createdBefore: new FormControl('', { nonNullable: true }),
+    search: new FormControl(DEFAULT_POSTS_LIST_QUERY.search, { nonNullable: true }),
+    status: new FormControl<StatusFilter>(DEFAULT_POSTS_LIST_QUERY.status, { nonNullable: true }),
+    platformTypes: new FormControl<PlatformType[]>([...DEFAULT_POSTS_LIST_QUERY.platformTypes], {
+      nonNullable: true,
+    }),
+    sortBy: new FormControl<SortByFilter>(DEFAULT_POSTS_LIST_QUERY.sortBy, { nonNullable: true }),
+    order: new FormControl<SortDirection>(DEFAULT_POSTS_LIST_QUERY.order, { nonNullable: true }),
   });
 
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly result = signal<PagedPostsResponse | null>(null);
-  protected readonly filtersOpen = signal(false);
-  protected readonly filtersClosing = signal(false);
+  protected readonly sortMenuOpen = signal(false);
+  protected readonly platformMenuOpen = signal(false);
   protected readonly createDrawerOpen = signal(false);
   protected readonly createDrawerClosing = signal(false);
-  protected readonly openFilterMenu = signal<FilterMenuId | null>(null);
   private readonly attachmentPreviewUrls = signal<Record<string, string>>({});
-  private filtersCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private createDrawerCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private loadSubscription: Subscription | null = null;
+  /** Search text of the last request, so a debounced value identical to it is not re-sent. */
+  private appliedSearch = '';
 
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
@@ -676,10 +502,22 @@ export class DashboardPosts {
       this.loadPosts();
     });
 
+    // Typing in the search box filters the list live (debounced), always from the first page.
+    this.form.controls.search.valueChanges
+      .pipe(
+        debounceTime(SEARCH_DEBOUNCE_MS),
+        map((value) => value.trim()),
+        filter((value) => value !== this.appliedSearch),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        this.form.patchValue({ pageNumber: 1 });
+        this.loadPosts();
+      });
+
     this.destroyRef.onDestroy(() => {
-      this.clearFiltersCloseTimer();
       this.clearCreateDrawerCloseTimer();
-      document.body.classList.remove('posts-filters-open');
+      this.loadSubscription?.unsubscribe();
       document.body.classList.remove('post-create-open');
       this.revokeAttachmentPreviewUrls();
     });
@@ -690,30 +528,76 @@ export class DashboardPosts {
     if (this.createDrawerOpen() || this.createDrawerClosing()) {
       return;
     }
-    if (this.openFilterMenu()) {
-      this.closeFilterMenu();
-      return;
-    }
-    this.closeFilters();
+    this.closeSortMenu();
+    this.closePlatformMenu();
   }
 
   @HostListener('document:click')
   protected onDocumentClick(): void {
-    this.closeFilterMenu();
+    this.closeSortMenu();
+    this.closePlatformMenu();
   }
 
-  protected toggleFilterMenu(menu: FilterMenuId, event: MouseEvent): void {
+  protected toggleSortMenu(event: MouseEvent): void {
     event.stopPropagation();
-    this.openFilterMenu.update((current) => (current === menu ? null : menu));
+    this.closePlatformMenu();
+    this.sortMenuOpen.update((open) => !open);
   }
 
-  protected closeFilterMenu(): void {
-    this.openFilterMenu.set(null);
+  protected closeSortMenu(): void {
+    this.sortMenuOpen.set(false);
+  }
+
+  protected togglePlatformMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.closeSortMenu();
+    this.platformMenuOpen.update((open) => !open);
+  }
+
+  protected closePlatformMenu(): void {
+    this.platformMenuOpen.set(false);
+  }
+
+  protected platformPickerLabel(): string {
+    const selected = this.form.controls.platformTypes.value;
+    if (selected.length === 0) {
+      return 'Platformy';
+    }
+    if (selected.length === 1) {
+      return this.platformTypeLabel(selected[0]);
+    }
+    return `${this.platformTypeLabel(selected[0])} +${selected.length - 1}`;
+  }
+
+  protected isPlatformTypeSelected(value: PlatformType): boolean {
+    return this.form.controls.platformTypes.value.includes(value);
+  }
+
+  protected togglePlatformType(value: PlatformType): void {
+    const current = this.form.controls.platformTypes.value;
+    const next = current.includes(value)
+      ? current.filter((item) => item !== value)
+      : normalizePostPlatforms([...current, value]);
+
+    if (arePlatformTypeFiltersEqual(current, next)) {
+      return;
+    }
+
+    this.form.patchValue({ platformTypes: next, pageNumber: 1 });
+    this.loadPosts();
+  }
+
+  protected clearPlatformTypes(): void {
+    if (this.form.controls.platformTypes.value.length === 0) {
+      return;
+    }
+    this.form.patchValue({ platformTypes: [], pageNumber: 1 });
+    this.loadPosts();
   }
 
   protected sortByTriggerLabel(): string {
     const value = this.form.controls.sortBy.value;
-    return POST_SORT_BY_OPTIONS.find((option) => option.value === value)?.label ?? 'Default';
+    return POST_SORT_BY_OPTIONS.find((option) => option.value === value)?.label ?? '';
   }
 
   protected sortByTriggerIcon(): string {
@@ -721,72 +605,81 @@ export class DashboardPosts {
     return POST_SORT_BY_OPTIONS.find((option) => option.value === value)?.icon ?? 'swap_vert';
   }
 
-  protected statusTriggerLabel(): string {
-    const value = this.form.controls.status.value;
-    return value ? getPostStatusLabel(value) : 'Any status';
+  /** Human readable meaning of the current direction, which depends on the sorted field. */
+  protected sortDirectionLabel(): string {
+    const descending = this.form.controls.order.value === 'desc';
+    if (this.form.controls.sortBy.value === 'Title') {
+      return descending ? 'Z → A' : 'A → Z';
+    }
+    return descending ? 'Najnowsze' : 'Najstarsze';
   }
 
-  protected statusTriggerIcon(): string {
-    const value = this.form.controls.status.value;
-    return value ? getPostStatusIcon(value) : 'list';
+  protected selectSortBy(value: SortByFilter): void {
+    this.closeSortMenu();
+    if (value === this.form.controls.sortBy.value) {
+      return;
+    }
+    this.form.patchValue({ sortBy: value, pageNumber: 1 });
+    this.loadPosts();
   }
 
-  protected publicationTriggerLabel(): string {
-    const value = this.form.controls.hasPublication.value;
-    return PUBLICATION_OPTIONS.find((option) => option.value === value)?.label ?? 'Any';
+  protected toggleSortOrder(): void {
+    this.form.patchValue({
+      order: this.form.controls.order.value === 'desc' ? 'asc' : 'desc',
+      pageNumber: 1,
+    });
+    this.loadPosts();
   }
 
-  protected publicationTriggerIcon(): string {
-    const value = this.form.controls.hasPublication.value;
-    return PUBLICATION_OPTIONS.find((option) => option.value === value)?.icon ?? 'remove';
+  protected selectStatus(value: StatusFilter): void {
+    if (value === this.form.controls.status.value) {
+      return;
+    }
+    this.form.patchValue({ status: value, pageNumber: 1 });
+    this.loadPosts();
   }
 
-  protected platformTriggerLabel(): string {
-    const value = this.form.controls.publishedOn.value;
-    return value === '' ? 'Any platform' : getPlatformTypeLabel(Number(value) as PlatformType);
+  /** Enter in the search box skips the debounce. */
+  protected searchNow(event: Event): void {
+    event.preventDefault();
+    if (this.form.controls.search.value.trim() === this.appliedSearch) {
+      return;
+    }
+    this.form.patchValue({ pageNumber: 1 });
+    this.loadPosts();
   }
 
-  protected platformTriggerType(): string | null {
-    const value = this.form.controls.publishedOn.value;
-    return value === '' ? null : getPlatformTypeName(Number(value) as PlatformType);
+  protected clearSearch(event?: Event): void {
+    if (!this.form.controls.search.value) {
+      return;
+    }
+    event?.preventDefault();
+    this.form.patchValue({ search: '', pageNumber: 1 }, { emitEvent: false });
+    this.loadPosts();
   }
 
-  protected platformFilterValue(value: PlatformType): PlatformFilter {
-    return String(value) as PlatformFilter;
+  protected clearFilters(): void {
+    this.form.patchValue(
+      {
+        pageNumber: 1,
+        search: DEFAULT_POSTS_LIST_QUERY.search,
+        status: DEFAULT_POSTS_LIST_QUERY.status,
+        platformTypes: [...DEFAULT_POSTS_LIST_QUERY.platformTypes],
+        sortBy: DEFAULT_POSTS_LIST_QUERY.sortBy,
+        order: DEFAULT_POSTS_LIST_QUERY.order,
+      },
+      { emitEvent: false }
+    );
+    this.loadPosts();
   }
 
-  protected selectSortBy(value: SortByFilter | PostSortBy | ''): void {
-    this.form.patchValue({ sortBy: value as SortByFilter });
-    this.closeFilterMenu();
-  }
-
-  protected selectStatus(value: StatusFilter | ''): void {
-    this.form.patchValue({ status: value as StatusFilter });
-    this.closeFilterMenu();
-  }
-
-  protected selectPublication(value: HasPublicationFilter): void {
-    this.form.patchValue({ hasPublication: value });
-    this.closeFilterMenu();
-  }
-
-  protected selectPlatform(value: PlatformFilter): void {
-    this.form.patchValue({ publishedOn: value });
-    this.closeFilterMenu();
-  }
-
-  protected toggleFilters(): void {
-    this.closeFilterMenu();
-    this.setFiltersOpen(!this.filtersOpen());
-  }
-
-  protected closeFilters(): void {
-    this.closeFilterMenu();
-    this.setFiltersOpen(false);
+  protected filtersActive(): boolean {
+    return hasActiveFilters(this.currentListQuery());
   }
 
   protected openCreateDrawer(): void {
-    this.closeFilters();
+    this.closeSortMenu();
+    this.closePlatformMenu();
     this.setCreateDrawerState(true);
     this.syncQueryParams();
   }
@@ -797,37 +690,6 @@ export class DashboardPosts {
 
   protected postsReturnState(): { postsReturn: PostsListQuery } {
     return { postsReturn: this.currentListQuery() };
-  }
-
-  protected filtersActive(): boolean {
-    return hasActiveFilters(this.currentListQuery());
-  }
-
-  protected applyFilters(): void {
-    this.form.patchValue({ pageNumber: 1 });
-    this.loadPosts();
-    this.closeFilters();
-  }
-
-  protected setSortOrder(order: SortOrder): void {
-    this.form.patchValue({ sortOrder: order });
-  }
-
-  protected clearFilters(): void {
-    this.form.patchValue({
-      pageNumber: 1,
-      sortBy: DEFAULT_POSTS_LIST_QUERY.sortBy,
-      sortOrder: DEFAULT_POSTS_LIST_QUERY.sort,
-      status: DEFAULT_POSTS_LIST_QUERY.status,
-      hasPublication: DEFAULT_POSTS_LIST_QUERY.hasPublication,
-      titleContains: DEFAULT_POSTS_LIST_QUERY.titleContains,
-      bodyContains: DEFAULT_POSTS_LIST_QUERY.bodyContains,
-      publishedOn: DEFAULT_POSTS_LIST_QUERY.publishedOn,
-      createdAfter: DEFAULT_POSTS_LIST_QUERY.createdAfter,
-      createdBefore: DEFAULT_POSTS_LIST_QUERY.createdBefore,
-    });
-    this.loadPosts();
-    this.closeFilters();
   }
 
   protected onPageSizeChange(pageSize = this.form.controls.pageSize.value): void {
@@ -841,11 +703,15 @@ export class DashboardPosts {
       return;
     }
 
+    // Only the latest request may update the list (fast typing / clicking must not show stale data).
+    this.loadSubscription?.unsubscribe();
+
     const query = this.currentListQuery();
+    this.appliedSearch = query.search.trim();
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.postService
+    this.loadSubscription = this.postService
       .getMyPosts(query.page, query.pageSize, postsListQueryToFilterParams(query))
       .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
@@ -857,7 +723,7 @@ export class DashboardPosts {
         },
         error: (error) => {
           this.result.set(null);
-          this.errorMessage.set(toApplicationError(error, 'Could not load posts.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się wczytać postów.').description);
         },
       });
   }
@@ -937,32 +803,16 @@ export class DashboardPosts {
   }
 
   private currentListQuery(): PostsListQuery {
-    const {
-      pageNumber,
-      pageSize,
-      sortOrder,
-      sortBy,
-      status,
-      hasPublication,
-      titleContains,
-      bodyContains,
-      publishedOn,
-      createdAfter,
-      createdBefore,
-    } = this.form.getRawValue();
+    const { pageNumber, pageSize, search, status, platformTypes, sortBy, order } = this.form.getRawValue();
 
     return {
       page: pageNumber,
       pageSize,
-      sort: sortOrder,
-      sortBy,
+      search,
       status,
-      hasPublication,
-      titleContains,
-      bodyContains,
-      publishedOn,
-      createdAfter,
-      createdBefore,
+      platformTypes: normalizePostPlatforms(platformTypes),
+      sortBy,
+      order,
     };
   }
 
@@ -971,68 +821,33 @@ export class DashboardPosts {
       {
         pageNumber: query.page,
         pageSize: query.pageSize,
-        sortOrder: query.sort,
-        sortBy: query.sortBy,
+        search: query.search,
         status: query.status,
-        hasPublication: query.hasPublication,
-        titleContains: query.titleContains,
-        bodyContains: query.bodyContains,
-        publishedOn: query.publishedOn,
-        createdAfter: query.createdAfter,
-        createdBefore: query.createdBefore,
+        platformTypes: [...query.platformTypes],
+        sortBy: query.sortBy,
+        order: query.order,
       },
       { emitEvent: false }
     );
+    this.appliedSearch = query.search.trim();
   }
 
   private syncQueryParams(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {
+        // Unused keys must be cleared, otherwise they stay in the URL after "Wyczyść filtry".
+        search: null,
+        status: null,
+        platforms: null,
+        platformType: null,
+        sortBy: null,
+        order: null,
         ...postsListQueryToParams(this.currentListQuery()),
         create: this.createDrawerOpen() ? 'true' : null,
       },
       replaceUrl: true,
     });
-  }
-
-  private setFiltersOpen(open: boolean): void {
-    if (open) {
-      this.clearFiltersCloseTimer();
-      this.filtersClosing.set(false);
-      this.filtersOpen.set(true);
-      document.body.classList.toggle(
-        'posts-filters-open',
-        window.matchMedia('(max-width: 48rem)').matches
-      );
-      return;
-    }
-
-    if (!this.filtersOpen()) {
-      return;
-    }
-
-    this.filtersOpen.set(false);
-
-    if (!window.matchMedia('(max-width: 48rem)').matches) {
-      document.body.classList.remove('posts-filters-open');
-      return;
-    }
-
-    this.filtersClosing.set(true);
-    this.filtersCloseTimer = setTimeout(() => {
-      this.filtersClosing.set(false);
-      document.body.classList.remove('posts-filters-open');
-      this.filtersCloseTimer = null;
-    }, drawerMotionDelay());
-  }
-
-  private clearFiltersCloseTimer(): void {
-    if (this.filtersCloseTimer === null) {
-      return;
-    }
-    clearTimeout(this.filtersCloseTimer);
-    this.filtersCloseTimer = null;
   }
 
   private setCreateDrawerState(open: boolean): void {

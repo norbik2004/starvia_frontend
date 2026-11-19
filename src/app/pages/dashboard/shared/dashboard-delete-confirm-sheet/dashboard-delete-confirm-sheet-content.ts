@@ -22,7 +22,7 @@ import type { DashboardDeleteConfirmData } from './dashboard-delete-confirm-data
         </div>
 
         <div class="dashboard-delete-sheet-content__copy">
-          <p class="dashboard-delete-sheet-content__eyebrow">Confirm deletion</p>
+          <p class="dashboard-delete-sheet-content__eyebrow">{{ data.eyebrow ?? 'Confirm deletion' }}</p>
           <h2 id="dashboard-delete-sheet-title" class="dashboard-delete-sheet-content__title">
             {{ data.title }}
           </h2>

@@ -22,6 +22,8 @@ import { SessionService } from '../../../services/session';
 import { UserPlatformService } from '../../../services/user-platform';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
+import { DashboardPageHeader } from '../shared/dashboard-page-header/dashboard-page-header';
 import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-user-avatar';
 
 const USERNAME_MAX_LENGTH = 64;
@@ -33,6 +35,8 @@ const READ_ENTER_MS = 260;
   imports: [
     PageLoading,
     PageRevealDirective,
+    DashboardAlert,
+    DashboardPageHeader,
     DashboardUserAvatar,
     RouterLink,
     ReactiveFormsModule,
@@ -42,30 +46,21 @@ const READ_ENTER_MS = 260;
   template: `
     <section class="dashboard-content-page dashboard-account" aria-labelledby="dashboard-account-title">
       <div appPageReveal>
-        <header class="dashboard-account__header">
-          <div class="dashboard-account__header-copy">
-            <p class="section-eyebrow dashboard-account__eyebrow">Workspace settings</p>
-            <h1 id="dashboard-account-title" class="dashboard-account__title">
-              Account <span class="dashboard-account__title-mark" aria-hidden="true">your corner</span>
-            </h1>
-            <p class="dashboard-account__intro">
-              Keep your profile, security and connected channels in one calm place.
-            </p>
-          </div>
-          <p class="dashboard-account__scribble" aria-hidden="true">Make it yours.</p>
-        </header>
+        <app-dashboard-page-header
+          titleId="dashboard-account-title"
+          eyebrow="Ustawienia workspace'u"
+          title="Konto"
+          titleMark="Twój kąt"
+          intro="Profil, bezpieczeństwo i połączone kanały — wszystko w jednym, spokojnym miejscu."
+          scribble="Dopasuj do siebie."
+        />
       </div>
 
       @if (isLoading()) {
         <app-page-loading label="Loading account…" />
       }
 
-      @if (errorMessage()) {
-        <div class="dashboard-route-status dashboard-route-status--error" role="alert">
-          <span class="material-icons" aria-hidden="true">error_outline</span>
-          <p>{{ errorMessage() }}</p>
-        </div>
-      }
+      <app-dashboard-alert [message]="errorMessage()" [retryable]="!account()" (retry)="loadAccount()" />
 
       @if (account(); as profile) {
         <div class="dashboard-account__body" appPageReveal>
@@ -251,11 +246,12 @@ const READ_ENTER_MS = 260;
               <app-page-loading label="Loading connected accounts…" />
             }
 
-            @if (platformsError()) {
-              <p class="account-panel__status account-panel__status--error" role="alert">
-                {{ platformsError() }}
-              </p>
-            }
+            <app-dashboard-alert
+              [compact]="true"
+              [message]="platformsError()"
+              [retryable]="true"
+              (retry)="loadPlatforms()"
+            />
 
             @if (!platformsLoading() && !platformsError()) {
               @if (platforms().length === 0) {
@@ -274,19 +270,19 @@ const READ_ENTER_MS = 260;
                         <img
                           class="account-connected__photo"
                           [src]="connection.profilePictureLink"
-                          [alt]="connection.accountUsername + ' profile photo'"
+                          [alt]="(connection.accountUsername ?? 'Konto') + ' profile photo'"
                           (error)="onPlatformPhotoError(connection)"
                         />
                       } @else {
                         <app-dashboard-user-avatar
-                          [userName]="connection.accountUsername"
+                          [userName]="connection.accountUsername ?? 'Konto'"
                           [profilePictureUrl]="null"
                         />
                       }
 
                       <div class="account-connected__copy">
-                        <p class="account-connected__platform">{{ platformLabel(connection.platformId) }}</p>
-                        <p class="account-connected__username">{{ connection.accountUsername }}</p>
+                        <p class="account-connected__platform">{{ platformLabel(connection.platformType) }}</p>
+                        <p class="account-connected__username">{{ connection.accountUsername ?? 'Konto' }}</p>
                       </div>
                     </li>
                   }
@@ -441,7 +437,7 @@ export class DashboardAccount {
         },
         error: (error) => {
           this.usernameError.set(
-            toApplicationError(error, 'Could not update username.').description
+            toApplicationError(error, 'Nie udało się zmienić nazwy użytkownika.').description
           );
         },
       });
@@ -465,7 +461,7 @@ export class DashboardAccount {
         error: (error) => {
           this.resetPasswordResult.set('error');
           this.resetPasswordMessage.set(
-            toApplicationError(error, 'Unable to send the reset link right now. Please try again later.')
+            toApplicationError(error, 'Nie udało się wysłać linku do zmiany hasła. Spróbuj ponownie później.')
               .description
           );
         },
@@ -488,7 +484,7 @@ export class DashboardAccount {
       });
   }
 
-  private loadAccount(): void {
+  protected loadAccount(): void {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
@@ -501,12 +497,12 @@ export class DashboardAccount {
       error: (error) => {
         this.account.set(null);
         this.isLoading.set(false);
-        this.errorMessage.set(toApplicationError(error, 'Could not load account.').description);
+        this.errorMessage.set(toApplicationError(error, 'Nie udało się wczytać konta.').description);
       },
     });
   }
 
-  private loadPlatforms(): void {
+  protected loadPlatforms(): void {
     this.platformsLoading.set(true);
     this.platformsError.set(null);
 
@@ -519,7 +515,7 @@ export class DashboardAccount {
           this.platformPhotoErrors.set(new Set());
         },
         error: (error) => {
-          this.platformsError.set(toApplicationError(error, 'Could not load connected accounts.').description);
+          this.platformsError.set(toApplicationError(error, 'Nie udało się wczytać połączonych kont.').description);
         },
       });
   }

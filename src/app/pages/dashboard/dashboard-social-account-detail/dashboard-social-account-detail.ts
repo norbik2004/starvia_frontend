@@ -9,22 +9,21 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatTooltip } from '@angular/material/tooltip';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, map, switchMap } from 'rxjs';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map, switchMap } from 'rxjs';
 import { AutoExpandTextarea } from '../../../components/auto-expand-textarea/auto-expand-textarea';
 import { PageLoading } from '../../../components/page-loading/page-loading';
 import { PageRevealDirective } from '../../../directives/page-reveal';
 import { toApplicationError } from '../../../models/application-error';
-import { getPlatformBrandClass, type Platform } from '../../../models/platform';
+import { getPlatformBrandClass } from '../../../models/platform';
 import {
   getPlatformLabel,
   type UserPlatform,
 } from '../../../models/user-platform';
-import { PlatformService } from '../../../services/platform';
 import { UserPlatformService } from '../../../services/user-platform';
+import { DashboardAlert } from '../shared/dashboard-alert/dashboard-alert';
 import { DashboardPlatformLogo } from '../shared/dashboard-platform-logo/dashboard-platform-logo';
 import { DashboardDeleteButton } from '../shared/dashboard-delete-button/dashboard-delete-button';
-import { DashboardDeleteConfirmService } from '../shared/dashboard-delete-confirm-sheet/dashboard-delete-confirm.service';
 import { DashboardUserAvatar } from '../shared/dashboard-user-avatar/dashboard-user-avatar';
 
 const ACCOUNT_USERNAME_MAX_LENGTH = 64;
@@ -46,6 +45,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
     ReactiveFormsModule,
     MatTooltip,
     PageLoading,
+    DashboardAlert,
     PageRevealDirective,
     DashboardUserAvatar,
     DashboardPlatformLogo,
@@ -70,18 +70,13 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
         <app-page-loading label="Loading connected account…" />
       }
 
-      @if (errorMessage()) {
-        <div class="dashboard-route-status dashboard-route-status--error" role="alert">
-          <span class="material-icons" aria-hidden="true">error_outline</span>
-          <p>{{ errorMessage() }}</p>
-        </div>
-      }
+      <app-dashboard-alert [message]="errorMessage()" />
 
       @if (connection(); as item) {
         <div class="dashboard-social-account-detail__body">
           <section
             class="social-account-detail-card"
-            [class]="platformBrandClass(item.platformId)"
+            [class]="platformBrandClass(item.platformType)"
             aria-labelledby="social-account-detail-title"
             appPageReveal
           >
@@ -91,20 +86,20 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                   <img
                     class="social-account-detail-card__photo"
                     [src]="item.profilePictureLink"
-                    [alt]="item.accountUsername + ' profile photo'"
+                    [alt]="(item.accountUsername ?? 'Konto') + ' profile photo'"
                     (error)="onPlatformPhotoError()"
                   />
                 } @else {
                   <app-dashboard-user-avatar
                     size="xl"
-                    [userName]="item.accountUsername"
+                    [userName]="item.accountUsername ?? 'Konto'"
                     [profilePictureUrl]="null"
                   />
                 }
 
                 <span class="social-account-detail-card__platform-badge" aria-hidden="true">
                   <app-dashboard-platform-logo
-                    [platformType]="platformLabel(item.platformId)"
+                    [platformType]="platformLabel(item.platformType)"
                     size="sm"
                   />
                 </span>
@@ -114,27 +109,24 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                 <p class="social-account-detail-card__eyebrow">Connected channel</p>
                 <div class="social-account-detail-card__headline">
                   <h1 id="social-account-detail-title" class="social-account-detail-card__title">
-                    {{ platformLabel(item.platformId) }}
+                    {{ platformLabel(item.platformType) }}
                   </h1>
                   <span class="social-account-detail-card__badge">Connected</span>
                 </div>
-                <p class="social-account-detail-card__username">{{ item.accountUsername }}</p>
+                <p class="social-account-detail-card__username">{{ item.accountUsername ?? 'Konto' }}</p>
                 <p class="social-account-detail-card__hint">
                   Customize how this account appears across Starvia.
                 </p>
               </div>
             </div>
 
-            @if (saveMessage()) {
-              <p
-                class="account-panel__status social-account-detail-card__status"
-                [class.account-panel__status--error]="saveResult() === 'error'"
-                [class.account-panel__status--success]="saveResult() === 'success'"
-                role="status"
-              >
-                {{ saveMessage() }}
-              </p>
-            }
+            <app-dashboard-alert
+              [compact]="true"
+              [tone]="saveResult() === 'error' ? 'error' : 'success'"
+              [message]="saveMessage()"
+              [dismissible]="true"
+              (dismissed)="saveMessage.set(null)"
+            />
 
             <div
               class="social-account-detail-card__fields"
@@ -174,7 +166,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                         @if (
                           form.controls.accountUsername.touched && form.controls.accountUsername.hasError('required')
                         ) {
-                          <p class="field__error" role="alert">Account username is required.</p>
+                          <p class="field__error" role="alert">Nazwa konta jest wymagana.</p>
                         }
                         <div class="dashboard-inline-actions">
                           <button
@@ -201,7 +193,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
                       class="social-account-detail-field__value"
                       [class.dashboard-edit-read-in]="readEnterField() === 'accountUsername'"
                     >
-                      {{ item.accountUsername }}
+                      {{ item.accountUsername ?? 'Konto' }}
                     </p>
                   }
                 </div>
@@ -335,10 +327,7 @@ type EditableSocialField = 'accountUsername' | 'accountComment';
 })
 export class DashboardSocialAccountDetail {
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
   private readonly userPlatformService = inject(UserPlatformService);
-  private readonly platformService = inject(PlatformService);
-  private readonly deleteConfirm = inject(DashboardDeleteConfirmService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly usernameInput = viewChild<ElementRef<HTMLInputElement>>('usernameInput');
   private readonly commentInput = viewChild<AutoExpandTextarea>('commentInput');
@@ -346,13 +335,12 @@ export class DashboardSocialAccountDetail {
   protected readonly accountUsernameMaxLength = ACCOUNT_USERNAME_MAX_LENGTH;
   protected readonly accountCommentMaxLength = ACCOUNT_COMMENT_MAX_LENGTH;
 
-  protected platformLabel(platformId: number): string {
-    const platform = this.availablePlatforms().find((item) => item.id === platformId);
-    return platform?.type ?? getPlatformLabel(platformId);
+  protected platformLabel(platformType: number): string {
+    return getPlatformLabel(platformType);
   }
 
-  protected platformBrandClass(platformId: number): string {
-    return getPlatformBrandClass(this.platformLabel(platformId));
+  protected platformBrandClass(platformType: number): string {
+    return getPlatformBrandClass(this.platformLabel(platformType));
   }
 
   protected readonly form: UserPlatformForm = new FormGroup({
@@ -367,7 +355,6 @@ export class DashboardSocialAccountDetail {
   });
 
   protected readonly connection = signal<UserPlatform | null>(null);
-  protected readonly availablePlatforms = signal<Platform[]>([]);
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
   protected readonly isDeleting = signal(false);
@@ -385,9 +372,9 @@ export class DashboardSocialAccountDetail {
   constructor() {
     this.route.paramMap
       .pipe(
-        map((params) => Number(params.get('id'))),
+        map((params) => params.get('id')?.trim() ?? ''),
         switchMap((id) => {
-          if (!Number.isFinite(id) || id <= 0) {
+          if (!id) {
             throw new Error('Invalid connected account id.');
           }
 
@@ -395,7 +382,7 @@ export class DashboardSocialAccountDetail {
           this.errorMessage.set(null);
           this.connection.set(null);
 
-          return this.userPlatformService.getUserPlatform(id);
+          return this.userPlatformService.getById(id);
         }),
         takeUntilDestroyed(this.destroyRef)
       )
@@ -405,12 +392,11 @@ export class DashboardSocialAccountDetail {
           this.platformPhotoError.set(false);
           this.resetForm(connection);
           this.isLoading.set(false);
-          this.loadPlatforms();
         },
         error: (error) => {
           this.connection.set(null);
           this.isLoading.set(false);
-          this.errorMessage.set(toApplicationError(error, 'Could not load connected account.').description);
+          this.errorMessage.set(toApplicationError(error, 'Nie udało się wczytać połączonego konta.').description);
         },
       });
 
@@ -516,31 +502,11 @@ export class DashboardSocialAccountDetail {
       return;
     }
 
-    this.isSaving.set(true);
-    this.saveResult.set('idle');
-    this.saveMessage.set(null);
-
-    this.userPlatformService
-      .updateUserPlatform(current.id, { accountUsername, accountComment })
-      .pipe(finalize(() => this.isSaving.set(false)))
-      .subscribe({
-        next: () => {
-          const updated: UserPlatform = {
-            ...current,
-            accountUsername,
-            accountComment,
-          };
-          this.connection.set(updated);
-          this.resetForm(updated);
-          this.saveResult.set('success');
-          this.saveMessage.set('Connected account updated.');
-          this.cancelEdit();
-        },
-        error: (error) => {
-          this.saveResult.set('error');
-          this.saveMessage.set(toApplicationError(error, 'Could not update connected account.').description);
-        },
-      });
+    // v1 UserPlatforms has no update endpoint yet.
+    this.isSaving.set(false);
+    this.saveResult.set('error');
+    this.saveMessage.set('Aktualizacja połączonego konta nie jest jeszcze dostępna w API.');
+    this.cancelEdit(undefined, false);
   }
 
   protected requestDelete(): void {
@@ -549,64 +515,19 @@ export class DashboardSocialAccountDetail {
       return;
     }
 
-    const platformName = this.platformLabel(current.platformId);
-    this.saveResult.set('idle');
-    this.saveMessage.set(null);
+    // v1 UserPlatforms has no delete endpoint yet.
+    this.saveResult.set('error');
+    this.saveMessage.set('Odłączanie konta nie jest jeszcze dostępne w API.');
     this.errorMessage.set(null);
-    this.deleteConfirmOpen.set(true);
-
-    this.deleteConfirm
-      .open({
-        title: `Disconnect ${platformName}?`,
-        description: `This will remove “${current.accountUsername}” from Starvia. You can reconnect the account later.`,
-        keepLabel: 'Keep connected',
-        deleteLabel: 'Disconnect account',
-      })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((confirmed) => {
-        this.deleteConfirmOpen.set(false);
-        if (confirmed) {
-          this.confirmDelete();
-        }
-      });
   }
 
   protected confirmDelete(): void {
-    const current = this.connection();
-    if (!current || this.isDeleting()) {
-      return;
-    }
-
-    this.isDeleting.set(true);
-    this.errorMessage.set(null);
-    this.saveResult.set('idle');
-    this.saveMessage.set(null);
-
-    this.userPlatformService
-      .deleteUserPlatform(current.id)
-      .pipe(finalize(() => this.isDeleting.set(false)))
-      .subscribe({
-        next: () => {
-          void this.router.navigate(['/dashboard/social-accounts']);
-        },
-        error: (error) => {
-          this.errorMessage.set(
-            toApplicationError(error, 'Could not disconnect this account.').description
-          );
-        },
-      });
-  }
-
-  private loadPlatforms(): void {
-    this.platformService.getPlatforms().subscribe({
-      next: (platforms) => this.availablePlatforms.set(platforms),
-      error: () => this.availablePlatforms.set([]),
-    });
+    // Kept for template/delete-sheet wiring; disconnect is not available on v1 yet.
   }
 
   private resetForm(connection: UserPlatform): void {
     this.form.setValue({
-      accountUsername: connection.accountUsername,
+      accountUsername: connection.accountUsername ?? '',
       accountComment: connection.accountComment ?? '',
     });
     this.form.markAsPristine();

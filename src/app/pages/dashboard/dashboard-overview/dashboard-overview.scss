@@ -7,28 +7,14 @@
 
 .dashboard-overview {
   display: grid;
-  gap: clamp(1.25rem, 3vw, 2rem);
+  gap: var(--space-md);
   width: 100%;
 
   @include shell.page-enter-children;
-}
 
-.dashboard-overview__hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.5rem;
-  padding: clamp(1.6rem, 4vw, 2.5rem);
-  border: 1px solid color-mix(in srgb, var(--sv-dark) 12%, transparent);
-  border-radius: var(--radius-lg);
-  background:
-    radial-gradient(
-      ellipse 55% 90% at 100% 0%,
-      color-mix(in srgb, var(--sv-accent) 34%, transparent),
-      transparent 70%
-    ),
-    color-mix(in srgb, var(--sv-white) 90%, transparent);
-  box-shadow: 0 18px 42px -32px rgb(45 45 45 / 0.4);
+  app-dashboard-page-header {
+    margin-bottom: var(--space-xs);
+  }
 }
 
 .dashboard-overview__eyebrow {
@@ -46,23 +32,6 @@
     border-radius: 999px;
     background: var(--sv-accent);
   }
-}
-
-.dashboard-overview__title {
-  margin: 0;
-  color: var(--sv-ink);
-  font-size: clamp(2rem, 4vw, 3.25rem);
-  font-weight: var(--font-weight-extrabold);
-  line-height: 1.04;
-  letter-spacing: var(--tracking-tight);
-}
-
-.dashboard-overview__lead {
-  max-width: 38rem;
-  margin: 1rem 0 0;
-  color: var(--sv-ink-muted);
-  font-size: var(--text-lead);
-  line-height: 1.55;
 }
 
 .dashboard-overview__primary {
@@ -198,7 +167,7 @@
 
 @media (min-width: 48rem) {
   .dashboard-overview__quick-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dashboard-overview__quick-card {
@@ -220,11 +189,6 @@
 }
 
 @media (max-width: 36rem) {
-  .dashboard-overview__hero {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
   .dashboard-overview__primary {
     width: 100%;
     justify-content: center;

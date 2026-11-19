@@ -10,6 +10,10 @@ import { DashboardPostDetail } from './pages/dashboard/dashboard-post-detail/das
 import { DashboardMedia } from './pages/dashboard/dashboard-media/dashboard-media';
 import { DashboardMediaGenerate } from './pages/dashboard/dashboard-media-generate/dashboard-media-generate';
 import { DashboardPosts } from './pages/dashboard/dashboard-posts/dashboard-posts';
+import { DashboardCalendar } from './pages/dashboard/dashboard-calendar/dashboard-calendar';
+import { DashboardBrandProfiles } from './pages/dashboard/dashboard-brand-profiles/dashboard-brand-profiles';
+import { DashboardBrandProfileDetail } from './pages/dashboard/dashboard-brand-profile-detail/dashboard-brand-profile-detail';
+import { DashboardAiChat } from './pages/dashboard/dashboard-ai-chat/dashboard-ai-chat';
 import { DashboardPage } from './pages/dashboard/dashboard';
 import { HomePage } from './pages/home/home';
 import { LoginPage } from './pages/login/login';
@@ -87,6 +91,22 @@ export const routes: Routes = [
       {
         path: 'posts/:id',
         component: DashboardPostDetail,
+      },
+      {
+        path: 'calendar',
+        component: DashboardCalendar,
+      },
+      {
+        path: 'ai-chat',
+        component: DashboardAiChat,
+      },
+      {
+        path: 'brand-profiles/:id',
+        component: DashboardBrandProfileDetail,
+      },
+      {
+        path: 'brand-profiles',
+        component: DashboardBrandProfiles,
       },
       {
         path: 'account',
